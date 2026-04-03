@@ -398,8 +398,8 @@ useful than a generic webcam app with accidental microscope applicability.
   camera APIs or compatible backend integrations, image/video encoding support,
   and platform integration mechanisms appropriate to the active platform. The
   initial GUI shell baseline is `ttkbootstrap` on top of Tk, and the first
-  concrete device-backend target is OpenCV-backed discovery and preview
-  behind a backend adapter layer.
+  concrete device-backend target is FFmpeg-backed discovery and low-latency
+  preview behind a backend adapter layer.
 
 - Compatibility expectations: the PyPI package is intended to work on all
   platforms; source-run development must be supported; platform backend

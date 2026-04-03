@@ -1,4 +1,4 @@
-"""Stage 2 tests for the application entrypoint and package contract."""
+"""Stage 3 tests for the application entrypoint and package contract."""
 
 from __future__ import annotations
 
@@ -14,15 +14,15 @@ from webcam_micro.app import LaunchPlan, build_launch_plan, main
 
 
 class ApplicationEntryPointTest(unittest.TestCase):
-    """Verify the Stage 2 launcher wiring and package metadata."""
+    """Verify the Stage 3 launcher wiring and package metadata."""
 
     def test_smoke_mode_returns_success(self) -> None:
         """Assert the headless smoke path exits successfully."""
 
         self.assertEqual(0, main(["--smoke-test"]))
 
-    def test_launch_plan_describes_stage_two_baseline(self) -> None:
-        """Assert the launch plan documents the live-preview baseline."""
+    def test_launch_plan_describes_stage_three_baseline(self) -> None:
+        """Assert the launch plan documents the main-window baseline."""
 
         plan = build_launch_plan()
 
@@ -32,6 +32,8 @@ class ApplicationEntryPointTest(unittest.TestCase):
         self.assertEqual("ttkbootstrap", plan.gui_baseline)
         self.assertIn("newest-frame", plan.backend_strategy)
         self.assertIn("FFmpeg", plan.first_device_backend_target)
+        self.assertIn("toolbar", plan.shell_contract)
+        self.assertIn("separate controls window", plan.shell_contract)
 
     def test_launch_plan_symbol_stays_explicit(self) -> None:
         """Assert the launch-plan dataclass stays public."""

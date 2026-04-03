@@ -61,6 +61,28 @@ Example:
 ## Version 0.0.1
 
 - 2026-04-03:
+  Change: Completed the Stage 3 preview-first shell with the governed main
+    window layout, separate controls window, and the FFmpeg wording fix in
+    the durable docs.
+  Why: Aligned the prototype with the real menu-and-toolbar shell promised by
+    the
+    spec while keeping the docs truthful about the active FFmpeg preview
+    backend.
+  Impact: `webcam-micro` now exposes the main shell contract from menus,
+    toolbar, status bar, and the separate controls window, and the plan plus
+    spec now describe the live FFmpeg path accurately.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  SPEC.md
+  tests/test_app.py
+  tests/test_ui.py
+  webcam_micro/__init__.py
+  webcam_micro/app.py
+  webcam_micro/ui.py
+
+- 2026-04-03:
   Change: Enabled `raw-string-escapes`, `version-governance`, and
     `version-sync`, and defined the repo-owned `pep440` versioning and
     `forward-only` compatibility metadata in the custom profile.

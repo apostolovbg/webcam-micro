@@ -17,11 +17,13 @@ on PyPI.
 viewing, camera control, still capture, and recording.
 
 The current prototype uses `ttkbootstrap` on top of Tk for the GUI shell and
-a pluggable camera-backend layer. Stage 2 now ships FFmpeg-backed camera
-discovery, safe session open and close handling, visible backend and camera
-status, and a low-latency live preview path that keeps only the newest frame
-instead of queueing stale preview images. The app-owned source, version, and
-package-runtime artifacts live together under `webcam_micro/`.
+a pluggable camera-backend layer. Stage 3 now ships the preview-first main
+window with a governed menu bar, top toolbar, bottom status bar, a separate
+controls window, FFmpeg-backed camera discovery, safe session open and close
+handling, visible backend and camera status, and a low-latency live preview
+path that keeps only the newest frame instead of queueing stale preview
+images. The app-owned source, version, and package-runtime artifacts live
+together under `webcam_micro/`.
 
 ## Quick Start
 Run the source entrypoint smoke test:
@@ -30,7 +32,7 @@ Run the source entrypoint smoke test:
 .venv/bin/python -m webcam_micro --smoke-test
 ```
 
-Launch the prototype preview shell from source:
+Launch the prototype main window from source:
 
 ```bash
 .venv/bin/python -m webcam_micro

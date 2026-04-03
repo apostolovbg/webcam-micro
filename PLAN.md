@@ -67,7 +67,7 @@ PyPI-distributed microscope camera application.
      because it remains compatible with the repository's governed package-lock
      matrix
    - chose a pluggable camera-backend contract with a stage-one null backend
-     and an OpenCV-backed discovery/preview backend as the first concrete
+     and an FFmpeg-backed discovery/preview backend as the first concrete
      target
    - created the single `webcam_micro/` app directory, the `webcam-micro`
      console entrypoint, and a minimal launchable shell path
@@ -94,30 +94,28 @@ PyPI-distributed microscope camera application.
    - handled missing dependencies, missing devices, and recoverable open or
      preview failures without crashing the UI shell
    Outcome:
-   - the prototype now launches a real preview shell where a user can
+   - the prototype now launches a real preview workspace where a user can
      discover cameras, choose one, and see live video while session state
      remains visible
 
-3. [not done] Build the main window and preview-first working shell.
+3. [done] Build the main window and preview-first working shell.
    Goal:
    - deliver the main window, menu bar, toolbar, status bar, and separate
      controls window defined by the spec
-   Why this matters:
-   - the product promise is a preview-first GUI in which controls do not
-     permanently consume preview space
-   Work to do:
-   - build the main application window with menu bar, toolbar, central
-     preview area, and dynamic status bar
-   - add the separate controls window and the toggle flow that opens and
-     closes it independently
-   - add the required toolbar actions and menu structure for File, Edit,
-     View, Camera, Capture, Tools, and Help
-   - render `© Apostol Apostolov` at the rightmost visible end of the main
+   Completed work:
+   - built the governed main window shell with the required menu bar, top
+     toolbar, central preview area, and dynamic bottom status bar
+   - added a separate controls window that opens and closes independently of
+     the preview workspace
+   - exposed the required File, Edit, View, Camera, Capture, Tools, and Help
+     menu sections plus the primary toolbar actions for controls, camera
+     refresh and open, still capture, recording, fullscreen, and preferences
+   - rendered `© Apostol Apostolov` at the rightmost visible end of the main
      toolbar
-   Done when:
-   - the core window layout matches the governed product contract
-   - the controls window can be opened and closed without disrupting preview
-   - the main shell exposes the primary actions through menus and toolbar
+   Outcome:
+   - the prototype now presents the governed preview-first shell contract
+     while keeping the low-latency live preview path intact for later control,
+     fullscreen, and capture work
 
 4. [not done] Expose camera controls with guvcview-style numeric widgets.
    Goal:

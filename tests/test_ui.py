@@ -1,4 +1,4 @@
-"""Stage 2 tests for the GUI shell description layer."""
+"""Stage 3 tests for the GUI shell description layer."""
 
 from __future__ import annotations
 
@@ -16,20 +16,40 @@ from webcam_micro.ui import (
 
 
 class ShellSpecTest(unittest.TestCase):
-    """Verify the headless-friendly preview-shell description."""
+    """Verify the headless-friendly main-window shell description."""
 
-    def test_shell_spec_mentions_stage_two_baseline(self) -> None:
-        """Assert the shell spec captures the GUI and preview choices."""
+    def test_shell_spec_mentions_stage_three_baseline(self) -> None:
+        """Assert the shell spec captures the Stage 3 shell contract."""
 
         spec = build_shell_spec()
         combined_body = " ".join(spec.hero_body)
 
         self.assertIsInstance(spec, ShellSpec)
-        self.assertEqual("webcam-micro preview shell", spec.title)
+        self.assertEqual("webcam-micro workspace", spec.title)
         self.assertEqual("litera", spec.theme_name)
         self.assertIn("ttkbootstrap", combined_body)
         self.assertIn("FFmpeg", combined_body)
+        self.assertIn("separate window", combined_body)
+        self.assertEqual(
+            ("File", "Edit", "View", "Camera", "Capture", "Tools", "Help"),
+            spec.menu_sections,
+        )
+        self.assertEqual(
+            (
+                "Controls",
+                "Refresh",
+                "Open",
+                "Still",
+                "Record",
+                "Fullscreen",
+                "Preferences",
+            ),
+            spec.toolbar_actions,
+        )
+        self.assertEqual("Camera Controls", spec.controls_window_title)
+        self.assertEqual("© Apostol Apostolov", spec.copyright_notice)
         self.assertIn("{backend}", spec.status_template)
+        self.assertIn("{controls}", spec.status_template)
 
     def test_ui_contract_symbols_stay_explicit(self) -> None:
         """Assert the GUI-shell public contract stays named and importable."""
@@ -49,16 +69,26 @@ class ShellSpecTest(unittest.TestCase):
         self.assertEqual("RuntimeStatus", RuntimeStatus.__name__)
         self.assertEqual("ShellSpec", ShellSpec.__name__)
 
-    def test_runtime_status_preserves_backend_camera_and_preview(self) -> None:
-        """Assert the visible runtime status keeps the key preview fields."""
+    def test_runtime_status_preserves_main_shell_fields(self) -> None:
+        """Assert the visible runtime status keeps the key shell fields."""
 
         status = build_runtime_status(
-            backend_name="opencv",
+            backend_name="ffmpeg",
             camera_name="Camera 0 (640x480)",
             preview_state="live",
+            source_mode="640x480@30 preview",
+            framing_mode="fit",
+            controls_window_state="open",
+            recording_state="not ready",
+            notice="Live preview active.",
         )
 
         self.assertIsInstance(status, RuntimeStatus)
-        self.assertEqual("opencv", status.backend_name)
+        self.assertEqual("ffmpeg", status.backend_name)
         self.assertEqual("Camera 0 (640x480)", status.camera_name)
         self.assertEqual("live", status.preview_state)
+        self.assertEqual("640x480@30 preview", status.source_mode)
+        self.assertEqual("fit", status.framing_mode)
+        self.assertEqual("open", status.controls_window_state)
+        self.assertEqual("not ready", status.recording_state)
+        self.assertEqual("Live preview active.", status.notice)
