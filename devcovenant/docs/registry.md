@@ -84,6 +84,13 @@ DevCovenant rebuilds locks or license artifacts again.
 The registry metadata also records a policy-registry input fingerprint so
 startup commands can skip rebuilding the tracked policy section when the
 descriptors, scripts, and effective config are unchanged.
+When a repository ships a same-id custom policy override, the tracked
+policy metadata records that policy as `custom: true` based on the active
+resolved script path, even though the builtin implementation still exists
+on disk under `devcovenant/builtin/policies/`.
+The same customization contract applies to profiles: a same-name custom
+profile shadows the builtin profile with that name, and the tracked registry
+records the resolved active profile metadata.
 That is why `devcovenant/registry/registry.yaml` can change when one declared
 surface moves, when a repository-specific custom profile overrides
 `root_workspace`, when a repository adds its own `package_runtime`, or when

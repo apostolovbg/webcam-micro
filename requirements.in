@@ -1,4 +1,5 @@
 -r devcovenant/runtime-requirements.lock
+-r webcam_micro/runtime-requirements.lock
 
 # Add repository workspace dependencies below.
 # `dependency-management refresh-all` writes `requirements.lock` from this

@@ -1,4 +1,4 @@
-"""Application entrypoints for the Stage 1 prototype foundation."""
+"""Application entrypoints for the Stage 2 preview baseline."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from webcam_micro.ui import MissingGuiDependencyError, launch_main_window
 
 @dataclass(frozen=True)
 class LaunchPlan:
-    """Describe the chosen Stage 1 launch baseline."""
+    """Describe the chosen Stage 2 launch baseline."""
 
     app_name: str
     package_name: str
@@ -24,7 +24,7 @@ class LaunchPlan:
 
 
 def build_launch_plan() -> LaunchPlan:
-    """Return the current Stage 1 application-foundation decision."""
+    """Return the current Stage 2 application decision."""
 
     backend_plan = build_backend_plan()
     return LaunchPlan(
@@ -38,19 +38,19 @@ def build_launch_plan() -> LaunchPlan:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    """Build the Stage 1 command-line parser."""
+    """Build the Stage 2 command-line parser."""
 
     parser = argparse.ArgumentParser(prog="webcam-micro")
     parser.add_argument(
         "--smoke-test",
         action="store_true",
-        help="exercise the Stage 1 entrypoint without launching the GUI",
+        help="exercise the Stage 2 entrypoint without launching the GUI",
     )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the Stage 1 application entrypoint."""
+    """Run the Stage 2 application entrypoint."""
 
     parsed = _build_parser().parse_args(argv)
     if parsed.smoke_test:

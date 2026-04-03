@@ -55,7 +55,8 @@
 # Are you using DevCovenant as a tool, or using this repository to develop
 # DevCovenant itself?
 # - false: normal repository using DevCovenant
-#          deploy removes repository-only DevCovenant development paths and tests
+#          deploy removes repository-only DevCovenant development paths
+#          and tests
 #          that ordinary repos should not own
 # - true: this repository is being used to develop DevCovenant itself
 #         keep DevCovenant source files, self-hosting profiles/policies, and
@@ -81,6 +82,13 @@ profiles:
   # Activation authority is `policy_state` for normal toggles.
   # `severity: critical` policies remain enforced even if toggled false.
   #
+  # Keep inherited values inherited. Add repo-specific behavior in a custom
+  # profile instead of recopied overlays.
+  # Here, "inherited" means values from other active profiles.
+  # A same-name custom profile is loaded and the builtin profile is ignored.
+  # If the repository needs a starting custom profile, copy
+  # `devcovenant/builtin/profiles/userproject/` to
+  # `devcovenant/custom/profiles/userproject/` and edit it there.
   # About `defaults`:
   # - provides generic repo-layout metadata defaults;
   # - keep it for standard layouts;
@@ -248,7 +256,8 @@ engine:
   # - absolute path: use as-is
   # - relative path: resolve from the repository root
   # Source-checkout top-level `python3 -m devcovenant ...` launches no longer
-  # need shell or CI env wrapping just to avoid repository-local cache-file drift.
+  # need shell or CI env wrapping just to avoid repository-local cache-file
+  # drift.
   pycache_prefix: ''
 
   # Human-owned key.
@@ -330,8 +339,9 @@ ci_and_test:
   # Deep-merge patch applied to generated
   # `.github/workflows/ci.yml`.
   # The builtin `github` profile is default-enabled in the shipped user stack.
-  # Keep it active when this repository wants the standard generated GitHub Actions
-  # workflow here. Remove the profile if this repository does not want that
+  # Keep it active when this repository wants the standard generated GitHub
+  # Actions workflow here. Remove the profile if this repository does not want
+  # that
   # workflow.
   # Active profiles may also contribute reusable ci_and_test fragments.
   # Keep the github-owned base workflow generic.
@@ -404,6 +414,11 @@ policy_state:
 # `project-governance` is orthogonal to `version-governance`:
 # - use this block for project lifecycle metadata and rendered doc headers;
 # - use `version-governance` for actual version-scheme enforcement.
+# `project_name` is the canonical public/project identity string.
+# DevCovenant derives normalized path tokens such as
+# `{{ PROJECT_NAME_PATH }}` where package-safe paths need them.
+# Keep distribution/project identity in `project_name`; do not force Python
+# import-package spelling there just to satisfy path syntax.
 # `project_name` and `project_description` are the project-identity source of
 # truth used by managed README surfaces and package metadata surfaces that
 # DevCovenant owns or synchronizes.
@@ -414,6 +429,8 @@ policy_state:
 # `maintenance_stance` must be listed in `allowed_maintenance_stances`.
 # `compatibility_policy` must be `backward-compatible`,
 # `breaking-allowed`, `forward-only`, or `unspecified`.
+# Use `compatibility_policy` for compatibility promises, not for feature notes
+# such as cross-platform support.
 # - `backward-compatible` preserves the current public contract.
 # - `breaking-allowed` makes compatibility optional.
 # - `forward-only` rejects legacy compatibility fallbacks.

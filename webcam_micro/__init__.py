@@ -4,7 +4,7 @@ APP_NAME = "webcam-micro"
 PACKAGE_NAME = "webcam_micro"
 GUI_BASELINE = "ttkbootstrap"
 BACKEND_STRATEGY = (
-    "Adapter-based camera layer with a Stage 1 null backend and an "
-    "OpenCV-backed discovery/preview backend as the first concrete target."
+    "Adapter-based camera layer with an FFmpeg-backed discovery/preview "
+    "backend tuned to prefer newest-frame preview over stale buffered frames."
 )
-SHELL_TITLE = "webcam-micro prototype shell"
+SHELL_TITLE = "webcam-micro preview shell"

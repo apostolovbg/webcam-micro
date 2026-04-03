@@ -65,6 +65,30 @@ tighten or rename this list, but `stage` must always be one of its entries.
 Repositories may tighten or rename this list, but `maintenance_stance` must
 always be one of its entries.
 
+## Names And Path Tokens
+`project_name` is the canonical public/project identity string.
+Keep the real project or distribution name there even when another tool needs
+a normalized path token.
+
+DevCovenant derives normalized path tokens such as `{{ PROJECT_NAME_PATH }}`
+where package-safe paths are needed.
+That means a repository can keep `webcam-micro` as `project_name` while still
+using `webcam_micro` for Python package paths or other normalized filesystem
+surfaces.
+Do not force Python import-package spelling into `project_name` just to make
+one path look convenient.
+
+## Compatibility Policy Versus Product Notes
+`compatibility_policy` is only about compatibility promises.
+Use it to say whether the project preserves old contracts, allows breaking
+changes, or stays explicitly forward-only.
+
+Do not overload `compatibility_policy` with free-form product notes such as
+cross-platform support, packaging targets, deployment models, or feature
+priorities.
+Those belong in `project_description`, `README.md`, `SPEC.md`, or another
+product-facing doc.
+
 ## What It Controls
 Project-governance metadata feeds several visible surfaces:
 

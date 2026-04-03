@@ -46,6 +46,17 @@ Use direct overlays when you only need a very small local tweak.
 Use a custom profile when the repository has real repeatable behavior of its
 own.
 
+The built-in `userproject` profile is the copy-ready bootstrap template for
+that first custom layer.
+Copy `devcovenant/builtin/profiles/userproject/` to
+`devcovenant/custom/profiles/userproject/`, then edit the copied manifest.
+It is not meant to be activated directly.
+Keep inherited values inherited.
+Do not restate builtin values in the copied profile.
+Here, "inherited" means values from other active profiles.
+When a custom and builtin profile share a profile name, the custom profile is
+loaded and the builtin profile with that name is ignored.
+
 ## Custom Profiles As Governance Packs
 A custom profile is the normal way to package governance for one repository
 family so it travels as one coherent stack instead of a pile of one-off
@@ -60,6 +71,12 @@ A custom profile can contribute:
 - dependency roles and dependency-surface ownership
 - translator declarations for a language or stack
 - ignore-directory hints and other reusable repo-shape facts
+
+The copied `userproject` template is deliberately minimal.
+It exists so a repository does not have to start from a blank file just to
+express its own identity and local behavior.
+That keeps the shipped base profiles generic while still giving new
+repositories a concrete starting point.
 
 That is why custom policies and custom profiles work best together.
 The policy owns rule logic.

@@ -77,9 +77,21 @@ The shortest accurate model is:
 
 2. config review is the checkpoint.
    Start with `project-governance`, `developer_mode`, and `profiles.active`.
+   The seeded `devcovenant/config.yaml` should keep explanatory comments for
+   that review, so treat those comments as the first checklist instead of
+   guessing from memory.
    For most repositories, keep `devcovuser` active and add a
    custom profile on top when the repository needs its own rules, assets,
    workflow additions, or dependency-surface overrides.
+   A good starting point is copying
+   `devcovenant/builtin/profiles/userproject/` to
+   `devcovenant/custom/profiles/userproject/`, then editing only the
+   repo-specific facts there.
+   Keep inherited values inherited.
+   Do not restate them in the copied profile.
+   Here, "inherited" means values from other active profiles.
+   When a custom and builtin profile share a profile name, the custom profile
+   is loaded and the builtin profile with that name is ignored.
    Keep `github` active when the repository wants the generic generated
    GitHub Actions workflow that ships in the default user stack; remove it
    when the repository does not want that workflow.
@@ -94,6 +106,20 @@ The shortest accurate model is:
 `install.config_reviewed` exists only to make that checkpoint explicit.
 It means a human reviewed the starting config and is ready to activate it.
 It is not a hidden switch.
+
+## Copy-Ready Custom Profile Template
+DevCovenant now ships a copy-ready bootstrap template for the first custom
+profile:
+- copy `devcovenant/builtin/profiles/userproject/`
+  to `devcovenant/custom/profiles/userproject/`
+- edit the copied manifest there
+- keep inherited values inherited instead of copying builtin metadata into the
+  custom layer
+
+Use that copied profile for repo-specific identity, version paths, package
+paths, extra hooks, local workflow runs, or managed-environment details.
+If the repository later needs GitHub-only CI extensions, keep those in a
+separate optional custom profile instead of the repo-identity profile.
 
 ## Common Starting Situations
 ### Empty Repository

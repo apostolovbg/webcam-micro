@@ -1,16 +1,29 @@
 # -------------------------------------------------------------------
-# DevCovenant Config Template (review-required baseline)
+# DevCovenant config template (review-required install baseline)
 # -------------------------------------------------------------------
 # This file is copied to `devcovenant/config.yaml` by `devcovenant install`.
 #
-# Install always seeds a safe review-required baseline:
-# - `install.config_reviewed: false`
-# - profile set oriented to user repositories
+# Read this file as the repository's operating contract:
+# - human-owned keys say what this repository wants;
+# - refresh-owned keys show what DevCovenant resolved/generated.
 #
-# Typical flow:
-# 1) Review/edit this config.
-# 2) Set `install.config_reviewed: true`.
-# 3) Run `devcovenant deploy`.
+# Why install stops before deploy:
+# - install gives the repo a safe starting point;
+# - deploy turns the config into active managed docs,
+#   registries,
+#   and generated governance files;
+# - `install.config_reviewed: false` keeps deploy blocked until
+#   a
+#   human has checked that the starting config matches the repo.
+#
+# Typical first-time flow:
+# 1) run `devcovenant install`
+# 2) review this file
+# 3) set `install.config_reviewed: true`
+# 4) run `devcovenant deploy`
+# 5) prepare the repository's declared environment
+# 6) start normal work with
+#    `gate --start` -> `gate --mid` -> `run` -> `gate --end`
 # -------------------------------------------------------------------
 
 # -------------------------------------------------------------------
@@ -39,6 +52,14 @@ developer_mode: false
 
 # Add `github` when the repository wants a generated GitHub Actions workflow.
 
+# Keep inherited values inherited. Add repo-specific behavior in a custom profile instead of recopied overlays.
+
+# Here, "inherited" means values from other active profiles.
+
+# A same-name custom profile is loaded and the builtin profile is ignored.
+
+# If the repository needs a starting custom profile, copy `devcovenant/builtin/profiles/userproject/` to `devcovenant/custom/profiles/userproject/` and edit it there.
+
 # Profiles contribute suffixes, assets, metadata overlays, and cleanup overlays.
 
 # Generated diagnostics include profile-level core path mappings.
@@ -46,6 +67,8 @@ developer_mode: false
 # Profiles do not activate policies. Policy activation is `policy_state` for normal toggles.
 
 # `severity: critical` policies remain enforced even when toggled false in `policy_state`.
+
+# Keep GitHub-only CI extensions in a separate optional GitHub-specific custom profile instead of the repo-identity profile.
 
 profiles:
   active:
@@ -310,6 +333,12 @@ workflow:
 
 # Repository lifecycle metadata rendered into managed docs, registry output, and changelog release flow.
 
+# `project_name` is the canonical public/project identity string.
+
+# DevCovenant derives normalized path tokens such as `{{ PROJECT_NAME_PATH }}` where package-safe paths need them.
+
+# Keep distribution/project identity in `project_name`; do not force Python import-package spelling there just to satisfy path syntax.
+
 # `project_name` and `project_description` are non-empty identity strings.
 
 # `stage` must be one of `allowed_stages`; the default set is prototype, alpha, beta, stable, deprecated, archived.
@@ -317,6 +346,8 @@ workflow:
 # `maintenance_stance` must be one of `allowed_maintenance_stances`; the default set is active, maintenance, frozen, sunset.
 
 # `compatibility_policy` must be `backward-compatible`, `breaking-allowed`, `forward-only`, or `unspecified`.
+
+# Use `compatibility_policy` for compatibility promises, not for feature notes such as cross-platform support.
 
 # `backward-compatible` preserves the public contract; `breaking-allowed` makes compatibility optional; `forward-only` rejects legacy compatibility fallbacks.
 
@@ -337,8 +368,8 @@ project-governance:
   copyright_notice: YEAR Legal Owner Name
   stage: prototype
   maintenance_stance: active
-  compatibility_policy: unspecified
-  versioning_mode: unversioned
+  compatibility_policy: forward-only
+  versioning_mode: versioned
   unversioned_label: Unversioned
   unreleased_heading: '## Unreleased'
   changelog_file: CHANGELOG.md
@@ -380,12 +411,12 @@ policy_state:
   no-future-dates: true
   no-print-outside-output-runtime: true
   no-raw-errors: true
-  raw-string-escapes: false
+  raw-string-escapes: true
   read-only-directories: true
   security-scanner: true
   tests-coverage: true
-  version-governance: false
-  version-sync: false
+  version-governance: true
+  version-sync: true
 
 # -------------------------------------------------------------------
 # Global ignore patterns
@@ -1340,6 +1371,7 @@ autogen_metadata_overlays:
     pep440_allow_dev_releases: 'true'
     pep440_allow_post_releases: 'true'
     pep440_allow_prereleases: 'true'
+    scheme: pep440
     version_file: webcam_micro/VERSION
   version-sync:
     changelog_file: CHANGELOG.md

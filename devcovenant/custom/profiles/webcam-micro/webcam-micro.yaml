@@ -10,12 +10,13 @@ project-governance:
     package on PyPI.
   stage: prototype
   maintenance_stance: active
-  compatibility_policy: unspecified
-  versioning_mode: unversioned
+  compatibility_policy: forward-only
+  versioning_mode: versioned
 policy_overlays:
   version-sync:
     version_file: webcam_micro/VERSION
   version-governance:
+    scheme: pep440
     version_file: webcam_micro/VERSION
   dependency-management:
     surfaces:

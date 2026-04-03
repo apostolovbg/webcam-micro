@@ -1,22 +1,22 @@
 metadata:
   schema_version: 1
   registry_layout: single-root
-  policy_registry_input_hash: 395d90856293d30c7fece9c1b06dcf7023d83aff1b7b77ff70591c0d16572a2d
+  policy_registry_input_hash: 9c715cc66adc267ffa0931f63bf115ef0bf96f87f8d7e52e4a03d43bbb97211c
 project-governance:
   project_name: webcam-micro
   project_description: Cross-platform microscope camera application distributed as
     a Python package on PyPI.
   copyright_notice: YEAR Legal Owner Name
-  project_version: Unversioned
+  project_version: 0.0.1
   stage: prototype
   maintenance_stance: active
-  compatibility_policy: unspecified
-  versioning_mode: unversioned
+  compatibility_policy: forward-only
+  versioning_mode: versioned
   unversioned_label: Unversioned
   unreleased_heading: '## Unreleased'
   changelog_file: CHANGELOG.md
   release_headings:
-  - '## Unreleased'
+  - '## Version'
   allowed_stages:
   - prototype
   - alpha
@@ -112,6 +112,13 @@ managed-docs:
       import_seed: true
       authoritative_source: true
       body_fingerprint: d054ddccca65842a971c930dcfe0e4f1e82df601e0dcac401e9f63403ce70791
+    devcovenant/README.md:
+      enabled: false
+      descriptor_path: devcovenant/builtin/profiles/global/assets/devcovenant/README.yaml
+      project_governance_headers: false
+      import_seed: false
+      authoritative_source: false
+      body_fingerprint: 68e8fcec2645803b62b846443ddb97754359fcbaed0c2aa2bc250aa2058af3fb
 workflow_contract:
   schema_version: 4
   anchors:
@@ -3995,22 +4002,22 @@ policies:
     - webcam_micro/runtime-requirements.lock
     origin: builtin
     script_exists: true
-    hash: 007757ac511564ab81f01fb1e416ae6a7c90c3fc4323aac9f5a5d0920a2f5cf0
+    hash: 8adc683fc8abb694edfb7e740173cd5357ea8bbe78cd3c1ed2ebf382c90119d7
     script_path: builtin/dependency_management.py
     runtime_state:
       surfaces:
         root_workspace:
-          input_fingerprint: c82f4b05bb701ff00a0c55fefed391c0e672e25fafcbab51320c64fd90ed04b5
+          input_fingerprint: 6b6b61c254bcd5d970f94f151ea40d247abe8e9dff2774a3a3f350f072299eba
           output_fingerprints:
-            lock_file: c32ea9776fde7f943a0cd2068074af9c4354116dd6d8c218fa81ca712e895822
-            third_party_file: 99152d54aa907af6643617a0cd6c6731b86b4fed2ddc4fdb292cf0f3b5698c1e
-            licenses_dir: d91fa73402fa8d2ac1d5217c418a97d207ae4e47be257fad1bbb2380af2c3a9f
+            lock_file: 9ad475f4bcab038374f1b0467ea4be49b30fb84993337c2268f9682ccd0cf310
+            third_party_file: a9cc358b41b057b814bc5bcbefd25b552a9c302572a620c55d4c81661031f054
+            licenses_dir: 2deea4a029112861ee692870a1b715aefc87e42518864bdabb9475999ec628a5
         package_runtime:
-          input_fingerprint: 2ccaff46f6c3602142758351a759b318cbb1b1fa516b870d5e11f2e2f86f5796
+          input_fingerprint: a298a35bbda7147e36d949ab252eb09aa65fef31563999c3ee33cc7c0039d07d
           output_fingerprints:
-            lock_file: 3ab61e8d6e70693a1a0e73dd1b19a0e43ea3e473cd45d08fdaffc5d7bdc24636
-            third_party_file: f2020d6ca1e6131217b1a86c06a9207f76160781dc177c747090405ee883bb94
-            licenses_dir: 19b2959754fc069018ed57ea380826678519bfcc035df145a812847eb78b6218
+            lock_file: 318d8e872c173cc10abca1c0d338b17462d556a62d297edb979fc1f4418a2ab5
+            third_party_file: 97ae7c28684dab2d3ac6586d43b9ae109ee7a33f36b834f431831ae5a77c18ee
+            licenses_dir: 5e6c654932ae46726285539ad24e63b25c547a6d4006a1c9be6f75fb757fd7e4
   docstring-and-comment-coverage:
     enabled: true
     custom: false
@@ -9458,7 +9465,7 @@ policies:
     hash: 5104da9383a7702ce8cc10a0c81bf89e299c02b6f9da0f14244274ffa1a9a34d
     script_path: builtin/no_raw_errors.py
   raw-string-escapes:
-    enabled: false
+    enabled: true
     custom: false
     description: Raw String Escapes
     policy_text: |-
@@ -9470,7 +9477,7 @@ policies:
       severity: warning
       auto_fix: 'false'
       enforcement: active
-      enabled: 'false'
+      enabled: 'true'
       custom: 'false'
       include_suffixes:
       - .py
@@ -9671,13 +9678,13 @@ policies:
           - ()
         policy_state:
           values:
-          - 'false'
+          - 'true'
           behavior: replace
           replaced_inherited_values:
           - 'true'
         effective:
           values:
-          - 'false'
+          - 'true'
       custom:
         runtime_defaults:
           values:
@@ -9778,7 +9785,7 @@ policies:
       severity: warning
       auto_fix: false
       enforcement: active
-      enabled: false
+      enabled: true
       custom: false
       include_suffixes: &id081
       - .py
@@ -9837,7 +9844,7 @@ policies:
       severity: warning
       auto_fix: false
       enforcement: active
-      enabled: false
+      enabled: true
       custom: false
       include_suffixes: *id081
       selector_roles: *id082
@@ -11150,7 +11157,7 @@ policies:
     hash: 28ba620ab2070e77f8d71635700cdc9732213829dd2f87abb814e4e00a6846e6
     script_path: builtin/tests_coverage.py
   version-governance:
-    enabled: false
+    enabled: true
     custom: false
     description: Version Governance
     policy_text: |-
@@ -11168,9 +11175,9 @@ policies:
       severity: error
       auto_fix: 'false'
       enforcement: active
-      enabled: 'false'
+      enabled: 'true'
       custom: 'false'
-      scheme: []
+      scheme: pep440
       enforce_bumping: 'true'
       canonical_versions_required: 'false'
       version_file: webcam_micro/VERSION
@@ -11241,9 +11248,19 @@ policies:
           behavior: base
           replaced_inherited_values:
           - ()
+        profile_overlays:
+          values:
+          - pep440
+          behavior: replace
+        autogen_overlays:
+          values:
+          - pep440
+          behavior: replace
+          replaced_inherited_values:
+          - pep440
         effective:
           values:
-          - '[]'
+          - pep440
       enforce_bumping:
         descriptor:
           values:
@@ -11507,13 +11524,13 @@ policies:
           - ()
         policy_state:
           values:
-          - 'false'
+          - 'true'
           behavior: replace
           replaced_inherited_values:
           - 'true'
         effective:
           values:
-          - 'false'
+          - 'true'
       custom:
         runtime_defaults:
           values:
@@ -11532,9 +11549,9 @@ policies:
       severity: error
       auto_fix: false
       enforcement: active
-      enabled: false
+      enabled: true
       custom: false
-      scheme: []
+      scheme: pep440
       enforce_bumping: true
       canonical_versions_required: false
       version_file: webcam_micro/VERSION
@@ -11558,8 +11575,9 @@ policies:
       severity: error
       auto_fix: false
       enforcement: active
-      enabled: false
+      enabled: true
       custom: false
+      scheme: pep440
       enforce_bumping: true
       canonical_versions_required: false
       version_file: webcam_micro/VERSION
@@ -11578,7 +11596,7 @@ policies:
     hash: ae76928adcea8bf38adb4fe7e5ca4edf16a124c92f5a16b5b4d790a49851586f
     script_path: builtin/version_governance.py
   version-sync:
-    enabled: false
+    enabled: true
     custom: false
     description: Version Sync
     policy_text: |-
@@ -11604,7 +11622,7 @@ policies:
       severity: error
       auto_fix: 'true'
       enforcement: active
-      enabled: 'false'
+      enabled: 'true'
       custom: 'false'
       version_file: webcam_micro/VERSION
       target_roles:
@@ -11907,13 +11925,13 @@ policies:
           - ()
         policy_state:
           values:
-          - 'false'
+          - 'true'
           behavior: replace
           replaced_inherited_values:
           - 'true'
         effective:
           values:
-          - 'false'
+          - 'true'
       custom:
         runtime_defaults:
           values:
@@ -11944,7 +11962,7 @@ policies:
       severity: error
       auto_fix: true
       enforcement: active
-      enabled: false
+      enabled: true
       custom: false
       version_file: webcam_micro/VERSION
       target_roles: &id102
@@ -11980,7 +11998,7 @@ policies:
       severity: error
       auto_fix: true
       enforcement: active
-      enabled: false
+      enabled: true
       custom: false
       version_file: webcam_micro/VERSION
       target_roles: *id102
@@ -13270,6 +13288,7 @@ profiles:
     - devcovenant/builtin/profiles/global/assets/SPEC.yaml
     - devcovenant/builtin/profiles/global/assets/SUPPORT.yaml
     - devcovenant/builtin/profiles/global/assets/config.yaml
+    - devcovenant/builtin/profiles/global/assets/devcovenant/README.yaml
     - devcovenant/builtin/profiles/global/assets/gitignore.yaml
     active: true
   go:
@@ -14791,6 +14810,18 @@ profiles:
     - devcovenant/builtin/profiles/typescript/assets/package.json
     - devcovenant/builtin/profiles/typescript/assets/tsconfig.json
     active: false
+  userproject:
+    version: 1
+    profile: userproject
+    category: application
+    suffixes: []
+    ignore_dirs: []
+    assets: []
+    policy_overlays: {}
+    source: builtin
+    path: devcovenant/builtin/profiles/userproject
+    assets_available: []
+    active: false
   webcam-micro:
     version: 1
     profile: webcam-micro
@@ -14803,12 +14834,13 @@ profiles:
         as a Python package on PyPI.
       stage: prototype
       maintenance_stance: active
-      compatibility_policy: unspecified
-      versioning_mode: unversioned
+      compatibility_policy: forward-only
+      versioning_mode: versioned
     policy_overlays:
       version-sync:
         version_file: webcam_micro/VERSION
       version-governance:
+        scheme: pep440
         version_file: webcam_micro/VERSION
       dependency-management:
         surfaces:
@@ -14907,6 +14939,7 @@ inventory:
     - SECURITY.md
     - SPEC.md
     - SUPPORT.md
+    - devcovenant/README.md
     enabled:
     - AGENTS.md
     - README.md

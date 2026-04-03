@@ -1,11 +1,11 @@
 # Changelog
 **Doc ID:** CHANGELOG
 **Doc Type:** changelog
-**Project Version:** Unversioned
+**Project Version:** 0.0.1
 **Project Stage:** prototype
 **Maintenance Stance:** active
-**Compatibility Policy:** unspecified
-**Versioning Mode:** unversioned
+**Compatibility Policy:** forward-only
+**Versioning Mode:** versioned
 **Last Updated:** 2026-04-03
 **DevCovenant Version:** 1.0.1b1
 
@@ -58,7 +58,123 @@ Example:
 
 ## Log changes here
 
+## Version 0.0.1
+
+- 2026-04-03:
+  Change: Enabled `raw-string-escapes`, `version-governance`, and
+    `version-sync`, and defined the repo-owned `pep440` versioning and
+    `forward-only` compatibility metadata in the custom profile.
+  Why: Aligned policy activation with the current package version file and
+    moved the repository from an unversioned display contract to a governed
+    versioned baseline with an explicit forward-only compatibility stance that
+    the version policies can enforce coherently.
+  Impact: Updated governed docs and changelog surfaces to track
+    `webcam_micro/VERSION` as version `0.0.1`, and the three requested
+    policies now run on a consistent repo contract with explicit forward-only
+    guidance.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  CONTRIBUTING.md
+  PLAN.md
+  README.md
+  SPEC.md
+  devcovenant/config.yaml
+  devcovenant/custom/profiles/webcam-micro/webcam-micro.yaml
+
 ## Unreleased
+
+- 2026-04-03:
+  Change: Restored the completed Stage 2 preview slice with an FFmpeg-backed
+    live-view backend, explicit UI method coverage, and refreshed runtime and
+    license artifacts.
+  Why: Restored the earlier working low-latency preview path and aligned the
+    dependency route with the governed refresh matrix after the repository
+    drifted toward the interim OpenCV path.
+  Impact: Restored `webcam-micro` to the fast newest-frame FFmpeg preview
+    baseline, recorded Slice 2 as complete, and aligned the root plus package
+    dependency artifacts with the runtime again.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  pyproject.toml
+  requirements.in
+  requirements.lock
+  licenses/THIRD_PARTY_LICENSES.md
+  licenses/pillow-12.2.0.txt
+  licenses/ttkbootstrap-1.20.2.txt
+  tests/test_app.py
+  tests/test_camera.py
+  tests/test_ui.py
+  webcam_micro/__init__.py
+  webcam_micro/app.py
+  webcam_micro/camera.py
+  webcam_micro/licenses/THIRD_PARTY_LICENSES.md
+  webcam_micro/licenses/imageio-ffmpeg-0.6.0.txt
+  webcam_micro/licenses/pillow-12.2.0.txt
+  webcam_micro/licenses/ttkbootstrap-1.20.2.txt
+  webcam_micro/runtime-requirements.lock
+  webcam_micro/ui.py
+
+- 2026-04-03:
+  Change: Reset the interrupted dirty tree to `HEAD`, upgraded the vendored
+    DevCovenant payload, and restored the governed Stage 1 baseline plus the
+    explicit symbol assertions required by active policy.
+  Why: Clarified the mixed interrupted repo state so the current gate
+    session could align to the rebuilt DevCovenant baseline and the repo's
+    Stage 1 test-coverage contract.
+  Impact: Aligned `webcam-micro` to the current vendored DevCovenant
+    baseline with the governed Stage 1 docs, package artifacts, launcher,
+    camera, and UI contracts under active checks.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  devcovenant/README.md
+  devcovenant/builtin/policies/dependency_management/\
+    dependency_lock_runtime.py
+  devcovenant/builtin/policies/dependency_management/\
+    dependency_management.py
+  devcovenant/builtin/profiles/README.md
+  devcovenant/builtin/profiles/global/assets/config.yaml
+  devcovenant/builtin/profiles/global/assets/devcovenant/README.yaml
+  devcovenant/builtin/profiles/userproject/userproject.yaml
+  devcovenant/config.yaml
+  devcovenant/core/refresh_runtime.py
+  devcovenant/custom/README.md
+  devcovenant/custom/__init__.py
+  devcovenant/custom/policies/README.md
+  devcovenant/custom/policies/__init__.py
+  devcovenant/custom/profiles/README.md
+  devcovenant/custom/profiles/__init__.py
+  devcovenant/docs/config.md
+  devcovenant/docs/installation.md
+  devcovenant/docs/policies.md
+  devcovenant/docs/profiles.md
+  devcovenant/docs/project_governance.md
+  devcovenant/docs/refresh.md
+  devcovenant/docs/registry.md
+  devcovenant/install.py
+  devcovenant/registry/registry.yaml
+  licenses/THIRD_PARTY_LICENSES.md
+  licenses/imageio-ffmpeg-0.6.0.txt
+  licenses/pillow-12.2.0.txt
+  licenses/ttkbootstrap-1.20.2.txt
+  pyproject.toml
+  requirements.in
+  requirements.lock
+  tests/test_app.py
+  tests/test_camera.py
+  tests/test_ui.py
+  webcam_micro/__init__.py
+  webcam_micro/app.py
+  webcam_micro/camera.py
+  webcam_micro/licenses/THIRD_PARTY_LICENSES.md
+  webcam_micro/licenses/imageio-ffmpeg-0.6.0.txt
+  webcam_micro/licenses/ttkbootstrap-1.20.2.txt
+  webcam_micro/runtime-requirements.lock
+  webcam_micro/ui.py
 
 - 2026-04-03:
   Change: Consolidated the app-owned package, version, and package-runtime

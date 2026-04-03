@@ -33,6 +33,8 @@ They are not the limit of what DevCovenant can govern.
 
 A repository can define brand-new policy ids or replace builtin policies with
 custom ones under `devcovenant/custom/policies/<policy-id>/`.
+When a custom policy uses the same `id` as a builtin policy, the custom policy
+overrides the builtin one.
 Custom policies run through the same engine surface as builtin policies:
 - the same metadata resolver
 - the same check context
@@ -373,6 +375,15 @@ When policy behavior changes, update all of these together:
 
 Keep descriptor prose, remediation messages, and policy docs aligned on
 repository-relative terminology so generated outputs stay consistent.
+
+That includes builtin dependency-maintenance behavior. The shared
+`dependency-management` runtime now expands supported
+`requirements.in` includes when it builds license inventories, not only
+when it compiles locks, so surfaces that compose other lockfiles expose
+the same dependency inventory their generated reports and license texts
+already reflect. The same runtime also refreshes dependency surfaces in
+provider-first order when one surface includes another surface's lock
+file, so composed roots do not rebuild from stale lock inputs.
 
 When several Python policies need the same file analysis, share that work.
 Use run-scoped analysis attached to the active check context or ask a

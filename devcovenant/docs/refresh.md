@@ -26,6 +26,14 @@ where those changes become real in the repository.
 Generated GitHub workflow output appears only when an active profile owns the
 base workflow template, such as the builtin `github` profile, or when
 `config.ci_and_test.overrides` takes full local ownership.
+That same refresh pass also rebuilds tracked policy metadata from the
+active resolved script path, so same-id custom policy overrides are
+recorded as `custom: true` in generated policy state even while the
+builtin implementation remains present on disk.
+For dependency-maintenance surfaces, the refresh-owned runtime now walks
+supported `-r`/`--requirement` includes when it builds license
+inventories and refreshes provider lock surfaces before surfaces that
+compose those lockfiles.
 
 ## When Refresh Runs
 A full refresh runs in:

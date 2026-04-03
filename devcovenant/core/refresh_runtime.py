@@ -489,21 +489,34 @@ def _config_comment_header() -> str:
     return "\n".join(
         [
             rule,
-            "# DevCovenant Config Template (review-required baseline)",
+            "# DevCovenant config template (review-required install baseline)",
             rule,
             (
                 "# This file is copied to `devcovenant/config.yaml` by "
                 "`devcovenant install`."
             ),
             "#",
-            "# Install always seeds a safe review-required baseline:",
-            "# - `install.config_reviewed: false`",
-            "# - profile set oriented to user repositories",
+            "# Read this file as the repository's operating contract:",
+            "# - human-owned keys say what this repository wants;",
+            "# - refresh-owned keys show what DevCovenant resolved/generated.",
             "#",
-            "# Typical flow:",
-            "# 1) Review/edit this config.",
-            "# 2) Set `install.config_reviewed: true`.",
-            "# 3) Run `devcovenant deploy`.",
+            "# Why install stops before deploy:",
+            "# - install gives the repo a safe starting point;",
+            "# - deploy turns the config into active managed docs,",
+            "#   registries,",
+            "#   and generated governance files;",
+            "# - `install.config_reviewed: false` keeps deploy blocked until",
+            "#   a",
+            "#   human has checked that the starting config matches the repo.",
+            "#",
+            "# Typical first-time flow:",
+            "# 1) run `devcovenant install`",
+            "# 2) review this file",
+            "# 3) set `install.config_reviewed: true`",
+            "# 4) run `devcovenant deploy`",
+            "# 5) prepare the repository's declared environment",
+            "# 6) start normal work with",
+            "#    `gate --start` -> `gate --mid` -> `run` -> `gate --end`",
             rule,
         ]
     )
@@ -599,6 +612,20 @@ def _render_config_yaml(payload: dict[str, object]) -> str:
             "Actions workflow."
         ),
         (
+            "# Keep inherited values inherited. Add repo-specific behavior in "
+            "a custom profile instead of recopied overlays."
+        ),
+        ('# Here, "inherited" means values from other active profiles.'),
+        (
+            "# A same-name custom profile is loaded and the builtin profile "
+            "is ignored."
+        ),
+        (
+            "# If the repository needs a starting custom profile, copy "
+            "`devcovenant/builtin/profiles/userproject/` to "
+            "`devcovenant/custom/profiles/userproject/` and edit it there."
+        ),
+        (
             "# Profiles contribute suffixes, assets, metadata overlays, "
             "and cleanup overlays."
         ),
@@ -610,6 +637,11 @@ def _render_config_yaml(payload: dict[str, object]) -> str:
         (
             "# `severity: critical` policies remain enforced even when "
             "toggled false in `policy_state`."
+        ),
+        (
+            "# Keep GitHub-only CI extensions in a separate optional "
+            "GitHub-specific custom profile instead of the repo-identity "
+            "profile."
         ),
         _yaml_block({"profiles": payload.get("profiles", {})}),
         comments["paths"],
@@ -761,6 +793,19 @@ def _render_config_yaml(payload: dict[str, object]) -> str:
             "registry output, and changelog release flow."
         ),
         (
+            "# `project_name` is the canonical public/project identity "
+            "string."
+        ),
+        (
+            "# DevCovenant derives normalized path tokens such as "
+            "`{{ PROJECT_NAME_PATH }}` where package-safe paths need them."
+        ),
+        (
+            "# Keep distribution/project identity in `project_name`; do not "
+            "force Python import-package spelling there just to satisfy path "
+            "syntax."
+        ),
+        (
             "# `project_name` and `project_description` are non-empty "
             "identity strings."
         ),
@@ -777,6 +822,10 @@ def _render_config_yaml(payload: dict[str, object]) -> str:
             "# `compatibility_policy` must be "
             "`backward-compatible`, `breaking-allowed`, "
             "`forward-only`, or `unspecified`."
+        ),
+        (
+            "# Use `compatibility_policy` for compatibility promises, not "
+            "for feature notes such as cross-platform support."
         ),
         (
             "# `backward-compatible` preserves the public contract; "
@@ -894,6 +943,28 @@ def _render_config_yaml(payload: dict[str, object]) -> str:
             ]
         )
     return "\n\n".join(blocks).rstrip() + "\n"
+
+
+def render_config_yaml(payload: dict[str, object]) -> str:
+    """Render one config payload with the standard comment contract."""
+
+    return _render_config_yaml(payload)
+
+
+def render_review_required_config_yaml(
+    repo_root: Path,
+    *,
+    import_managed_docs: list[str] | None = None,
+) -> str:
+    """Render the review-required install config for one repository."""
+
+    payload = _load_config_template(repo_root)
+    install_block = payload.get("install", {})
+    if not isinstance(install_block, dict):
+        install_block = {}
+    install_block["import_managed_docs"] = list(import_managed_docs or [])
+    payload["install"] = install_block
+    return render_config_yaml(payload)
 
 
 def _refresh_config_generated(
@@ -2461,7 +2532,7 @@ def refresh_policy_registry(
     seen_policy_ids: set[str] = set()
     metadata_warning_targets: List[str] = []
     for policy_id in sorted(discovered):
-        location, builtin_available, custom_available = (
+        location, _builtin_available, _custom_available = (
             _resolve_policy_sources(repo_root, policy_id)
         )
         if location is None:
@@ -2502,7 +2573,7 @@ def refresh_policy_registry(
             current_values,
             descriptor,
             context,
-            custom_policy=bool(custom_available and not builtin_available),
+            custom_policy=bool(location and location.kind == "custom"),
         )
         resolved_order = bundle.order
         resolved_metadata = bundle.raw_map

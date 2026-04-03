@@ -320,6 +320,73 @@ def _build_surface_runtime_state(
     }
 
 
+def _order_surfaces_for_refresh(
+    surfaces: Sequence[dependency_management.DependencySurface],
+) -> list[dependency_management.DependencySurface]:
+    """Refresh lock-provider surfaces before surfaces that consume them."""
+
+    ordered = list(surfaces)
+    if len(ordered) < 2:
+        return ordered
+    surface_by_id = {surface.surface_id: surface for surface in ordered}
+    order_index = {
+        surface.surface_id: index for index, surface in enumerate(ordered)
+    }
+    provider_by_lock: dict[str, str] = {}
+    for surface in ordered:
+        lock_token = _normalize_repo_relative_path_token(surface.lock_file)
+        if lock_token and lock_token not in provider_by_lock:
+            provider_by_lock[lock_token] = surface.surface_id
+    dependencies: dict[str, set[str]] = {
+        surface.surface_id: set() for surface in ordered
+    }
+    dependents: dict[str, set[str]] = {
+        surface.surface_id: set() for surface in ordered
+    }
+    for surface in ordered:
+        for dependency_file in surface.dependency_files:
+            dependency_token = _normalize_repo_relative_path_token(
+                dependency_file
+            )
+            provider_id = provider_by_lock.get(dependency_token)
+            if not provider_id or provider_id == surface.surface_id:
+                continue
+            dependencies[surface.surface_id].add(provider_id)
+            dependents[provider_id].add(surface.surface_id)
+    ready = sorted(
+        [
+            surface_id
+            for surface_id, providers in dependencies.items()
+            if not providers
+        ],
+        key=order_index.__getitem__,
+    )
+    queued = set(ready)
+    emitted: set[str] = set()
+    result: list[dependency_management.DependencySurface] = []
+    while ready:
+        current_id = ready.pop(0)
+        queued.discard(current_id)
+        emitted.add(current_id)
+        result.append(surface_by_id[current_id])
+        for dependent_id in sorted(
+            dependents[current_id],
+            key=order_index.__getitem__,
+        ):
+            dependencies[dependent_id].discard(current_id)
+            if (
+                not dependencies[dependent_id]
+                and dependent_id not in emitted
+                and dependent_id not in queued
+            ):
+                ready.append(dependent_id)
+                queued.add(dependent_id)
+        ready.sort(key=order_index.__getitem__)
+    if len(result) != len(ordered):
+        return ordered
+    return result
+
+
 def _ensure_tool(command_name: str) -> bool:
     """Return True when a command is available on PATH."""
 
@@ -2048,6 +2115,7 @@ def refresh_all(
         if isinstance(surface, dependency_management.DependencySurface)
         and surface.active
     ]
+    surfaces = _order_surfaces_for_refresh(surfaces)
     registry = PolicyRegistry(policy_registry_path(repo_root), repo_root)
     stored_runtime_state = registry.get_policy_runtime_state(POLICY_ID)
     stored_surface_states = stored_runtime_state.get("surfaces", {})

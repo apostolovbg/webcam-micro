@@ -29,6 +29,14 @@ Profiles may provide:
 - CI fragments
 - translator declarations (language profiles only)
 
+DevCovenant also ships one copy-ready bootstrap template profile:
+- `userproject`
+
+Copy `devcovenant/builtin/profiles/userproject/` to
+`devcovenant/custom/profiles/userproject/` when a repository needs its first
+custom profile.
+It is not meant to be activated directly.
+
 Any active profile category may contribute metadata overlays, and language or
 stack profiles may declare workflow runs through `workflow_runs`.
 

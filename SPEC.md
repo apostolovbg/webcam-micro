@@ -1,11 +1,11 @@
 # Project Specification
 **Doc ID:** SPEC
 **Doc Type:** specification
-**Project Version:** Unversioned
+**Project Version:** 0.0.1
 **Project Stage:** prototype
 **Maintenance Stance:** active
-**Compatibility Policy:** unspecified
-**Versioning Mode:** unversioned
+**Compatibility Policy:** forward-only
+**Versioning Mode:** versioned
 **Last Updated:** 2026-04-03
 **DevCovenant Version:** 1.0.1b1
 

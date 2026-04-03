@@ -1,11 +1,11 @@
 # Development Plan
 **Doc ID:** PLAN
 **Doc Type:** plan
-**Project Version:** Unversioned
+**Project Version:** 0.0.1
 **Project Stage:** prototype
 **Maintenance Stance:** active
-**Compatibility Policy:** unspecified
-**Versioning Mode:** unversioned
+**Compatibility Policy:** forward-only
+**Versioning Mode:** versioned
 **Last Updated:** 2026-04-03
 **DevCovenant Version:** 1.0.1b1
 
@@ -80,23 +80,23 @@ PyPI-distributed microscope camera application.
    - the repository now ships a real package skeleton with a documented Stage
      1 baseline that later camera and UI work can build on directly
 
-2. [not done] Implement camera discovery, session lifecycle, and live preview.
+2. [done] Implement camera discovery, session lifecycle, and live preview.
    Goal:
    - let a user open a supported camera and see a stable live microscope
      preview
-   Why this matters:
-   - without device discovery and preview, the application is not yet useful
-     as a microscope workstation
-   Work to do:
-   - enumerate available cameras through the active backend
-   - open, close, and switch camera sessions safely
-   - render live preview frames inside the main preview area
-   - surface active camera and backend identity in visible runtime status
-   - handle missing devices and open failures without crashing the app
-   Done when:
-   - a user can launch the app, choose a camera, and see live video
-   - the application can close or switch sessions cleanly
-   - recoverable camera failures are reported without taking down the UI
+   Completed work:
+   - implemented FFmpeg-backed camera discovery through platform-aware device
+     enumeration in the active backend
+   - added session open, close, and switch handling with a low-latency reader
+     that keeps only the newest frame instead of queueing stale preview data
+   - rendered live preview frames inside the main preview area and exposed
+     backend, camera, and preview state in visible runtime status
+   - handled missing dependencies, missing devices, and recoverable open or
+     preview failures without crashing the UI shell
+   Outcome:
+   - the prototype now launches a real preview shell where a user can
+     discover cameras, choose one, and see live video while session state
+     remains visible
 
 3. [not done] Build the main window and preview-first working shell.
    Goal:

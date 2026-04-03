@@ -83,6 +83,10 @@ The practical split is:
 - translators provide language-aware facts
 - config tunes the active stack with local overlays and overrides
 
+Customization is override-based by design:
+- a same-id custom policy overrides the builtin policy with that id
+- a same-name custom profile overrides the builtin profile with that name
+
 For the deeper authoring model, go straight to
 [policies.md](https://github.com/apostolovbg/devcovenant/blob/v1.0.1b1/devcovenant/docs/policies.md),
 [profiles.md](https://github.com/apostolovbg/devcovenant/blob/v1.0.1b1/devcovenant/docs/profiles.md), and
@@ -123,9 +127,21 @@ What those steps mean:
 3. The config review is the human decision point.
 
    Start with `project-governance`, `developer_mode`, and `profiles.active`.
+   The seeded `devcovenant/config.yaml` is supposed to keep explanatory
+   comments for that first review, so use those comments as the first
+   checklist.
    For most repositories, keep the standard stack with `devcovuser` active and
    add a custom profile on top when the repository needs its own rules,
    assets, or workflow additions.
+   A good starting point is copying
+   `devcovenant/builtin/profiles/userproject/` to
+   `devcovenant/custom/profiles/userproject/` and editing only the
+   repo-specific facts there.
+   Keep inherited values inherited.
+   Do not restate them in the copied profile.
+   Here, "inherited" means values from other active profiles.
+   When a custom and builtin profile share a profile name, the custom profile
+   is loaded and the builtin profile with that name is ignored.
    Use direct overlays only for small local exceptions.
 
 4. `deploy` writes the managed docs, generated files, and other DevCovenant
@@ -254,6 +270,9 @@ The most important first-review settings in `devcovenant/config.yaml` are:
 
    For most repositories, keep `devcovuser` in the stack and layer a custom
    profile on top when the repository needs its own behavior.
+   The copy-ready `userproject` bootstrap template under
+   `devcovenant/builtin/profiles/userproject/` is the intended starting point
+   for that custom layer.
 
 4. `paths`
 

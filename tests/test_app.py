@@ -1,4 +1,4 @@
-"""Stage 1 tests for the application entrypoint and package contract."""
+"""Stage 2 tests for the application entrypoint and package contract."""
 
 from __future__ import annotations
 
@@ -10,19 +10,19 @@ try:
 except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib
 
-from webcam_micro.app import build_launch_plan, main
+from webcam_micro.app import LaunchPlan, build_launch_plan, main
 
 
 class ApplicationEntryPointTest(unittest.TestCase):
-    """Verify the Stage 1 launcher wiring and package metadata."""
+    """Verify the Stage 2 launcher wiring and package metadata."""
 
     def test_smoke_mode_returns_success(self) -> None:
         """Assert the headless smoke path exits successfully."""
 
         self.assertEqual(0, main(["--smoke-test"]))
 
-    def test_launch_plan_describes_stage_one_baseline(self) -> None:
-        """Assert the launch plan documents the chosen foundation."""
+    def test_launch_plan_describes_stage_two_baseline(self) -> None:
+        """Assert the launch plan documents the live-preview baseline."""
 
         plan = build_launch_plan()
 
@@ -30,7 +30,16 @@ class ApplicationEntryPointTest(unittest.TestCase):
         self.assertEqual("webcam_micro", plan.package_name)
         self.assertEqual("webcam-micro", plan.entrypoint_name)
         self.assertEqual("ttkbootstrap", plan.gui_baseline)
-        self.assertIn("OpenCV", plan.first_device_backend_target)
+        self.assertIn("newest-frame", plan.backend_strategy)
+        self.assertIn("FFmpeg", plan.first_device_backend_target)
+
+    def test_launch_plan_symbol_stays_explicit(self) -> None:
+        """Assert the launch-plan dataclass stays public."""
+
+        plan = build_launch_plan()
+
+        self.assertIsInstance(plan, LaunchPlan)
+        self.assertEqual("LaunchPlan", LaunchPlan.__name__)
 
     def test_pyproject_declares_console_script(self) -> None:
         """Assert package metadata exposes the governed launcher."""
@@ -41,6 +50,16 @@ class ApplicationEntryPointTest(unittest.TestCase):
         )
 
         self.assertEqual("0.0.1", payload["project"]["version"])
+        self.assertEqual(">=3.10", payload["project"]["requires-python"])
+        self.assertIn(
+            "imageio-ffmpeg>=0.6,<0.7",
+            payload["project"]["dependencies"],
+        )
+        self.assertIn("pillow>=10,<13", payload["project"]["dependencies"])
+        self.assertIn(
+            "ttkbootstrap>=1.20,<2",
+            payload["project"]["dependencies"],
+        )
         self.assertEqual(
             "webcam_micro.app:main",
             payload["project"]["scripts"]["webcam-micro"],

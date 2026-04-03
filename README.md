@@ -1,7 +1,7 @@
 # webcam-micro
 **Doc ID:** README
 **Doc Type:** repo-readme
-**Project Version:** Unversioned
+**Project Version:** 0.0.1
 **Last Updated:** 2026-04-03
 **DevCovenant Version:** 1.0.1b1
 
@@ -16,18 +16,24 @@ on PyPI.
 `webcam-micro` is a preview-first microscope camera application for live
 viewing, camera control, still capture, and recording.
 
-The current prototype foundation uses `ttkbootstrap` on top of Tk for the GUI
-shell and a pluggable camera-backend layer. Stage 1 ships the package
-entrypoint, a minimal application shell, and a null backend while targeting an
-OpenCV-backed device backend as the first concrete preview implementation.
-The app-owned source, version, and package-runtime artifacts now live together
-under `webcam_micro/`.
+The current prototype uses `ttkbootstrap` on top of Tk for the GUI shell and
+a pluggable camera-backend layer. Stage 2 now ships FFmpeg-backed camera
+discovery, safe session open and close handling, visible backend and camera
+status, and a low-latency live preview path that keeps only the newest frame
+instead of queueing stale preview images. The app-owned source, version, and
+package-runtime artifacts live together under `webcam_micro/`.
 
 ## Quick Start
 Run the source entrypoint smoke test:
 
 ```bash
 .venv/bin/python -m webcam_micro --smoke-test
+```
+
+Launch the prototype preview shell from source:
+
+```bash
+.venv/bin/python -m webcam_micro
 ```
 
 Build installable package artifacts:
@@ -53,6 +59,9 @@ Prefer short explanations of what each checkpoint controls.
 For most repositories, keep `devcovuser` active and add a repository-specific
 custom profile on top when the repository needs its own reusable rules,
 assets, or workflow additions.
+
+The current preview runtime depends on `imageio-ffmpeg`, `pillow`, and
+`ttkbootstrap` through the package-runtime lock under `webcam_micro/`.
 
 ## Docs Map
 - `SPEC.md`: durable product contract and scope

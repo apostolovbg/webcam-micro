@@ -82,6 +82,16 @@ For most repositories, the normal pattern is:
 - add an optional GitHub-specific custom profile when the repository needs
   reusable GitHub-only CI fragments beyond the builtin base
 
+The copy-ready builtin bootstrap template lives at
+`devcovenant/builtin/profiles/userproject/`.
+Copy it to `devcovenant/custom/profiles/userproject/` when a repository needs
+its first custom profile.
+Keep inherited values inherited.
+Do not restate builtin values in the copied profile.
+Here, "inherited" means values from other active profiles.
+When a custom and builtin profile share a profile name, the custom profile is
+loaded and the builtin profile with that name is ignored.
+
 Use direct overlays for small one-off tweaks.
 Use a custom profile when the repository has real repeatable behavior of its
 own.
@@ -128,6 +138,17 @@ If those public-facing descriptions look wrong, start here.
 That includes the global `LICENSE` template, which seeds:
 - `Copyright (c) {{ COPYRIGHT_NOTICE }}`
 - `All rights reserved.`
+
+`project_name` is the canonical public/project identity string.
+DevCovenant derives normalized path tokens such as `{{ PROJECT_NAME_PATH }}`
+where package-safe paths need them, so `project_name` does not need to be
+forced into Python import-package spelling.
+For example, a project may keep `webcam-micro` as `project_name` while using
+`webcam_micro` as a Python package path.
+
+`compatibility_policy` is only about compatibility promises.
+Do not overload it with free-form product notes such as cross-platform
+support; those belong in `project_description`, `README.md`, or `SPEC.md`.
 
 ### paths
 This section chooses where DevCovenant keeps important local files such as:
@@ -270,7 +291,8 @@ For a new repository, this is the shortest useful config review:
 5. keep `github` if the repository wants the generated GitHub Actions workflow
    that ships in the default stack, or remove it if the repository does not
    want that workflow
-6. add a custom profile if the repository needs one
+6. copy `devcovenant/builtin/profiles/userproject/` when the repository needs
+   a starting custom profile, then edit only the repo-specific facts there
 7. review `doc_assets`
 8. review `workflow` and `policy_state`
 9. review `engine.*`

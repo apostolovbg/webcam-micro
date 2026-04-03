@@ -1,11 +1,11 @@
 # DevCovenant Development Guide
 **Doc ID:** AGENTS
 **Doc Type:** policy-source
-**Project Version:** Unversioned
+**Project Version:** 0.0.1
 **Project Stage:** prototype
 **Maintenance Stance:** active
-**Compatibility Policy:** unspecified
-**Versioning Mode:** unversioned
+**Compatibility Policy:** forward-only
+**Versioning Mode:** versioned
 **Last Updated:** 2026-04-03
 **DevCovenant Version:** 1.0.1b1
 
@@ -178,14 +178,14 @@ directly.
 <!-- DEVCOV:BEGIN -->
 ## Project Governance
 This block reflects the repository's active project-governance state.
-- Project Version: Unversioned
+- Project Version: 0.0.1
 - Project Stage: prototype
 - Maintenance Stance: active
-- Compatibility Policy: unspecified
-- Versioning Mode: unversioned
+- Compatibility Policy: forward-only
+- Versioning Mode: versioned
 - Compatibility Guidance:
-  No compatibility promise is implied. Make contract changes explicit
-  before code or docs start depending on them.
+  Do not leave legacy fallbacks behind. Remove deprecated readers,
+  aliases, and bridge paths instead of preserving them.
 <!-- DEVCOV:END -->
 
 <!-- DEVCOV-POLICIES:BEGIN -->
@@ -1671,7 +1671,7 @@ id: raw-string-escapes
 severity: warning
 auto_fix: 'false'
 enforcement: active
-enabled: 'false'
+enabled: 'true'
 custom: 'false'
 include_suffixes:
 - .py
@@ -1892,9 +1892,9 @@ id: version-governance
 severity: error
 auto_fix: 'false'
 enforcement: active
-enabled: 'false'
+enabled: 'true'
 custom: 'false'
-scheme: []
+scheme: pep440
 enforce_bumping: 'true'
 canonical_versions_required: 'false'
 version_file: webcam_micro/VERSION
@@ -1934,7 +1934,7 @@ id: version-sync
 severity: error
 auto_fix: 'true'
 enforcement: active
-enabled: 'false'
+enabled: 'true'
 custom: 'false'
 version_file: webcam_micro/VERSION
 target_roles:

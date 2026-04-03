@@ -15,11 +15,9 @@ import tempfile
 import time
 from pathlib import Path
 
-import yaml
-
 import devcovenant.core.cli_support as cli_args_module
 import devcovenant.core.managed_docs as managed_docs_service
-import devcovenant.core.repository_paths as yaml_cache_service
+import devcovenant.core.refresh_runtime as refresh_runtime_service
 
 
 def _source_package_dir() -> Path:
@@ -158,33 +156,12 @@ def _ensure_review_required_config(
     import_managed_docs: list[str] | None = None,
 ) -> None:
     """Write/install a review-required config stub for post-install editing."""
-    template_path = (
-        repo_root
-        / "devcovenant"
-        / "builtin"
-        / "profiles"
-        / "global"
-        / "assets"
-        / "config.yaml"
-    )
     config_path = repo_root / "devcovenant" / "config.yaml"
-    if not template_path.exists():
-        raise FileNotFoundError(
-            "Missing global config template: "
-            "devcovenant/builtin/profiles/global/assets/config.yaml"
-        )
-    payload = yaml_cache_service.load_yaml(template_path) or {}
-    if not isinstance(payload, dict):
-        raise ValueError(
-            "Review-required config template must be a YAML mapping."
-        )
-    install_block = payload.get("install", {})
-    if not isinstance(install_block, dict):
-        install_block = {}
-    install_block["import_managed_docs"] = list(import_managed_docs or [])
-    payload["install"] = install_block
     config_path.write_text(
-        yaml.safe_dump(payload, sort_keys=False),
+        refresh_runtime_service.render_review_required_config_yaml(
+            repo_root,
+            import_managed_docs=list(import_managed_docs or []),
+        ),
         encoding="utf-8",
     )
 

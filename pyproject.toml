@@ -12,6 +12,8 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 dependencies = [
+    "imageio-ffmpeg>=0.6,<0.7",
+    "pillow>=10,<13",
     "ttkbootstrap>=1.20,<2",
 ]
 

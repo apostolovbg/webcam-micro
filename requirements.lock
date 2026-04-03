@@ -48,6 +48,24 @@ packaging==26.0 \
     --hash=sha256:b36f1fef9334a5588b4166f8bcd26a14e521f2b55e6b9de3aaa80d3ff7a37529
     # via -r requirements.in
 
+pillow==12.2.0 \
+    --hash=sha256:03f6fab9219220f041c74aeaa2939ff0062bd5c364ba9ce037197f4c6d498cd9 \
+    --hash=sha256:2bb4a8d594eacdfc59d9e5ad972aa8afdd48d584ffd5f13a937a664c3e7db0ed \
+    --hash=sha256:2d192a155bbcec180f8564f693e6fd9bccff5a7af9b32e2e4bf8c9c69dbad6b5 \
+    --hash=sha256:390ede346628ccc626e5730107cde16c42d3836b89662a115a921f28440e6a3b \
+    --hash=sha256:4e6c62e9d237e9b65fac06857d511e90d8461a32adcc1b9065ea0c0fa3a28150 \
+    --hash=sha256:5d2fd0fa6b5d9d1de415060363433f28da8b1526c1c129020435e186794b3795 \
+    --hash=sha256:673aa32138f3e7531ccdbca7b3901dba9b70940a19ccecc6a37c77d5fdeb05b5 \
+    --hash=sha256:6e6b2a0c538fc200b38ff9eb6628228b77908c319a005815f2dde585a0664b60 \
+    --hash=sha256:7b14cc0106cd9aecda615dd6903840a058b4700fcb817687d0ee4fc8b6e389be \
+    --hash=sha256:7f84204dee22a783350679a0333981df803dac21a0190d706a50475e361c93f5 \
+    --hash=sha256:8bd7903a5f2a4545f6fd5935c90058b89d30045568985a71c79f5fd6edf9b91e \
+    --hash=sha256:8be29e59487a79f173507c30ddf57e733a357f67881430449bb32614075a40ab \
+    --hash=sha256:975385f4776fafde056abb318f612ef6285b10a1f12b8570f3647ad0d74b48ec \
+    --hash=sha256:a4e8f36e677d3336f35089648c8955c51c6d386a13cf6ee9c189c5f5bd713a9f \
+    --hash=sha256:b86024e52a1b269467a802258c25521e6d742349d760728092e1bc2d135b4d76
+    # via -r requirements.in
+
 pip==26.0.1 \
     --hash=sha256:bdb1b08f4274833d62c1aa29e20907365a2ceb950410df15fc9521bad440122b
     # via -r requirements.in
@@ -112,6 +130,10 @@ setuptools==82.0.1 \
 
 tomli==2.4.1 ; (sys_platform == "linux" and python_version == "3.10") or (sys_platform == "win32" and python_version == "3.10") or (sys_platform == "darwin" and python_version == "3.10") \
     --hash=sha256:0d85819802132122da43cb86656f8d1f8c6587d54ae7dcaf30e90533028b49fe
+    # via -r requirements.in
+
+ttkbootstrap==1.20.2 \
+    --hash=sha256:6b3f25aa173c09423474ac31eeb2d766cf0f9514c8debe24da8d1f062e4afdcf
     # via -r requirements.in
 
 typing_extensions==4.15.0 ; (sys_platform == "linux" and python_version == "3.10") or (sys_platform == "win32" and python_version == "3.10") or (sys_platform == "darwin" and python_version == "3.10") \

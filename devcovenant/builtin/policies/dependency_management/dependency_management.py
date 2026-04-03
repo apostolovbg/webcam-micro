@@ -843,6 +843,40 @@ def _parse_requirement_strings(requirement_lines: Iterable[str]) -> list[str]:
     return names
 
 
+def _extract_requirements_include_target(raw_line: str) -> str | None:
+    """Return the referenced path for supported requirements includes."""
+
+    stripped = str(raw_line).strip()
+    if not stripped:
+        return None
+    for prefix in ("-r", "--requirement"):
+        if stripped == prefix:
+            return None
+        if stripped.startswith(prefix + "="):
+            return stripped.split("=", 1)[1].strip()
+        if stripped.startswith(prefix + " "):
+            return stripped.split(None, 1)[1].strip()
+        if prefix == "-r" and stripped.startswith("-r") and len(stripped) > 2:
+            return stripped[2:].strip()
+    return None
+
+
+def _normalized_requirement_manifest_line(raw_line: str) -> str:
+    """Normalize one requirement-manifest line for inventory parsing."""
+
+    raw_text = str(raw_line).split("#", 1)[0].rstrip()
+    stripped = raw_text.strip()
+    if not stripped:
+        return ""
+    if raw_text[:1].isspace():
+        return ""
+    if stripped.startswith("--hash="):
+        return ""
+    if stripped.endswith("\\"):
+        stripped = stripped[:-1].strip()
+    return stripped
+
+
 def _parse_requirements_in(path: Path) -> list[str]:
     """Return direct dependency names declared in one requirements file."""
     if not path.exists():
@@ -927,6 +961,40 @@ def _direct_dependency_names_from_file(path: Path) -> list[str]:
     )
 
 
+def _inventory_dependency_strings_from_manifest(
+    manifest_path: Path,
+    *,
+    seen_paths: set[Path],
+) -> list[str]:
+    """Collect inventory dependency strings with recursive include support."""
+
+    if not manifest_path.exists() or not manifest_path.is_file():
+        return []
+    resolved_path = manifest_path.resolve()
+    if resolved_path in seen_paths:
+        return []
+    seen_paths.add(resolved_path)
+    if manifest_path.name == "pyproject.toml":
+        return _parse_pyproject_dependency_strings(manifest_path)
+    collected: list[str] = []
+    for raw_line in manifest_path.read_text(encoding="utf-8").splitlines():
+        normalized_line = _normalized_requirement_manifest_line(raw_line)
+        if not normalized_line:
+            continue
+        include_target = _extract_requirements_include_target(normalized_line)
+        if include_target is None:
+            collected.append(normalized_line)
+            continue
+        include_path = (manifest_path.parent / include_target).resolve()
+        collected.extend(
+            _inventory_dependency_strings_from_manifest(
+                include_path,
+                seen_paths=seen_paths,
+            )
+        )
+    return collected
+
+
 def _direct_dependency_display_names(
     repo_root: Path,
     *,
@@ -946,7 +1014,14 @@ def _direct_dependency_display_names(
                 selector_paths.append(repo_root / token)
     candidates: list[str] = []
     for manifest_path in selector_paths:
-        candidates.extend(_direct_dependency_names_from_file(manifest_path))
+        candidates.extend(
+            _parse_requirement_strings(
+                _inventory_dependency_strings_from_manifest(
+                    manifest_path,
+                    seen_paths=set(),
+                )
+            )
+        )
     for name in candidates:
         normalized = _normalize_distribution_name(name)
         if normalized and normalized not in display_names:
