@@ -1,0 +1,122 @@
+metadata:
+  schema_version: 1
+  registry_layout: single-root
+project-governance: {}
+managed-docs: {}
+workflow_contract: {}
+policies: {}
+profiles: {}
+inventory:
+  schema_version: 3
+  core:
+    dirs:
+    - devcovenant
+    - devcovenant/builtin
+    - devcovenant/builtin/policies
+    - devcovenant/builtin/profiles
+    - devcovenant/builtin/profiles/github
+    - devcovenant/builtin/profiles/github/assets
+    - devcovenant/builtin/profiles/global
+    - devcovenant/builtin/profiles/global/assets
+    - devcovenant/core
+    - devcovenant/licenses
+    - devcovenant/logs
+    - devcovenant/registry
+    files:
+    - devcovenant/__init__.py
+    - devcovenant/__main__.py
+    - devcovenant/asset.py
+    - devcovenant/cli.py
+    - devcovenant/check.py
+    - devcovenant/gate.py
+    - devcovenant/run.py
+    - devcovenant/policy.py
+    - devcovenant/install.py
+    - devcovenant/deploy.py
+    - devcovenant/upgrade.py
+    - devcovenant/refresh.py
+    - devcovenant/uninstall.py
+    - devcovenant/undeploy.py
+    - devcovenant/config.yaml
+    - devcovenant/README.md
+    - devcovenant/VERSION
+    - devcovenant/runtime-requirements.lock
+    - devcovenant/licenses/LICENSE
+    - devcovenant/licenses/README.md
+    - devcovenant/licenses/THIRD_PARTY_LICENSES.md
+    - devcovenant/logs/README.md
+    - devcovenant/registry/README.md
+    - devcovenant/registry/registry.yaml
+    - devcovenant/builtin/profiles/github/assets/ci.yml
+    - devcovenant/builtin/profiles/global/assets/gitignore.yaml
+    - devcovenant/builtin/profiles/README.md
+    - devcovenant/builtin/policies/README.md
+    - devcovenant/core/README.md
+    - devcovenant/core/__init__.py
+    - devcovenant/core/agents_blocks.py
+    - devcovenant/core/asset_materialization.py
+    - devcovenant/core/cleanup.py
+    - devcovenant/core/cli_support.py
+    - devcovenant/core/execution.py
+    - devcovenant/core/gate_runtime.py
+    - devcovenant/core/managed_docs.py
+    - devcovenant/core/policy_autofix.py
+    - devcovenant/core/policy_contract.py
+    - devcovenant/core/policy_runtime.py
+    - devcovenant/core/policy_commands.py
+    - devcovenant/core/policy_metadata.py
+    - devcovenant/core/policy_registry.py
+    - devcovenant/core/policy_runtime_actions.py
+    - devcovenant/core/refresh_runtime.py
+    - devcovenant/core/profile_registry.py
+    - devcovenant/core/project_governance.py
+    - devcovenant/core/repository_paths.py
+    - devcovenant/core/repository_validation.py
+    - devcovenant/core/run_events.py
+    - devcovenant/core/run_logs.py
+    - devcovenant/core/runtime_errors.py
+    - devcovenant/core/runtime_profile.py
+    - devcovenant/core/selectors.py
+    - devcovenant/core/tracked_registry.py
+    - devcovenant/core/translator.py
+    - devcovenant/core/workflow_support.py
+    - devcovenant/core/document_exemptions.py
+  docs:
+    available:
+    - AGENTS.md
+    - CHANGELOG.md
+    - CONTRIBUTING.md
+    - LICENSE
+    - PLAN.md
+    - PRIVACY.md
+    - README.md
+    - SECURITY.md
+    - SPEC.md
+    - SUPPORT.md
+    - devcovenant/README.md
+    enabled:
+    - AGENTS.md
+    - README.md
+    - CONTRIBUTING.md
+    - SPEC.md
+    - PLAN.md
+    - CHANGELOG.md
+    - devcovenant/README.md
+  custom:
+    dirs:
+    - devcovenant/custom
+    - devcovenant/custom/policies
+    - devcovenant/custom/profiles
+    files:
+    - devcovenant/custom/profiles/README.md
+    - devcovenant/custom/policies/README.md
+  generated:
+    dirs:
+    - devcovenant/registry/runtime
+    files:
+    - devcovenant/registry/runtime/gate_status.json
+    - devcovenant/registry/runtime/latest.json
+    - devcovenant/registry/runtime/workflow_session.json
+  profiles:
+    active: []
+    resolved_pre_commit_hooks: []

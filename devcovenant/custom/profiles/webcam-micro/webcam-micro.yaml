@@ -1,0 +1,27 @@
+version: 1
+profile: webcam-micro
+category: application
+suffixes: []
+ignore_dirs: []
+project-governance:
+  project_name: webcam-micro
+  project_description: >-
+    Cross-platform desktop microscope camera application for Linux and macOS.
+  stage: prototype
+  maintenance_stance: active
+  compatibility_policy: unspecified
+  versioning_mode: unversioned
+policy_overlays:
+  version-sync:
+    version_file: webcam-micro/VERSION
+  version-governance:
+    version_file: webcam-micro/VERSION
+  dependency-management:
+    surfaces:
+      - id: package_runtime
+        lock_file: webcam-micro/runtime-requirements.lock
+        third_party_file: webcam-micro/licenses/THIRD_PARTY_LICENSES.md
+        licenses_dir: webcam-micro/licenses
+        required_paths:
+          - pyproject.toml
+          - webcam-micro

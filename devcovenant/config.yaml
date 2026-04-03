@@ -1,0 +1,141 @@
+developer_mode: false
+profiles:
+  active:
+  - global
+  - defaults
+  - devcovuser
+  - github
+  - python
+  - docs
+  - webcam-micro
+  generated:
+    file_suffixes: []
+    devcov_core_paths:
+    - devcovenant/core
+    - devcovenant/builtin
+    - devcovenant/licenses
+    - devcovenant/__init__.py
+    - devcovenant/__main__.py
+    - devcovenant/asset.py
+    - devcovenant/cli.py
+    - devcovenant/check.py
+    - devcovenant/clean.py
+    - devcovenant/gate.py
+    - devcovenant/run.py
+    - devcovenant/policy.py
+    - devcovenant/install.py
+    - devcovenant/deploy.py
+    - devcovenant/upgrade.py
+    - devcovenant/refresh.py
+    - devcovenant/uninstall.py
+    - devcovenant/undeploy.py
+    - devcovenant/runtime-requirements.lock
+    - devcovenant/registry
+paths:
+  policy_definitions: AGENTS.md
+  registry_file: devcovenant/registry/registry.yaml
+  gate_status_file: devcovenant/registry/runtime/gate_status.json
+  workflow_session_file: devcovenant/registry/runtime/workflow_session.json
+doc_assets:
+  autogen:
+  - AGENTS.md
+  - README.md
+  - CONTRIBUTING.md
+  - SPEC.md
+  - PLAN.md
+  - CHANGELOG.md
+  - devcovenant/README.md
+  user: []
+install:
+  config_reviewed: false
+  import_managed_docs:
+  - SPEC.md
+engine:
+  fail_threshold: error
+  output_mode: verbose
+  tests_output_mode: verbose
+  logs_keep_last: 0
+  pycache_prefix_enabled: false
+  pycache_prefix: ''
+  auto_fix_enabled: false
+  file_suffixes:
+  - .md
+  - .rst
+  - .txt
+  - .yml
+  - .yaml
+  - .json
+  - .toml
+  ignore_dirs:
+  - .git
+  - .venv
+  - .python
+  - output
+  - logs
+  - build
+  - dist
+  - node_modules
+  - __pycache__
+  - .pytest_cache
+  - .ruff_cache
+  - .mypy_cache
+  - .tox
+  - .nox
+  - .hypothesis
+  - .cache
+  - .venv.lock
+clean:
+  overlays:
+    build_dirs: []
+    build_globs: []
+    cache_dirs: []
+    cache_globs: []
+    runtime_registry_dirs: []
+    runtime_registry_globs: []
+    logs_dirs: []
+    logs_globs: []
+    protected_dirs: []
+    protected_globs: []
+  overrides: {}
+ci_and_test:
+  overlays: {}
+  overrides: {}
+pre_commit:
+  overlays: {}
+  overrides: {}
+integrity:
+  watch_dirs: []
+  watch_files: []
+workflow:
+  pre_commit_command: pre-commit run --all-files
+policy_state:
+  managed-environment: true
+  raw-string-escapes: false
+  version-governance: false
+  version-sync: false
+project-governance: {}
+ignore:
+  patterns:
+  - devcovenant/config.yaml
+  - .vscode/**
+  - .idea/**
+  - '*.egg-info/**'
+  - pip-wheel-metadata/**
+  - .pytest_cache/**
+  - .ruff_cache/**
+  - .mypy_cache/**
+  - .tox/**
+  - .nox/**
+  - .hypothesis/**
+  - .coverage
+  - .coverage.*
+  - htmlcov/**
+  - devcovenant/logs/**
+  - devcovenant/registry/runtime/**
+gitignore:
+  overlays: []
+  overrides: []
+autogen_metadata_overlays: {}
+user_metadata_overlays: {}
+autogen_metadata_overrides: {}
+user_metadata_overrides: {}
