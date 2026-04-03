@@ -37,30 +37,29 @@ and required workflow law in `AGENTS.md`.
 15. [Pointers](#pointers)
 
 ## Overview
-- Project summary: `webcam-micro` is a cross-platform desktop microscope
-  camera application for Linux and macOS. It is a GUI-first tool for live
-  preview, camera control, still capture, video recording, crop and framing
-  control, calibration-oriented microscope work, and persistent per-camera
-  defaults.
+- Project summary: `webcam-micro` is a cross-platform microscope camera
+  application distributed as a Python package on PyPI. It is a GUI-first tool
+  for live preview, camera control, still capture, video recording, crop and
+  framing control, calibration-oriented microscope work, and persistent
+  per-camera defaults.
 
 - Primary problem: existing webcam viewers either waste preview space, do not
   expose camera controls well, do not support microscope-friendly crop and
   framing behavior, or force terminal-heavy workflows that are awkward for
   repeated microscope use.
 
-- Current scope: the current release line covers Linux and macOS from the
-  start, source-run development workflows, desktop packaging as a proper
-  Python application, live preview, fullscreen mode, a separate controls
-  window, configurable crop and framing behavior, still capture, video
-  recording, persistent folders, shortcuts, presets, defaults, and
-  microscope-specific workflow support such as calibration and overlays.
+- Current scope: the current release line covers all platforms from the
+  start, source-run development workflows, PyPI distribution as a proper
+  Python package, live preview, fullscreen mode, a separate controls window,
+  configurable crop and framing behavior, still capture, video recording,
+  persistent folders, shortcuts, presets, defaults, and microscope-specific
+  workflow support such as calibration and overlays.
 
 - Success signal: the product is clearly working when a user can run it from
-  source or as an installed desktop app, open a supported camera, see a
-  preview, adjust exposed controls, switch between fit/fill/crop preview
-  behavior, capture stills and video without terminal interaction, persist
-  defaults per camera, and use the application comfortably on both Linux and
-  macOS.
+  source or install it from PyPI, open a supported camera, see a preview,
+  adjust exposed controls, switch between fit/fill/crop preview behavior,
+  capture stills and video without terminal interaction, persist defaults per
+  camera, and use the application comfortably on all platforms.
 
 ## Workflow
 - Keep durable product requirements here.
@@ -89,25 +88,25 @@ It should make the following possible:
   see in preview
 - a user can work repeatedly with remembered defaults, presets, folders, and
   shortcuts
-- a developer can run and test the application directly from source during
-  development on Linux and macOS
+- a developer can install the package from PyPI or run it directly from
+  source during development on all platforms
 
 The project is worth building because microscope workflows are repetitive and
 precision-sensitive. A tool built around microscope reality is materially more
 useful than a generic webcam app with accidental microscope applicability.
 
 ## Goals
-- Provide a desktop microscope camera application that supports live preview,
-  still capture, video recording, camera control, crop/framing control, and
+- Provide a microscope camera application that supports live preview, still
+  capture, video recording, camera control, crop/framing control, and
   persistent defaults without requiring terminal-based workflows.
 
 - Provide a preview-first user experience in which controls do not permanently
   consume preview space and fullscreen operation remains practical and safe.
 
-- Provide a healthy cross-platform release line in which Linux and macOS are
-  both first-class targets, the application runs from source during
-  development, and backend/platform differences are contained behind stable
-  product behavior.
+- Provide a healthy cross-platform release line in which the application is
+  published on PyPI, works on all platforms, runs from source during
+  development, and contains backend/platform differences behind stable product
+  behavior.
 
 ## Non-Goals
 - The project is not trying to be a generic all-purpose photo editor, video
@@ -133,9 +132,10 @@ useful than a generic webcam app with accidental microscope applicability.
   predictable output folders, diagnostics, and trustworthy persistence.
 
 - Operational actor: a developer, maintainer, or tester running the program
-  from source or packaging it for distribution. This actor needs a stable
-  application entrypoint, a clear source-run workflow, modular backend
-  boundaries, and diagnostics that expose runtime state and backend failures.
+  from source or installing and publishing it as a Python package. This actor
+  needs a stable application entrypoint, a clear source-run workflow, PyPI
+  distribution readiness, modular backend boundaries, and diagnostics that
+  expose runtime state and backend failures.
 
 ## Core Workflows
 1. Open camera session and preview microscope image.
@@ -175,11 +175,11 @@ useful than a generic webcam app with accidental microscope applicability.
      to essential actions and safe fullscreen exit controls.
 
 ## Functional Requirements
-- The product must support Linux and macOS from the start, including macOS on
-  both Intel and Apple Silicon.
+- The product must be published as a Python package on PyPI and must work on
+  all platforms.
 
-- The product must be runnable both as an installed application and directly
-  from source during development and testing.
+- The product must be runnable both as an installed package and directly from
+  source during development and testing.
 
 - The main application window must contain a menu bar, a top toolbar, a
   central preview area, and a dynamic status bar at the bottom.
@@ -243,6 +243,11 @@ useful than a generic webcam app with accidental microscope applicability.
 - The product must expose the controls that the active camera/backend actually
   provides, including numeric, boolean, enumerated, read-only, and meaningful
   action controls.
+
+- Numeric controls that expose values must use guvcview-style settings
+  components: a slider, min/mid/max labels shown beneath the slider, and an
+  adjacent input field with up/down arrows. The input field must update live
+  from the slider, and invalid typed values must clear to blank.
 
 - The product must tolerate cameras that expose only a subset of common
   controls and must not fail simply because some expected controls are absent.
@@ -349,8 +354,8 @@ useful than a generic webcam app with accidental microscope applicability.
 
 - Maintainability: the codebase must separate UI, camera-backend abstraction,
   capture and recording pipeline, settings and persistence, and
-  platform-specific integrations so that Linux and macOS remain maintainable
-  as first-class targets.
+  platform-specific integrations so that all-platform support remains
+  maintainable.
 
 - Usability: the application must remain GUI-first, preview-first, and quiet
   in normal operation, must avoid requiring terminal interaction, and must
@@ -381,7 +386,8 @@ useful than a generic webcam app with accidental microscope applicability.
 ## Interfaces and Dependencies
 - External interfaces: desktop GUI, application menus, toolbar actions,
   keyboard shortcuts, image and video output files, platform camera backends,
-  and the application entrypoint exposed as `webcam-micro`.
+  the PyPI package distribution, and the application entrypoint exposed as
+  `webcam-micro`.
 
 - Internal interfaces: UI layer, camera-discovery layer, camera-control
   abstraction, preview/capture pipeline, persistence layer, diagnostics
@@ -390,16 +396,15 @@ useful than a generic webcam app with accidental microscope applicability.
 
 - Dependencies: Python runtime, a cross-platform Python GUI toolkit, platform
   camera APIs or compatible backend integrations, image/video encoding support,
-  and desktop integration mechanisms appropriate to Linux and macOS.
+  and platform integration mechanisms appropriate to the active platform.
 
-- Compatibility expectations: Linux and macOS are required target platforms;
-  macOS support includes Intel and Apple Silicon; source-run development must
-  be supported; platform backend differences must not leak upward into broken
-  user-facing contracts.
+- Compatibility expectations: the PyPI package is intended to work on all
+  platforms; source-run development must be supported; platform backend
+  differences must not leak upward into broken user-facing contracts.
 
 ## Constraints and Assumptions
-- Constraint: Linux and macOS camera backends differ materially in control
-  exposure and device behavior, so the product cannot assume identical control
+- Constraint: camera backends differ materially in control exposure and device
+  behavior across platforms, so the product cannot assume identical control
   surfaces across all devices and platforms.
 
 - Assumption: the active camera/backend will usually expose at least a
@@ -412,25 +417,25 @@ useful than a generic webcam app with accidental microscope applicability.
   behavior everywhere.
 
 ## Acceptance Criteria
-- A developer can clone the repository, install development dependencies, run
-  the application directly from source on a supported platform, open a camera
-  session, and use the main preview workflow without needing a terminal for
-  runtime interaction.
+- A developer can clone the repository, install development dependencies,
+  install the package from PyPI or run the application directly from source
+  on any platform, open a camera session, and use the main preview workflow
+  without needing a terminal for runtime interaction.
 
 - A user can open the controls window, adjust the controls that the active
   camera exposes, switch between fit/fill/crop framing behavior, capture a
   still image, start and stop a video recording, and find the outputs in the
   configured folders.
 
-- A supported Linux or macOS user can enter fullscreen mode, use the detached
-  toolbar in expanded and collapsed states, exit fullscreen safely, relaunch
-  the application later, and observe persisted defaults, folders, presets, and
+- A user on any platform can enter fullscreen mode, use the detached toolbar
+  in expanded and collapsed states, exit fullscreen safely, relaunch the
+  application later, and observe persisted defaults, folders, presets, and
   shortcut behavior consistent with the saved configuration.
 
 ## Open Questions
 - Which exact cross-platform GUI toolkit and preview/rendering strategy should
   be treated as the initial implementation baseline while preserving the
-  durable product contract defined here?
+  durable product contract defined here across all platforms?
 
 - What should the exact default keyboard-shortcut map be for first release,
   including still capture, record toggle, framing-mode change, and

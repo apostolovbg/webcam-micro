@@ -61,6 +61,17 @@ Example:
 ## Unreleased
 
 - 2026-04-03:
+  Change: Updated the product spec to define PyPI package distribution,
+    all-platform support, and guvcview-style numeric settings controls.
+  Why: Align the durable requirements with the intended package model and the
+    required settings-widget behavior.
+  Impact: The governed spec now treats PyPI publishing, all-platform runtime,
+    and the slider-plus-input control contract as canonical.
+  Files:
+  CHANGELOG.md
+  SPEC.md
+
+- 2026-04-03:
   Change: Removed the stray ` 2`-suffixed repository directory.
   Why: Keep the tree free of accidental duplicate-named paths.
   Impact: Leave the governed repository layout cleaner and easier to trust.
