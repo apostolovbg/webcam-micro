@@ -61,6 +61,14 @@ Example:
 ## Unreleased
 
 - 2026-04-03:
+  Change: Removed the stray ` 2`-suffixed repository directory.
+  Why: Keep the tree free of accidental duplicate-named paths.
+  Impact: Leave the governed repository layout cleaner and easier to trust.
+  Files:
+  CHANGELOG.md
+  devcovenant/core 2
+
+- 2026-04-03:
   Change: Bootstrap DevCovenant governance, generated assets, and
     bootstrap test coverage for the repository.
   Why: Record the reviewed repo setup and keep the intentional descriptor
