@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "webcam-micro"
+version = "{{version}}"
+description = """
+Cross-platform desktop microscope camera application for \
+Linux and macOS."""
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }

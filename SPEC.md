@@ -9,7 +9,10 @@
 **Last Updated:** 2026-04-03
 **DevCovenant Version:** 1.0.1b1
 
-
+<!-- DEVCOV:BEGIN -->
+This opening section is managed by DevCovenant.
+Use `SPEC.md` only for durable project rules below this block.
+<!-- DEVCOV:END -->
 
 Use this document for durable product requirements and stable project
 decisions.
