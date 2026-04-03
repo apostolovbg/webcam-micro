@@ -332,8 +332,8 @@ workflow:
 
 project-governance:
   project_name: webcam-micro
-  project_description: Cross-platform desktop microscope camera application for Linux
-    and macOS.
+  project_description: Cross-platform microscope camera application distributed as
+    a Python package on PyPI.
   copyright_notice: YEAR Legal Owner Name
   stage: prototype
   maintenance_stance: active
@@ -963,20 +963,19 @@ autogen_metadata_overlays:
           python_version: '3.14'
           abi: cp314
     - id: package_runtime
-      lock_file: webcam-micro/runtime-requirements.lock
+      lock_file: webcam_micro/runtime-requirements.lock
       direct_dependency_files:
       - pyproject.toml
       dependency_files:
       - pyproject.toml
-      third_party_file: webcam-micro/licenses/THIRD_PARTY_LICENSES.md
-      licenses_dir: webcam-micro/licenses
+      third_party_file: webcam_micro/licenses/THIRD_PARTY_LICENSES.md
+      licenses_dir: webcam_micro/licenses
       report_heading: '## License Report'
       manage_licenses_readme: 'true'
       generate_hashes: 'true'
       required_paths:
       - pyproject.toml
       - '{{ PROJECT_NAME_PATH }}'
-      - webcam-micro
       hash_targets:
       - id: linux-py310
         marker: sys_platform == "linux" and python_version == "3.10"
@@ -1341,7 +1340,7 @@ autogen_metadata_overlays:
     pep440_allow_dev_releases: 'true'
     pep440_allow_post_releases: 'true'
     pep440_allow_prereleases: 'true'
-    version_file: webcam-micro/VERSION
+    version_file: webcam_micro/VERSION
   version-sync:
     changelog_file: CHANGELOG.md
     changelog_header_prefix: '## Version'
@@ -1363,7 +1362,7 @@ autogen_metadata_overlays:
     - docs
     - changelog
     - package_manifest
-    version_file: webcam-micro/VERSION
+    version_file: webcam_micro/VERSION
 
 # Human-owned subsection.
 

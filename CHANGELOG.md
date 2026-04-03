@@ -61,6 +61,84 @@ Example:
 ## Unreleased
 
 - 2026-04-03:
+  Change: Consolidated the app-owned package, version, and package-runtime
+    artifacts into the single `webcam_micro/` directory.
+  Why: The repository should not split the Stage 1 app layout across both
+    `webcam_micro/` and `webcam-micro/`.
+  Impact: The Python package, version file, runtime lock, and package
+    licenses now share one app-owned path, and tests pin that layout.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  pyproject.toml
+  devcovenant/config.yaml
+  devcovenant/custom/profiles/webcam-micro/webcam-micro.yaml
+  devcovenant/registry/registry.yaml
+  tests/test_app.py
+  webcam-micro/VERSION
+  webcam-micro/licenses/README.md
+  webcam-micro/licenses/THIRD_PARTY_LICENSES.md
+  webcam-micro/runtime-requirements.lock
+  webcam_micro/VERSION
+  webcam_micro/licenses/README.md
+  webcam_micro/licenses/THIRD_PARTY_LICENSES.md
+  webcam_micro/runtime-requirements.lock
+
+- 2026-04-03:
+  Change: Cleaned the Stage 1 package metadata and documented the installed
+    launcher path in the README quick start.
+  Why: The isolated package build surfaced a deprecated manifest form, and
+    Stage 1 docs needed to show the governed console entrypoint explicitly.
+  Impact: The package manifest now uses the non-deprecated license field form,
+    and the README shows how the installed `webcam-micro` launcher fits into
+    the prototype workflow.
+  Files:
+  CHANGELOG.md
+  README.md
+  pyproject.toml
+
+- 2026-04-03:
+  Change: Built the Stage 1 application foundation with a real package
+    skeleton, console entrypoint, minimal GUI shell, and backend contracts.
+  Why: The prototype needed a concrete installable starting point before
+    camera preview, controls, and capture work could land.
+  Impact: The repository now has a `webcam_micro` package, a governed Stage 1
+    architecture baseline, and tests that verify the entrypoint and
+    foundation wiring.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  SPEC.md
+  pyproject.toml
+  devcovenant/config.yaml
+  devcovenant/custom/profiles/webcam-micro/webcam-micro.yaml
+  webcam_micro/__init__.py
+  webcam_micro/__main__.py
+  webcam_micro/app.py
+  webcam_micro/camera.py
+  webcam_micro/ui.py
+  tests/test_app.py
+  tests/test_camera.py
+  tests/test_ui.py
+  webcam-micro/runtime-requirements.lock
+  webcam-micro/licenses/README.md
+  webcam-micro/licenses/THIRD_PARTY_LICENSES.md
+
+- 2026-04-03:
+  Change: Replaced the placeholder development plan with a concrete
+    dependency-ordered roadmap for building the prototype application.
+  Why: The repository needed an actionable active-work plan aligned with the
+    current product spec instead of template text.
+  Impact: `PLAN.md` now describes the build sequence from package foundation
+    through preview, controls, capture, persistence, diagnostics, and release
+    readiness.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+
+- 2026-04-03:
   Change: Updated the product spec to define PyPI package distribution,
     all-platform support, and guvcview-style numeric settings controls.
   Why: Align the durable requirements with the intended package model and the

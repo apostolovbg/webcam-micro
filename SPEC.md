@@ -396,7 +396,10 @@ useful than a generic webcam app with accidental microscope applicability.
 
 - Dependencies: Python runtime, a cross-platform Python GUI toolkit, platform
   camera APIs or compatible backend integrations, image/video encoding support,
-  and platform integration mechanisms appropriate to the active platform.
+  and platform integration mechanisms appropriate to the active platform. The
+  initial GUI shell baseline is `ttkbootstrap` on top of Tk, and the first
+  concrete device-backend target is OpenCV-backed discovery and preview
+  behind a backend adapter layer.
 
 - Compatibility expectations: the PyPI package is intended to work on all
   platforms; source-run development must be supported; platform backend
@@ -433,10 +436,6 @@ useful than a generic webcam app with accidental microscope applicability.
   shortcut behavior consistent with the saved configuration.
 
 ## Open Questions
-- Which exact cross-platform GUI toolkit and preview/rendering strategy should
-  be treated as the initial implementation baseline while preserving the
-  durable product contract defined here across all platforms?
-
 - What should the exact default keyboard-shortcut map be for first release,
   including still capture, record toggle, framing-mode change, and
   fullscreen-toolbar collapse/expand actions?

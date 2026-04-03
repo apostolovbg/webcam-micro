@@ -1,11 +1,11 @@
 metadata:
   schema_version: 1
   registry_layout: single-root
-  policy_registry_input_hash: 76c8fb274b5b255bdd2c06ffe670cab65293c742b2dbec6ee2f39906af0738c4
+  policy_registry_input_hash: 395d90856293d30c7fece9c1b06dcf7023d83aff1b7b77ff70591c0d16572a2d
 project-governance:
   project_name: webcam-micro
-  project_description: Cross-platform desktop microscope camera application for Linux
-    and macOS.
+  project_description: Cross-platform microscope camera application distributed as
+    a Python package on PyPI.
   copyright_notice: YEAR Legal Owner Name
   project_version: Unversioned
   stage: prototype
@@ -2285,20 +2285,19 @@ policies:
             python_version: '3.14'
             abi: cp314
       - id: package_runtime
-        lock_file: webcam-micro/runtime-requirements.lock
+        lock_file: webcam_micro/runtime-requirements.lock
         direct_dependency_files:
         - pyproject.toml
         dependency_files:
         - pyproject.toml
-        third_party_file: webcam-micro/licenses/THIRD_PARTY_LICENSES.md
-        licenses_dir: webcam-micro/licenses
+        third_party_file: webcam_micro/licenses/THIRD_PARTY_LICENSES.md
+        licenses_dir: webcam_micro/licenses
         report_heading: '## License Report'
         manage_licenses_readme: 'true'
         generate_hashes: 'true'
         required_paths:
         - pyproject.toml
         - '{{ PROJECT_NAME_PATH }}'
-        - webcam-micro
         hash_targets:
         - id: linux-py310
           marker: sys_platform == "linux" and python_version == "3.10"
@@ -2704,20 +2703,19 @@ policies:
                   python_version: '3.14'
                   abi: cp314
             - id: package_runtime
-              lock_file: webcam-micro/runtime-requirements.lock
+              lock_file: webcam_micro/runtime-requirements.lock
               direct_dependency_files:
               - pyproject.toml
               dependency_files:
               - pyproject.toml
-              third_party_file: webcam-micro/licenses/THIRD_PARTY_LICENSES.md
-              licenses_dir: webcam-micro/licenses
+              third_party_file: webcam_micro/licenses/THIRD_PARTY_LICENSES.md
+              licenses_dir: webcam_micro/licenses
               report_heading: '## License Report'
               manage_licenses_readme: 'true'
               generate_hashes: 'true'
               required_paths:
               - pyproject.toml
               - '{{ PROJECT_NAME_PATH }}'
-              - webcam-micro
               hash_targets:
               - id: linux-py310
                 marker: sys_platform == "linux" and python_version == "3.10"
@@ -3068,20 +3066,19 @@ policies:
                   python_version: '3.14'
                   abi: cp314
             - id: package_runtime
-              lock_file: webcam-micro/runtime-requirements.lock
+              lock_file: webcam_micro/runtime-requirements.lock
               direct_dependency_files:
               - pyproject.toml
               dependency_files:
               - pyproject.toml
-              third_party_file: webcam-micro/licenses/THIRD_PARTY_LICENSES.md
-              licenses_dir: webcam-micro/licenses
+              third_party_file: webcam_micro/licenses/THIRD_PARTY_LICENSES.md
+              licenses_dir: webcam_micro/licenses
               report_heading: '## License Report'
               manage_licenses_readme: 'true'
               generate_hashes: 'true'
               required_paths:
               - pyproject.toml
               - '{{ PROJECT_NAME_PATH }}'
-              - webcam-micro
               hash_targets:
               - id: linux-py310
                 marker: sys_platform == "linux" and python_version == "3.10"
@@ -3432,20 +3429,19 @@ policies:
                   python_version: '3.14'
                   abi: cp314
             - id: package_runtime
-              lock_file: webcam-micro/runtime-requirements.lock
+              lock_file: webcam_micro/runtime-requirements.lock
               direct_dependency_files:
               - pyproject.toml
               dependency_files:
               - pyproject.toml
-              third_party_file: webcam-micro/licenses/THIRD_PARTY_LICENSES.md
-              licenses_dir: webcam-micro/licenses
+              third_party_file: webcam_micro/licenses/THIRD_PARTY_LICENSES.md
+              licenses_dir: webcam_micro/licenses
               report_heading: '## License Report'
               manage_licenses_readme: 'true'
               generate_hashes: 'true'
               required_paths:
               - pyproject.toml
               - '{{ PROJECT_NAME_PATH }}'
-              - webcam-micro
               hash_targets:
               - id: linux-py310
                 marker: sys_platform == "linux" and python_version == "3.10"
@@ -3856,20 +3852,19 @@ policies:
             python_version: 3.14
             abi: cp314
       - id: package_runtime
-        lock_file: webcam-micro/runtime-requirements.lock
+        lock_file: webcam_micro/runtime-requirements.lock
         direct_dependency_files:
         - pyproject.toml
         dependency_files:
         - pyproject.toml
-        third_party_file: webcam-micro/licenses/THIRD_PARTY_LICENSES.md
-        licenses_dir: webcam-micro/licenses
+        third_party_file: webcam_micro/licenses/THIRD_PARTY_LICENSES.md
+        licenses_dir: webcam_micro/licenses
         report_heading: '## License Report'
         manage_licenses_readme: true
         generate_hashes: true
         required_paths:
         - pyproject.toml
         - '{{ PROJECT_NAME_PATH }}'
-        - webcam-micro
         hash_targets:
         - id: linux-py310
           marker: sys_platform == "linux" and python_version == "3.10"
@@ -3995,9 +3990,9 @@ policies:
     - devcovenant/licenses/THIRD_PARTY_LICENSES.md
     - devcovenant/runtime-requirements.lock
     - licenses/THIRD_PARTY_LICENSES.md
-    - webcam-micro/licenses
-    - webcam-micro/licenses/THIRD_PARTY_LICENSES.md
-    - webcam-micro/runtime-requirements.lock
+    - webcam_micro/licenses
+    - webcam_micro/licenses/THIRD_PARTY_LICENSES.md
+    - webcam_micro/runtime-requirements.lock
     origin: builtin
     script_exists: true
     hash: 007757ac511564ab81f01fb1e416ae6a7c90c3fc4323aac9f5a5d0920a2f5cf0
@@ -4010,6 +4005,12 @@ policies:
             lock_file: c32ea9776fde7f943a0cd2068074af9c4354116dd6d8c218fa81ca712e895822
             third_party_file: 99152d54aa907af6643617a0cd6c6731b86b4fed2ddc4fdb292cf0f3b5698c1e
             licenses_dir: d91fa73402fa8d2ac1d5217c418a97d207ae4e47be257fad1bbb2380af2c3a9f
+        package_runtime:
+          input_fingerprint: 2ccaff46f6c3602142758351a759b318cbb1b1fa516b870d5e11f2e2f86f5796
+          output_fingerprints:
+            lock_file: 3ab61e8d6e70693a1a0e73dd1b19a0e43ea3e473cd45d08fdaffc5d7bdc24636
+            third_party_file: f2020d6ca1e6131217b1a86c06a9207f76160781dc177c747090405ee883bb94
+            licenses_dir: 19b2959754fc069018ed57ea380826678519bfcc035df145a812847eb78b6218
   docstring-and-comment-coverage:
     enabled: true
     custom: false
@@ -11172,7 +11173,7 @@ policies:
       scheme: []
       enforce_bumping: 'true'
       canonical_versions_required: 'false'
-      version_file: webcam-micro/VERSION
+      version_file: webcam_micro/VERSION
       changelog_file: CHANGELOG.md
       changelog_header_prefix: '## Version'
       ignored_prefixes: []
@@ -11295,17 +11296,17 @@ policies:
           - ()
         profile_overlays:
           values:
-          - webcam-micro/VERSION
+          - webcam_micro/VERSION
           behavior: replace
         autogen_overlays:
           values:
-          - webcam-micro/VERSION
+          - webcam_micro/VERSION
           behavior: replace
           replaced_inherited_values:
-          - webcam-micro/VERSION
+          - webcam_micro/VERSION
         effective:
           values:
-          - webcam-micro/VERSION
+          - webcam_micro/VERSION
       changelog_file:
         descriptor:
           values: []
@@ -11536,7 +11537,7 @@ policies:
       scheme: []
       enforce_bumping: true
       canonical_versions_required: false
-      version_file: webcam-micro/VERSION
+      version_file: webcam_micro/VERSION
       changelog_file: CHANGELOG.md
       changelog_header_prefix: '## Version'
       ignored_prefixes: []
@@ -11561,7 +11562,7 @@ policies:
       custom: false
       enforce_bumping: true
       canonical_versions_required: false
-      version_file: webcam-micro/VERSION
+      version_file: webcam_micro/VERSION
       changelog_file: CHANGELOG.md
       changelog_header_prefix: '## Version'
       semver_scope_tags_required: false
@@ -11571,7 +11572,7 @@ policies:
       selector_roles: ignored
     assets:
     - CHANGELOG.md
-    - webcam-micro/VERSION
+    - webcam_micro/VERSION
     origin: builtin
     script_exists: true
     hash: ae76928adcea8bf38adb4fe7e5ca4edf16a124c92f5a16b5b4d790a49851586f
@@ -11605,7 +11606,7 @@ policies:
       enforcement: active
       enabled: 'false'
       custom: 'false'
-      version_file: webcam-micro/VERSION
+      version_file: webcam_micro/VERSION
       target_roles:
       - docs
       - changelog
@@ -11688,17 +11689,17 @@ policies:
           - ()
         profile_overlays:
           values:
-          - webcam-micro/VERSION
+          - webcam_micro/VERSION
           behavior: replace
         autogen_overlays:
           values:
-          - webcam-micro/VERSION
+          - webcam_micro/VERSION
           behavior: replace
           replaced_inherited_values:
-          - webcam-micro/VERSION
+          - webcam_micro/VERSION
         effective:
           values:
-          - webcam-micro/VERSION
+          - webcam_micro/VERSION
       target_roles:
         descriptor:
           values:
@@ -11945,7 +11946,7 @@ policies:
       enforcement: active
       enabled: false
       custom: false
-      version_file: webcam-micro/VERSION
+      version_file: webcam_micro/VERSION
       target_roles: &id102
       - docs
       - changelog
@@ -11981,7 +11982,7 @@ policies:
       enforcement: active
       enabled: false
       custom: false
-      version_file: webcam-micro/VERSION
+      version_file: webcam_micro/VERSION
       target_roles: *id102
       role_extractors: *id103
       role_legality_schemes: *id104
@@ -11997,7 +11998,7 @@ policies:
     - docs=>PLAN.md
     - docs=>README.md
     - docs=>SPEC.md
-    - webcam-micro/VERSION
+    - webcam_micro/VERSION
     origin: builtin
     script_exists: true
     hash: 0fa8eba32b447355b354bffe7fd2146077cac99335517f0cd7f14108ce8c4a98
@@ -14798,26 +14799,23 @@ profiles:
     ignore_dirs: []
     project-governance:
       project_name: webcam-micro
-      project_description: Cross-platform desktop microscope camera application for
-        Linux and macOS.
+      project_description: Cross-platform microscope camera application distributed
+        as a Python package on PyPI.
       stage: prototype
       maintenance_stance: active
       compatibility_policy: unspecified
       versioning_mode: unversioned
     policy_overlays:
       version-sync:
-        version_file: webcam-micro/VERSION
+        version_file: webcam_micro/VERSION
       version-governance:
-        version_file: webcam-micro/VERSION
+        version_file: webcam_micro/VERSION
       dependency-management:
         surfaces:
         - id: package_runtime
-          lock_file: webcam-micro/runtime-requirements.lock
-          third_party_file: webcam-micro/licenses/THIRD_PARTY_LICENSES.md
-          licenses_dir: webcam-micro/licenses
-          required_paths:
-          - pyproject.toml
-          - webcam-micro
+          lock_file: webcam_micro/runtime-requirements.lock
+          third_party_file: webcam_micro/licenses/THIRD_PARTY_LICENSES.md
+          licenses_dir: webcam_micro/licenses
     source: custom
     path: devcovenant/custom/profiles/webcam-micro
     assets_available: []

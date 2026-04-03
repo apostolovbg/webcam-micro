@@ -4,10 +4,19 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "webcam-micro"
-version = "{{version}}"
+version = "0.0.1"
 description = """
-Cross-platform desktop microscope camera application for \
-Linux and macOS."""
+Cross-platform microscope camera application distributed \
+as a Python package on PyPI."""
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
+dependencies = [
+    "ttkbootstrap>=1.20,<2",
+]
+
+[project.scripts]
+webcam-micro = "webcam_micro.app:main"
+
+[tool.setuptools.packages.find]
+include = ["webcam_micro*"]

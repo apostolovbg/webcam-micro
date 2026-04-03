@@ -770,20 +770,19 @@ surfaces:
       python_version: '3.14'
       abi: cp314
 - id: package_runtime
-  lock_file: webcam-micro/runtime-requirements.lock
+  lock_file: webcam_micro/runtime-requirements.lock
   direct_dependency_files:
   - pyproject.toml
   dependency_files:
   - pyproject.toml
-  third_party_file: webcam-micro/licenses/THIRD_PARTY_LICENSES.md
-  licenses_dir: webcam-micro/licenses
+  third_party_file: webcam_micro/licenses/THIRD_PARTY_LICENSES.md
+  licenses_dir: webcam_micro/licenses
   report_heading: '## License Report'
   manage_licenses_readme: 'true'
   generate_hashes: 'true'
   required_paths:
   - pyproject.toml
   - '{{ PROJECT_NAME_PATH }}'
-  - webcam-micro
   hash_targets:
   - id: linux-py310
     marker: sys_platform == "linux" and python_version == "3.10"
@@ -1898,7 +1897,7 @@ custom: 'false'
 scheme: []
 enforce_bumping: 'true'
 canonical_versions_required: 'false'
-version_file: webcam-micro/VERSION
+version_file: webcam_micro/VERSION
 changelog_file: CHANGELOG.md
 changelog_header_prefix: '## Version'
 ignored_prefixes: []
@@ -1937,7 +1936,7 @@ auto_fix: 'true'
 enforcement: active
 enabled: 'false'
 custom: 'false'
-version_file: webcam-micro/VERSION
+version_file: webcam_micro/VERSION
 target_roles:
 - docs
 - changelog
