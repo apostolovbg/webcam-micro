@@ -39,6 +39,8 @@ class ApplicationEntryPointTest(unittest.TestCase):
         self.assertIn("recording", plan.shell_contract)
         self.assertIn("preferences", plan.shell_contract)
         self.assertIn("diagnostics", plan.shell_contract)
+        self.assertIn("failure log", plan.shell_contract)
+        self.assertIn("exit checks", plan.shell_contract)
         self.assertIn("fullscreen", plan.shell_contract)
 
     def test_launch_plan_symbol_stays_explicit(self) -> None:

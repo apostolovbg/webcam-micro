@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from webcam_micro import APP_NAME, GUI_BASELINE, SHELL_TITLE
+from webcam_micro import APP_NAME, GUI_BASELINE, PACKAGE_NAME, SHELL_TITLE
 from webcam_micro.camera import (
     CameraControl,
     CameraControlApplyError,
@@ -305,6 +305,54 @@ def build_diagnostics_lines(
         f"Image folder: {image_directory}",
         f"Video folder: {video_directory}",
         f"Notice: {notice}",
+    )
+
+
+def build_prototype_exit_check_lines(
+    *,
+    app_name: str,
+    package_name: str,
+    gui_baseline: str,
+    backend_name: str,
+    camera_name: str,
+    preview_state: str,
+    source_mode: str,
+    preview_framing_mode: str,
+    capture_framing_mode: str,
+    controls_surface_state: str,
+    fullscreen_state: str,
+    current_preset_name: str,
+    recording_state: str,
+    image_directory: str,
+    video_directory: str,
+    diagnostic_event_count: int,
+) -> tuple[str, ...]:
+    """Return one release-readiness and exit-check report."""
+
+    return (
+        "Release readiness",
+        f"Package: {package_name}",
+        f"Entry point: {app_name}",
+        "Python floor: 3.11+",
+        f"GUI baseline: {gui_baseline}",
+        "Build artifacts: governance-gated CI distributions",
+        "Publish path: trusted publishing from validated CI artifacts",
+        "",
+        "Prototype exit checks",
+        f"Backend: {backend_name}",
+        f"Camera: {camera_name}",
+        f"Preview state: {preview_state}",
+        f"Source mode: {source_mode}",
+        f"Preview framing: {preview_framing_mode}",
+        f"Capture framing: {capture_framing_mode}",
+        f"Controls dock: {controls_surface_state}",
+        f"Fullscreen: {fullscreen_state}",
+        f"Preset: {current_preset_name}",
+        f"Recording: {recording_state}",
+        f"Image folder: {image_directory}",
+        f"Video folder: {video_directory}",
+        f"Recent diagnostic events: {diagnostic_event_count}",
+        "Open gap: cross-platform recording container validation.",
     )
 
 
@@ -865,6 +913,7 @@ class PreviewApplication:
         )
         self._last_recording_error: str | None = None
         self._status_notice = "Workspace ready."
+        self._diagnostic_events: list[str] = []
         self._shortcut_text_by_action: dict[str, str] = {}
 
         self._window = None
@@ -1687,6 +1736,7 @@ class PreviewApplication:
         if recording_error and recording_error != self._last_recording_error:
             self._last_recording_error = recording_error
             self._set_status(self._preview_state, notice=recording_error)
+            self._record_diagnostic_event(recording_error)
         state = self._session.recording_state
         duration = self._session.recording_duration_milliseconds
         if state == "recording":
@@ -1740,6 +1790,48 @@ class PreviewApplication:
             controls_surface_state=self._controls_surface_state(),
             fullscreen_state=self._fullscreen_state_label(),
             notice=self._status_notice,
+        )
+
+    def _record_diagnostic_event(self, message: str) -> None:
+        """Store one recoverable failure or notable runtime event."""
+
+        text = _settings_text(message)
+        if not text:
+            return
+        entry = f"{datetime.now().strftime('%H:%M:%S')} {text}"
+        if self._diagnostic_events and self._diagnostic_events[-1] == entry:
+            return
+        self._diagnostic_events.append(entry)
+        if len(self._diagnostic_events) > 24:
+            self._diagnostic_events = self._diagnostic_events[-24:]
+
+    def _diagnostic_log_lines(self) -> tuple[str, ...]:
+        """Return the current diagnostic-event log for the shell."""
+
+        if not self._diagnostic_events:
+            return ("No recoverable failures have been recorded yet.",)
+        return tuple(self._diagnostic_events)
+
+    def _current_exit_check_lines(self) -> tuple[str, ...]:
+        """Return the current release-readiness and exit-check report."""
+
+        return build_prototype_exit_check_lines(
+            app_name=APP_NAME,
+            package_name=PACKAGE_NAME,
+            gui_baseline=GUI_BASELINE,
+            backend_name=self._backend.backend_name,
+            camera_name=self._selected_camera_name(),
+            preview_state=self._preview_state,
+            source_mode=self._source_mode_label(),
+            preview_framing_mode=self._preview_framing_mode,
+            capture_framing_mode=self._capture_framing_mode,
+            controls_surface_state=self._controls_surface_state(),
+            fullscreen_state=self._fullscreen_state_label(),
+            current_preset_name=self._current_preset_name or "none",
+            recording_state=self._recording_state,
+            image_directory=str(self._image_directory),
+            video_directory=str(self._video_directory),
+            diagnostic_event_count=len(self._diagnostic_events),
         )
 
     def _select_output_path(
@@ -2020,6 +2112,7 @@ class PreviewApplication:
                 message = f"{control.label} cleared an invalid value."
                 self._set_controls_notice(message)
                 self._set_status(self._preview_state, notice=message)
+                self._record_diagnostic_event(message)
                 return
             sync_slider(numeric_value)
             sync_field(numeric_value)
@@ -2173,6 +2266,7 @@ class PreviewApplication:
             self._active_controls = ()
             self._controls_by_id = {}
             self._set_controls_notice(str(exc))
+            self._record_diagnostic_event(str(exc))
         else:
             self._active_controls = controls
             self._controls_by_id = {
@@ -2212,6 +2306,7 @@ class PreviewApplication:
         except CameraControlApplyError as exc:
             self._set_controls_notice(str(exc))
             self._set_status(self._preview_state, notice=str(exc))
+            self._record_diagnostic_event(str(exc))
             return
         self._settings.setValue(
             _camera_control_setting_key(descriptor.stable_id, control_id),
@@ -2298,6 +2393,7 @@ class PreviewApplication:
         except CameraControlApplyError as exc:
             self._set_controls_notice(str(exc))
             self._set_status(self._preview_state, notice=str(exc))
+            self._record_diagnostic_event(str(exc))
             return
         message = f"Triggered {control.label}."
         self._refresh_control_surface(notice=message)
@@ -2415,6 +2511,7 @@ class PreviewApplication:
             self._set_status(
                 "no devices", notice="No camera devices detected."
             )
+            self._record_diagnostic_event("No camera devices detected.")
             self._persist_workspace_state()
             return
 
@@ -2452,6 +2549,7 @@ class PreviewApplication:
             self._set_preview_message("No camera selected.")
             self._refresh_control_surface(notice="Choose a camera first.")
             self._set_status("no selection", notice="Choose a camera first.")
+            self._record_diagnostic_event("No camera selected.")
             return
         self.close_session()
         try:
@@ -2460,6 +2558,7 @@ class PreviewApplication:
             self._set_preview_message(str(exc))
             self._refresh_control_surface(notice=str(exc))
             self._set_status("open failed", notice="Camera open failed.")
+            self._record_diagnostic_event(str(exc))
             return
         self._refresh_recording_state()
         self._set_preview_message("Waiting for live preview frames...")
@@ -2467,6 +2566,9 @@ class PreviewApplication:
         self._apply_persisted_control_state()
         if self._current_preset_name is not None:
             if not self._apply_named_preset(self._current_preset_name):
+                self._record_diagnostic_event(
+                    f"Missing preset: {self._current_preset_name}."
+                )
                 self._current_preset_name = None
                 self._persist_workspace_state()
         else:
@@ -2486,6 +2588,7 @@ class PreviewApplication:
                 "preview failed",
                 notice="Preview failed; see on-screen error.",
             )
+            self._record_diagnostic_event(failure_reason)
             return
         frame = self._session.get_latest_frame()
         if self._recording_state != previous_recording_state:
@@ -2626,6 +2729,9 @@ class PreviewApplication:
                 self._preview_state,
                 notice="Wait for a live preview frame before saving a still.",
             )
+            self._record_diagnostic_event(
+                "Wait for a live preview frame before saving a still."
+            )
             return
         output_path = self._select_output_path(
             title="Save Still Image",
@@ -2637,6 +2743,7 @@ class PreviewApplication:
                 self._preview_state,
                 notice="Still capture canceled.",
             )
+            self._record_diagnostic_event("Still capture canceled.")
             return
         if not output_path.suffix:
             output_path = output_path.with_suffix(".png")
@@ -2656,6 +2763,7 @@ class PreviewApplication:
                 self._preview_state,
                 notice="Still capture failed.",
             )
+            self._record_diagnostic_event("Still capture failed.")
             return
         self._image_directory = output_path.parent
         self._persist_output_directories()
@@ -2671,6 +2779,9 @@ class PreviewApplication:
             self._set_status(
                 self._preview_state,
                 notice="Open a camera before starting a recording.",
+            )
+            self._record_diagnostic_event(
+                "Open a camera before starting a recording."
             )
             return
         if self._session.recording_state == "recording":
@@ -2691,6 +2802,7 @@ class PreviewApplication:
                 self._preview_state,
                 notice="Recording canceled.",
             )
+            self._record_diagnostic_event("Recording canceled.")
             return
         if not output_path.suffix:
             output_path = output_path.with_suffix(".mp4")
@@ -2698,6 +2810,9 @@ class PreviewApplication:
             self._set_status(
                 self._preview_state,
                 notice="Wait for a live preview frame before recording.",
+            )
+            self._record_diagnostic_event(
+                "Wait for a live preview frame before recording."
             )
             return
         target_width, target_height = self._preview_target_size()
@@ -2714,6 +2829,7 @@ class PreviewApplication:
             )
         except CameraOutputError as exc:
             self._set_status(self._preview_state, notice=str(exc))
+            self._record_diagnostic_event(str(exc))
             return
         self._video_directory = output_path.parent
         self._persist_output_directories()
@@ -2973,6 +3089,9 @@ class PreviewApplication:
                     "Missing preset",
                     "Save the named preset before applying it.",
                 )
+                self._record_diagnostic_event(
+                    f"Missing preset: {preset_name}."
+                )
                 return
             refresh_preset_combo(preset_name)
 
@@ -3063,14 +3182,24 @@ class PreviewApplication:
 
         dialog = QtWidgets.QDialog(self._window)
         dialog.setWindowTitle("Diagnostics")
-        dialog.resize(640, 420)
+        dialog.resize(760, 520)
         layout = QtWidgets.QVBoxLayout(dialog)
 
-        report = "\n".join(self._current_diagnostics_lines())
-        editor = QtWidgets.QPlainTextEdit(dialog)
-        editor.setReadOnly(True)
-        editor.setPlainText(report)
-        layout.addWidget(editor, 1)
+        tab_widget = QtWidgets.QTabWidget(dialog)
+
+        def add_text_tab(title: str, lines: tuple[str, ...]):
+            """Add one read-only text tab to the diagnostics surface."""
+
+            editor = QtWidgets.QPlainTextEdit(dialog)
+            editor.setReadOnly(True)
+            editor.setPlainText("\n".join(lines))
+            tab_widget.addTab(editor, title)
+            return editor
+
+        add_text_tab("Runtime", self._current_diagnostics_lines())
+        add_text_tab("Recent Notices", self._diagnostic_log_lines())
+        add_text_tab("Exit Checks", self._current_exit_check_lines())
+        layout.addWidget(tab_widget, 1)
 
         buttons = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.StandardButton.Close,
@@ -3080,9 +3209,16 @@ class PreviewApplication:
             "Copy",
             QtWidgets.QDialogButtonBox.ButtonRole.ActionRole,
         )
-        copy_button.clicked.connect(
-            lambda: self._application.clipboard().setText(report)
-        )
+
+        def copy_current_report() -> None:
+            """Copy the currently visible diagnostics tab."""
+
+            widget = tab_widget.currentWidget()
+            if widget is None or not hasattr(widget, "toPlainText"):
+                return
+            self._application.clipboard().setText(widget.toPlainText())
+
+        copy_button.clicked.connect(copy_current_report)
         buttons.rejected.connect(dialog.reject)
         buttons.accepted.connect(dialog.accept)
         layout.addWidget(buttons)
@@ -3090,7 +3226,7 @@ class PreviewApplication:
         getattr(dialog, "exec")()
         self._set_status(
             self._preview_state,
-            notice="Viewed diagnostics.",
+            notice="Viewed diagnostics and exit checks.",
         )
 
     def _copy_status_summary(self, _checked=False) -> None:

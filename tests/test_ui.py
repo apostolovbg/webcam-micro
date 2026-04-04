@@ -25,6 +25,7 @@ from webcam_micro.ui import (
     build_controls_surface_lines,
     build_diagnostics_lines,
     build_fullscreen_surface_actions,
+    build_prototype_exit_check_lines,
     build_runtime_status,
     build_shell_spec,
     format_numeric_control_value,
@@ -88,6 +89,7 @@ class ShellSpecTest(unittest.TestCase):
         self.assertTrue(callable(build_controls_surface_lines))
         self.assertTrue(callable(build_diagnostics_lines))
         self.assertTrue(callable(build_fullscreen_surface_actions))
+        self.assertTrue(callable(build_prototype_exit_check_lines))
         self.assertTrue(callable(build_shell_spec))
         self.assertTrue(callable(build_runtime_status))
         self.assertTrue(callable(format_recording_duration))
@@ -281,6 +283,52 @@ class ShellSpecTest(unittest.TestCase):
                 notice="Live preview active.",
             ),
         )
+        self.assertEqual(
+            (
+                "Release readiness",
+                "Package: webcam_micro",
+                "Entry point: webcam-micro",
+                "Python floor: 3.11+",
+                "GUI baseline: PySide6 Qt Widgets",
+                "Build artifacts: governance-gated CI distributions",
+                "Publish path: trusted publishing from validated CI "
+                "artifacts",
+                "",
+                "Prototype exit checks",
+                "Backend: qt_multimedia",
+                "Camera: Camera 0",
+                "Preview state: live",
+                "Source mode: 1280x720 live preview",
+                "Preview framing: fill",
+                "Capture framing: crop",
+                "Controls dock: open",
+                "Fullscreen: windowed",
+                "Preset: daylight",
+                "Recording: recording 00:05",
+                "Image folder: /tmp/images",
+                "Video folder: /tmp/videos",
+                "Recent diagnostic events: 3",
+                "Open gap: cross-platform recording container validation.",
+            ),
+            build_prototype_exit_check_lines(
+                app_name="webcam-micro",
+                package_name="webcam_micro",
+                gui_baseline="PySide6 Qt Widgets",
+                backend_name="qt_multimedia",
+                camera_name="Camera 0",
+                preview_state="live",
+                source_mode="1280x720 live preview",
+                preview_framing_mode="fill",
+                capture_framing_mode="crop",
+                controls_surface_state="open",
+                fullscreen_state="windowed",
+                current_preset_name="daylight",
+                recording_state="recording 00:05",
+                image_directory="/tmp/images",
+                video_directory="/tmp/videos",
+                diagnostic_event_count=3,
+            ),
+        )
         self.assertEqual("00:05", format_recording_duration(5_900))
 
     def test_output_helpers_freeze_capture_crop_and_setting_paths(
@@ -393,6 +441,9 @@ class ShellSpecTest(unittest.TestCase):
         preferences_source = inspect.getsource(
             PreviewApplication._open_preferences
         )
+        diagnostics_source = inspect.getsource(
+            PreviewApplication._open_diagnostics
+        )
 
         self.assertIn("def sync_field", numeric_builder_source)
         self.assertIn("def sync_slider", numeric_builder_source)
@@ -405,6 +456,10 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("Save Current", preferences_source)
         self.assertIn("Apply Selected", preferences_source)
         self.assertIn("refresh_preset_combo", preferences_source)
+        self.assertIn("QTabWidget", diagnostics_source)
+        self.assertIn("Recent Notices", diagnostics_source)
+        self.assertIn("Exit Checks", diagnostics_source)
+        self.assertIn("copy_current_report", diagnostics_source)
         self.assertIn("class ResizeAwareLabel", window_source)
         self.assertIn("class ResizeAwareMainWindow", window_source)
         self.assertIn("def resizeEvent", window_source)

@@ -61,6 +61,54 @@ Example:
 ## Version 0.0.1
 
 - 2026-04-04:
+  Change: Updated the changelog and diagnostics UI contract test to align
+    the current session with the tabbed diagnostics surface.
+  Why: Preserved changelog coverage while aligning the nested-shell
+    callback assertions with the diagnostics dialog source.
+  Impact: The top changelog entry now covers the session-local doc/test
+    follow-up without relabeling the earlier feature slice.
+  Files:
+  CHANGELOG.md
+  tests/test_ui.py
+
+- 2026-04-04:
+  Change: Completed the tabbed diagnostics view with a recent-failures log
+    and prototype exit checks for the Qt shell.
+  Why: Exposed recoverable failures and release-readiness checks directly
+    in the GUI so the prototype slice can be evaluated without log
+    scavenging.
+  Impact: Users can inspect runtime state, review recent issues, and see
+    explicit exit criteria from the app instead of chasing them in logs.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  tests/test_app.py
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/app.py
+  webcam_micro/ui.py
+
+- 2026-04-04:
+  Change: Added a tabbed diagnostics dialog with a recent-failures log and
+    prototype exit checks, and tightened the release-readiness contract
+    around the Qt shell.
+  Why: Finished the diagnostics and package-release readiness slice so the
+    prototype can surface recoverable failures and explicit exit criteria.
+  Impact: Users can inspect runtime state, recent issues, and release
+    readiness from the GUI, while the repo now documents the active exit
+    checks alongside the Qt baseline.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  tests/test_app.py
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/app.py
+  webcam_micro/ui.py
+
+- 2026-04-04:
   Change: Added named preset save and recall controls to the Qt
     preferences dialog and persisted the current preset with the rest of
     the workstation state.

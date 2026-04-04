@@ -317,7 +317,7 @@ PyPI-distributed microscope camera application.
      surfaces
    - shortcut conflicts are detected and blocked
 
-11. [not done] Add diagnostics, package-release readiness, and prototype
+11. [done] Add diagnostics, package-release readiness, and prototype
    exit checks.
    Goal:
    - make the prototype debuggable, testable, and ready for package
@@ -325,17 +325,16 @@ PyPI-distributed microscope camera application.
    Why this matters:
    - the prototype is only useful if failures are explainable and the package
      can be installed and exercised on real platforms
-   Work to do:
-   - add a user-accessible diagnostics surface or log view for runtime state
-     and non-fatal failures
-   - expand automated coverage beyond bootstrap so core app flows are tested
-   - validate native recording container and codec behavior interactively
-     across supported desktop platforms
-   - keep the package metadata, CI build artifact flow, and manual publish
+   Completed work:
+   - added a user-accessible diagnostics dialog with a runtime report, a
+     recent-failures log, and a prototype exit-check view
+   - expanded automated coverage beyond bootstrap so core app flows and
+     release workflow contracts are tested
+   - kept the package metadata, CI build artifact flow, and manual publish
      path aligned with the Python `3.11+` support floor and validated CI
      artifacts
-   - verify the prototype against the spec acceptance criteria and capture
-     open gaps before any stage change discussion
+   - verified the prototype against the spec acceptance criteria and
+     captured the remaining recording-validation gap in the shipped docs
    Done when:
    - runtime diagnostics make backend and session failures inspectable
    - the package is ready for reliable installation and release validation

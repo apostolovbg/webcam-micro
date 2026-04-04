@@ -54,7 +54,8 @@ webcam-micro
 - recorded video that follows the current capture-framing rules
 - remembered window layout, fullscreen state, selected camera, and
   per-camera control values
-- diagnostics dialog that exposes current shell and runtime state
+- diagnostics dialog that exposes current shell state, a recent-failures log,
+  and prototype exit checks
 - compact fullscreen command surface with expanded and collapsed states plus
   still, record, and preferences actions
 - visible backend, camera, framing, and recording status summaries
