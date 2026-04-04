@@ -26,6 +26,7 @@ from webcam_micro.camera import (
     PreviewFrame,
     QtCameraBackend,
     QtCameraSession,
+    RecordingCropPlan,
     build_backend_plan,
     pack_preview_rgb_rows,
 )
@@ -83,6 +84,7 @@ class CameraContractTest(unittest.TestCase):
         )
         self.assertEqual("NullCameraSession", NullCameraSession.__name__)
         self.assertEqual("PreviewFrame", PreviewFrame.__name__)
+        self.assertEqual("RecordingCropPlan", RecordingCropPlan.__name__)
 
         avfoundation_backend = AvFoundationCameraControlBackend()
         self.assertIsInstance(avfoundation_backend.available, bool)
@@ -130,7 +132,15 @@ class CameraContractTest(unittest.TestCase):
         self.assertIsNone(session.recording_output_path)
         self.assertIsNone(session.recording_error)
         with self.assertRaises(CameraOutputError):
-            session.start_recording(Path("/tmp/null-camera.mp4"))
+            session.start_recording(
+                Path("/tmp/null-camera.mp4"),
+                crop_plan=RecordingCropPlan(
+                    source_x=0,
+                    source_y=0,
+                    source_width=320,
+                    source_height=240,
+                ),
+            )
         self.assertIsNone(session.stop_recording())
         session.close()
         self.assertTrue(session.closed)

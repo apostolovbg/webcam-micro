@@ -80,7 +80,12 @@ class CameraSession(Protocol):
     def failure_reason(self) -> str | None:
         """Return the most recent recoverable session failure."""
 
-    def start_recording(self, output_path: Path) -> Path:
+    def start_recording(
+        self,
+        output_path: Path,
+        *,
+        crop_plan: RecordingCropPlan,
+    ) -> Path:
         """Start recording to one output path."""
 
     def stop_recording(self) -> Path | None:
@@ -174,6 +179,16 @@ class PreviewFrame:
 
 
 @dataclass(frozen=True)
+class RecordingCropPlan:
+    """Describe the frozen crop rectangle for one recording session."""
+
+    source_x: int
+    source_y: int
+    source_width: int
+    source_height: int
+
+
+@dataclass(frozen=True)
 class BackendPlan:
     """Summarize the chosen backend direction for the prototype."""
 
@@ -225,7 +240,12 @@ class NullCameraSession:
 
         return None
 
-    def start_recording(self, output_path: Path) -> Path:
+    def start_recording(
+        self,
+        output_path: Path,
+        *,
+        crop_plan: RecordingCropPlan,
+    ) -> Path:
         """Raise because the placeholder session cannot record."""
 
         raise CameraOutputError(
@@ -550,6 +570,51 @@ def _qt_recorder_state_text(state: object, qt_multimedia: Any) -> str:
     if state == states.PausedState:
         return "paused"
     return "stopped"
+
+
+def _normalized_recording_crop_plan(
+    crop_plan: RecordingCropPlan,
+    *,
+    source_width: int,
+    source_height: int,
+) -> RecordingCropPlan:
+    """Clamp one recording crop rectangle to the current frame bounds."""
+
+    bounded_x = min(max(0, int(crop_plan.source_x)), max(0, source_width - 1))
+    bounded_y = min(
+        max(0, int(crop_plan.source_y)),
+        max(0, source_height - 1),
+    )
+    bounded_width = min(
+        max(1, int(crop_plan.source_width)),
+        max(1, source_width - bounded_x),
+    )
+    bounded_height = min(
+        max(1, int(crop_plan.source_height)),
+        max(1, source_height - bounded_y),
+    )
+    return RecordingCropPlan(
+        source_x=bounded_x,
+        source_y=bounded_y,
+        source_width=bounded_width,
+        source_height=bounded_height,
+    )
+
+
+def _crop_recording_qimage(image: Any, *, crop_plan: RecordingCropPlan) -> Any:
+    """Return one frame-sized recording crop from the processed preview."""
+
+    bounded_plan = _normalized_recording_crop_plan(
+        crop_plan,
+        source_width=int(image.width()),
+        source_height=int(image.height()),
+    )
+    return image.copy(
+        bounded_plan.source_x,
+        bounded_plan.source_y,
+        bounded_plan.source_width,
+        bounded_plan.source_height,
+    )
 
 
 def _run_discovery_command(command: list[str]) -> str:
@@ -1149,15 +1214,21 @@ class QtCameraSession:
         self._qt_gui = qt_gui
         self._qt_multimedia = qt_multimedia
         self._camera = qt_multimedia.QCamera(camera_device)
-        self._capture_session = qt_multimedia.QMediaCaptureSession()
+        self._preview_capture_session = qt_multimedia.QMediaCaptureSession()
+        self._recording_capture_session = qt_multimedia.QMediaCaptureSession()
         self._video_sink = qt_multimedia.QVideoSink()
+        self._video_frame_input = qt_multimedia.QVideoFrameInput()
         self._media_recorder = qt_multimedia.QMediaRecorder()
-        self._capture_session.setCamera(self._camera)
-        self._capture_session.setVideoSink(self._video_sink)
-        self._capture_session.setRecorder(self._media_recorder)
+        self._preview_capture_session.setCamera(self._camera)
+        self._preview_capture_session.setVideoSink(self._video_sink)
+        self._recording_capture_session.setVideoFrameInput(
+            self._video_frame_input
+        )
+        self._recording_capture_session.setRecorder(self._media_recorder)
         self._latest_frame: PreviewFrame | None = None
         self._failure_reason: str | None = None
         self._recording_error: str | None = None
+        self._recording_crop_plan: RecordingCropPlan | None = None
         self._recording_state = "stopped"
         self._recording_duration_milliseconds = 0
         self._recording_output_path: Path | None = None
@@ -1207,6 +1278,13 @@ class QtCameraSession:
             qt_gui=self._qt_gui,
             frame_number=self._frame_number,
         )
+        if self._recording_crop_plan is not None:
+            recording_image = _crop_recording_qimage(
+                image,
+                crop_plan=self._recording_crop_plan,
+            )
+            video_frame = self._qt_multimedia.QVideoFrame(recording_image)
+            self._video_frame_input.sendVideoFrame(video_frame)
         self._failure_reason = None
 
     def _handle_recorder_state_changed(self, state: object) -> None:
@@ -1239,11 +1317,18 @@ class QtCameraSession:
             return
         self._recording_error = "Qt Multimedia recording failed."
 
-    def start_recording(self, output_path: Path) -> Path:
+    def start_recording(
+        self,
+        output_path: Path,
+        *,
+        crop_plan: RecordingCropPlan,
+    ) -> Path:
         """Start one Qt Multimedia recording to the requested path."""
 
         if self._closed:
             raise CameraOutputError("The active camera session is closed.")
+        if self._recording_crop_plan is not None:
+            raise CameraOutputError("Recording is already active.")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         media_format = self._qt_multimedia.QMediaFormat()
         media_format.setFileFormat(
@@ -1259,6 +1344,7 @@ class QtCameraSession:
         self._media_recorder.setOutputLocation(
             self._qt_core.QUrl.fromLocalFile(str(output_path))
         )
+        self._recording_crop_plan = crop_plan
         self._recording_error = None
         self._recording_duration_milliseconds = 0
         self._recording_output_path = output_path
@@ -1268,6 +1354,7 @@ class QtCameraSession:
     def stop_recording(self) -> Path | None:
         """Stop the active Qt Multimedia recording cleanly."""
 
+        self._recording_crop_plan = None
         if self._recording_state != "recording":
             return self._recording_output_path
         self._media_recorder.stop()
@@ -1303,6 +1390,7 @@ class QtCameraSession:
             )
         with contextlib.suppress(Exception):
             self._media_recorder.stop()
+        self._recording_crop_plan = None
         with contextlib.suppress(Exception):
             self._camera.stop()
 
@@ -1321,7 +1409,7 @@ class QtCameraSession:
     def recording_available(self) -> bool:
         """Return whether this Qt session can start a recording."""
 
-        return not self._closed
+        return not self._closed and self._media_recorder.isAvailable()
 
     @property
     def recording_state(self) -> str:

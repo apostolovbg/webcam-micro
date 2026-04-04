@@ -24,8 +24,12 @@ Qt Multimedia-backed camera discovery, live preview, typed camera controls,
 fit/fill/crop framing, a toggleable controls dock, still-image save,
 native recording start and stop, session preferences, diagnostics, a compact
 fullscreen command surface with expanded and collapsed states, and visible
-session status. Persistence, presets, shortcut editing, and deeper output
-rules remain in progress.
+session status. Output folders, framing choices, selected camera, window
+layout, current preset name, and per-camera remembered control values now
+persist across launches, and recorded video follows the active capture-
+framing choice. User-editable defaults, configurable shortcuts, and named
+presets are available, while broader platform validation remains in
+progress.
 
 ## Installation
 The packaged app supports Python `3.11+`.
@@ -44,8 +48,12 @@ webcam-micro
 - fit, fill, and microscope-centered crop preview framing
 - framed still-image save through native PNG or JPEG file dialogs
 - native Qt video recording with visible start, stop, and elapsed status
-- session-level preferences for preview framing, capture framing, and output
-  folders
+- image and video output folders remembered across launches
+- session-level preferences for preview framing, capture framing, output
+  folders, editable defaults, keyboard shortcuts, and named presets
+- recorded video that follows the current capture-framing rules
+- remembered window layout, fullscreen state, selected camera, and
+  per-camera control values
 - diagnostics dialog that exposes current shell and runtime state
 - compact fullscreen command surface with expanded and collapsed states plus
   still, record, and preferences actions
@@ -68,8 +76,8 @@ value.
 ## Platform Notes
 The preview and recording path are built on Qt Multimedia camera devices,
 capture sessions, and the native Qt recorder.
-Still-image save uses the current framed preview image so the saved still
-follows the active capture-framing choice.
+Still-image save and recorded video both use the current capture-framing
+choice instead of saving the raw camera feed.
 On macOS, camera controls can bridge into AVFoundation through
 `rubicon-objc` when the active device exposes real controls.
 Available controls and source capabilities still depend on the camera and
@@ -77,11 +85,10 @@ platform, so the app only surfaces what the active backend can actually use.
 Recording container support also depends on the platform multimedia stack.
 
 ## Current Limitations
-The current prototype does not yet finish the persistence and workstation
-polish parts of the flow.
-Built-in defaults, persisted preferences, named presets, shortcut editing,
-and advanced output-framing rules for recorded video remain planned slices on
-top of the now-working Qt shell baseline.
+The current prototype does not yet finish the broader workstation polish
+parts of the flow.
+Wider cross-platform recording validation remains planned on top of the
+now-working Qt shell baseline.
 
 ## Security, Privacy, and Support
 `webcam-micro` is a local desktop utility by default.

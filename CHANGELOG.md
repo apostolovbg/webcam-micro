@@ -61,6 +61,59 @@ Example:
 ## Version 0.0.1
 
 - 2026-04-04:
+  Change: Added named preset save and recall controls to the Qt
+    preferences dialog and persisted the current preset with the rest of
+    the workstation state.
+  Why: Finished the persistence, defaults, and presets slice so repeated
+    microscope setups can be captured and restored from the same shell.
+  Impact: Users can store and recall named microscope states, and the
+    shell now restores the selected preset alongside framing, defaults,
+    shortcuts, and camera state.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/ui.py
+
+- 2026-04-04:
+  Change: Added persisted workstation state, editable control defaults, and
+    configurable shortcut editing for the Qt shell.
+  Why: Made repeated microscope sessions recover their framing, window,
+    camera, and shortcut preferences without manual reconfiguration.
+  Impact: Restores selected camera and workspace layout across launches,
+    lets users tune camera defaults per session, and blocks duplicate
+    shortcuts before they reach the shell.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/ui.py
+
+- 2026-04-04:
+  Change: Completed item 9 by persisting the image and video output folders
+    across launches and by routing Qt recording through the governed
+    capture-framing crop instead of saving the raw camera feed.
+  Why: Aligned the working Qt workstation with the promised microscope
+    capture flow so saved stills and recorded video follow the same output
+    rules and remembered destinations.
+  Impact: Added framed Qt recording, remembered output destinations, and
+    focused headless coverage for the new output helpers so later work can
+    concentrate on broader persistence, presets, and release validation.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  tests/test_camera.py
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/camera.py
+  webcam_micro/ui.py
+
+- 2026-04-04:
   Change: Completed the Qt workstation shell by replacing placeholder
     capture, recording, preferences, and diagnostics actions with real native
     Qt behavior and by cleaning stale active Flet references from the current

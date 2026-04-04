@@ -262,48 +262,55 @@ PyPI-distributed microscope camera application.
      enough for later feature slices to build on directly
    - automated tests and docs describe only the Qt Widgets shell baseline
 
-9. [not done] Deliver still capture, video recording, and output handling.
+9. [done] Deliver still capture, video recording, and output handling.
    Goal:
    - let users save microscope stills and videos without leaving the GUI
    Why this matters:
      - preview alone is not enough; capture is one of the primary working
      outcomes promised by the product
-   Completed work so far:
+   Implemented work:
    - implemented native still-image save through PNG and JPEG file dialogs
      with timestamp-based default names and auto-created output folders
    - implemented native Qt recording start and stop with visible recording
      status and elapsed time in the shell
    - wired still and record actions into the menu bar, toolbar, fullscreen
      command surface, and built-in keyboard shortcuts
-   - added session-level image and video folder preferences so the working
-     shell has real output destinations before persistence lands
-   Work to do:
-   - persist image and video output destinations across launches
-   - reconcile recording output with the governed capture-framing and output
-     rules instead of relying only on the native camera feed
-   - validate native recording container and codec behavior interactively
-     across supported desktop platforms
+   - added session-level image and video folder preferences and persisted
+     those destinations across launches through native Qt settings
+   - routed native Qt recording through a frozen capture-framing crop plan
+     so recorded video follows the same governed output rules as still
+     capture instead of saving the raw camera feed
+   - expanded headless coverage around output-path persistence helpers and
+     the recording crop-plan contract
+   Outcome:
+   - the Qt workstation now handles real still and video output flows with
+     remembered destinations and framing-aligned recorded output, so later
+     work can focus on broader workstation persistence, presets, and release
+     validation instead of basic capture correctness
    Done when:
    - stills and videos save into the configured destinations
    - recording start, stop, and status are visible and reliable
    - capture output follows the configured framing and output rules
 
-10. [not done] Add persistence, defaults, presets, and shortcuts.
+10. [done] Add persistence, defaults, presets, and shortcuts.
    Goal:
    - make repeated microscope sessions fast and predictable
    Why this matters:
    - remembered settings and shortcuts are what turn a one-off viewer into a
      practical workstation tool
-   Work to do:
-   - persist output folders, framing choices, window geometry,
-     controls-surface visibility, fullscreen-surface state, and selected
-     camera where appropriate
-   - implement built-in defaults, user-editable defaults, per-camera
-     remembered settings, and named presets
-   - apply default values only when the active camera exposes compatible
-     controls
-   - implement shortcut editing and conflict prevention for the primary
-     actions
+   Completed work:
+   - persisted framing choices, output folders, window geometry,
+     controls-surface visibility, fullscreen state, selected camera, and
+     current preset selection
+   - added built-in microscope-friendly control defaults and applied them
+     only when the active camera exposes matching controls
+   - added user-editable control defaults and per-camera remembered control
+     values so the shell can restore camera-specific behavior
+   - added configurable keyboard shortcuts for the primary actions and
+     conflict detection for duplicate shortcut assignments
+   - added named preset save and recall controls in the preferences dialog
+   - persisted named preset snapshots for preview framing, capture framing,
+     and active control values
    Done when:
    - relaunching the app restores meaningful working state
    - defaults and presets degrade gracefully on cameras with partial control
@@ -322,6 +329,8 @@ PyPI-distributed microscope camera application.
    - add a user-accessible diagnostics surface or log view for runtime state
      and non-fatal failures
    - expand automated coverage beyond bootstrap so core app flows are tested
+   - validate native recording container and codec behavior interactively
+     across supported desktop platforms
    - keep the package metadata, CI build artifact flow, and manual publish
      path aligned with the Python `3.11+` support floor and validated CI
      artifacts

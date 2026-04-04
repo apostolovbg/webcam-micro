@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import sys
 from dataclasses import dataclass
@@ -18,6 +19,9 @@ from webcam_micro.camera import (
     NullCameraBackend,
     PreviewFrame,
     QtCameraBackend,
+    RecordingCropPlan,
+    _choice_for_value,
+    _safe_float,
     build_backend_plan,
 )
 
@@ -37,6 +41,52 @@ WINDOWED_CONTENT_MARGINS = (16, 16, 16, 16)
 WINDOWED_LAYOUT_SPACING = 12
 DEFAULT_IMAGE_DIRECTORY = Path.home() / "microscope" / "images"
 DEFAULT_VIDEO_DIRECTORY = Path.home() / "microscope" / "videos"
+SETTINGS_IMAGE_DIRECTORY_KEY = "outputs/image_directory"
+SETTINGS_VIDEO_DIRECTORY_KEY = "outputs/video_directory"
+SETTINGS_SELECTED_CAMERA_KEY = "workspace/selected_camera_id"
+SETTINGS_PREVIEW_FRAMING_KEY = "workspace/preview_framing_mode"
+SETTINGS_CAPTURE_FRAMING_KEY = "workspace/capture_framing_mode"
+SETTINGS_CONTROLS_VISIBLE_KEY = "workspace/controls_visible"
+SETTINGS_FULLSCREEN_KEY = "workspace/fullscreen_enabled"
+SETTINGS_FULLSCREEN_EXPANDED_KEY = "workspace/fullscreen_surface_expanded"
+SETTINGS_WINDOW_GEOMETRY_KEY = "workspace/window_geometry"
+SETTINGS_WINDOW_STATE_KEY = "workspace/window_state"
+SETTINGS_CURRENT_PRESET_KEY = "workspace/current_preset_name"
+SETTINGS_NAMED_PRESETS_KEY = "workspace/named_presets_json"
+SETTINGS_DEFAULT_CONTROL_PREFIX = "defaults/"
+SETTINGS_CAMERA_CONTROL_PREFIX = "camera/"
+SETTINGS_SHORTCUT_PREFIX = "shortcuts/"
+BUILTIN_CONTROL_DEFAULT_VALUES = {
+    "brightness": 0,
+    "contrast": 20,
+    "saturation": 128,
+    "hue": 0,
+    "white_balance_automatic": False,
+    "gamma": 72,
+    "gain": 20,
+    "power_line_frequency": 50,
+    "white_balance_temperature": 2800,
+    "sharpness": 0,
+    "backlight_compensation": 0,
+    "exposure_mode": "continuous_auto",
+    "exposure_locked": False,
+    "zoom_factor": 1.0,
+}
+PRIMARY_SHORTCUT_SPECS = (
+    ("controls", "Controls", "Ctrl+Alt+C", "_toggle_controls_action"),
+    ("refresh", "Refresh", "F5", "_refresh_action"),
+    ("open", "Open", "Ctrl+O", "_open_action"),
+    ("close_camera", "Close Camera", "Ctrl+W", "_close_camera_action"),
+    ("fit", "Fit", "Ctrl+1", "_fit_action"),
+    ("fill", "Fill", "Ctrl+2", "_fill_action"),
+    ("crop", "Crop", "Ctrl+3", "_crop_action"),
+    ("still", "Still Capture", "Ctrl+Shift+S", "_still_action"),
+    ("record", "Record Toggle", "Ctrl+R", "_record_action"),
+    ("fullscreen", "Fullscreen", "F11", "_fullscreen_action"),
+    ("fullscreen_collapse", "Collapse Surface", "Ctrl+[", None),
+    ("fullscreen_expand", "Expand Surface", "Ctrl+]", None),
+    ("preferences", "Preferences", "Ctrl+,", "_preferences_action"),
+)
 STILL_FILE_FILTER = "PNG Image (*.png);;JPEG Image (*.jpg *.jpeg)"
 VIDEO_FILE_FILTER = (
     "MPEG-4 Video (*.mp4);;QuickTime Movie (*.mov);;"
@@ -76,7 +126,8 @@ def build_shell_spec() -> ShellSpec:
             "A native desktop menu bar and toolbar keep the primary command "
             "surface close to the preview workspace, camera controls live "
             "in a toggleable dock, and native dialogs handle preferences, "
-            "diagnostics, still saves, and recording start or stop flows.",
+            "diagnostics, still saves, recording start or stop flows, and "
+            "named presets.",
         ),
         command_sections=(
             "Menu Bar",
@@ -102,7 +153,7 @@ def build_shell_spec() -> ShellSpec:
             "Backend: {backend} | Camera: {camera} | Source: {source} | "
             "Preview framing: {framing} | "
             "Capture framing: {capture_framing} | Controls: {controls} | "
-            "Recording: {recording} | {notice}"
+            "Preset: {preset} | Recording: {recording} | {notice}"
         ),
         copyright_notice="© Apostol Apostolov",
     )
@@ -119,6 +170,7 @@ class RuntimeStatus:
     framing_mode: str
     capture_framing_mode: str
     controls_surface_state: str
+    current_preset_name: str
     recording_state: str
     notice: str
 
@@ -131,6 +183,7 @@ def build_runtime_status(
     framing_mode: str,
     capture_framing_mode: str,
     controls_surface_state: str,
+    current_preset_name: str,
     recording_state: str,
     notice: str,
 ) -> RuntimeStatus:
@@ -144,6 +197,7 @@ def build_runtime_status(
         framing_mode=framing_mode,
         capture_framing_mode=capture_framing_mode,
         controls_surface_state=controls_surface_state,
+        current_preset_name=current_preset_name,
         recording_state=recording_state,
         notice=notice,
     )
@@ -226,6 +280,7 @@ def build_diagnostics_lines(
     preview_framing_mode: str,
     capture_framing_mode: str,
     control_count: int,
+    current_preset_name: str,
     recording_state: str,
     image_directory: str,
     video_directory: str,
@@ -243,6 +298,7 @@ def build_diagnostics_lines(
         f"Preview framing: {preview_framing_mode}",
         f"Capture framing: {capture_framing_mode}",
         f"Controls surfaced: {control_count}",
+        f"Preset: {current_preset_name}",
         f"Controls dock: {controls_surface_state}",
         f"Fullscreen: {fullscreen_state}",
         f"Recording: {recording_state}",
@@ -433,6 +489,136 @@ def _default_recording_output_path(directory: Path) -> Path:
     return directory / f"microscope-{_timestamp_slug()}.mp4"
 
 
+def _directory_setting_path(value: object, *, default: Path) -> Path:
+    """Return one output-directory path from persisted settings."""
+
+    if value is None:
+        return default
+    text = str(value).strip()
+    if not text:
+        return default
+    return Path(text).expanduser()
+
+
+def _settings_text(value: object, *, default: str = "") -> str:
+    """Return one compact persisted text value."""
+
+    if value is None:
+        return default
+    text = str(value).strip()
+    if not text:
+        return default
+    return text
+
+
+def _settings_bool(value: object, *, default: bool) -> bool:
+    """Return one persisted boolean value."""
+
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "on"}:
+        return True
+    if text in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
+def _shortcut_text(value: object, *, default: str) -> str:
+    """Return one persisted shortcut text token."""
+
+    return _settings_text(value, default=default)
+
+
+def _shortcut_key_text(shortcut_text: str) -> str:
+    """Return the stable comparison text for one shortcut sequence."""
+
+    text = shortcut_text.strip()
+    if not text:
+        return ""
+    return text
+
+
+def _control_default_setting_key(control_id: str) -> str:
+    """Return one settings key for a global control default."""
+
+    return f"{SETTINGS_DEFAULT_CONTROL_PREFIX}{control_id}"
+
+
+def _camera_control_setting_key(
+    descriptor_id: str,
+    control_id: str,
+) -> str:
+    """Return one settings key for a per-camera remembered control."""
+
+    return f"{SETTINGS_CAMERA_CONTROL_PREFIX}{descriptor_id}/{control_id}"
+
+
+def _shortcut_setting_key(action_id: str) -> str:
+    """Return one settings key for a primary shortcut."""
+
+    return f"{SETTINGS_SHORTCUT_PREFIX}{action_id}"
+
+
+def _named_presets_from_value(
+    value: object,
+) -> dict[str, dict[str, object]]:
+    """Return the stored named presets as a dictionary."""
+
+    text = _settings_text(value)
+    if not text:
+        return {}
+    try:
+        payload = json.loads(text)
+    except ValueError:
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    presets: dict[str, dict[str, object]] = {}
+    for preset_name, snapshot in payload.items():
+        if not isinstance(preset_name, str) or not isinstance(snapshot, dict):
+            continue
+        presets[preset_name] = snapshot
+    return presets
+
+
+def _named_presets_to_value(
+    presets: dict[str, dict[str, object]],
+) -> str:
+    """Return one deterministic JSON payload for named presets."""
+
+    return json.dumps(presets, sort_keys=True, separators=(",", ":"))
+
+
+def _persisted_control_value(
+    control: CameraControl,
+    value: object,
+) -> object | None:
+    """Return one persisted control value when it is valid for a control."""
+
+    if control.kind == "boolean":
+        return _settings_bool(value, default=bool(control.value))
+    if control.kind == "numeric":
+        numeric_value = _safe_float(value)
+        if numeric_value is None:
+            return None
+        if control.min_value is not None and numeric_value < control.min_value:
+            return None
+        if control.max_value is not None and numeric_value > control.max_value:
+            return None
+        return numeric_value
+    if control.kind == "enum":
+        text_value = _settings_text(value)
+        if not text_value:
+            return None
+        if _choice_for_value(control.choices, text_value) is None:
+            return None
+        return text_value
+    return None
+
+
 def _still_format_for_path(path: Path) -> str:
     """Return the image format token that matches one still filename."""
 
@@ -500,6 +686,90 @@ def _capture_image_from_frame(
     )
 
 
+def _recording_crop_plan_from_frame(
+    frame: PreviewFrame,
+    *,
+    framing_mode: str,
+    target_width: int,
+    target_height: int,
+) -> RecordingCropPlan:
+    """Freeze the framed recording crop for the current live preview."""
+
+    plan = render_preview_image(
+        source_width=frame.width,
+        source_height=frame.height,
+        target_width=target_width,
+        target_height=target_height,
+        framing_mode=framing_mode,
+    )
+    return RecordingCropPlan(
+        source_x=plan.source_x,
+        source_y=plan.source_y,
+        source_width=plan.source_width,
+        source_height=plan.source_height,
+    )
+
+
+def _shortcut_conflict_label(
+    shortcut_text_by_action: dict[str, str],
+) -> str | None:
+    """Return a human-readable shortcut conflict if one exists."""
+
+    seen: dict[str, str] = {}
+    for action_id, shortcut_text in shortcut_text_by_action.items():
+        normalized = _shortcut_key_text(shortcut_text)
+        if not normalized:
+            continue
+        previous = seen.get(normalized)
+        if previous is not None:
+            return f"{previous} and {action_id} share {normalized}."
+        seen[normalized] = action_id
+    return None
+
+
+def _control_value_for_widget(
+    control: CameraControl,
+    value: object,
+    *,
+    qt_gui,
+) -> object:
+    """Return one widget-safe value for the control editor."""
+
+    if control.kind == "boolean":
+        return bool(value)
+    if control.kind == "numeric":
+        if value is None:
+            return control.value
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return control.value
+    if control.kind == "enum":
+        return _settings_text(value, default=str(control.value or ""))
+    return value
+
+
+def _control_value_for_storage(
+    control: CameraControl,
+    widget,
+    *,
+    qt_gui,
+) -> object:
+    """Return one persisted control value from a preferences widget."""
+
+    if control.kind == "boolean":
+        return bool(widget.isChecked())
+    if control.kind == "numeric":
+        return parse_numeric_control_text(
+            widget.text(),
+            minimum=control.min_value,
+            maximum=control.max_value,
+        )
+    if control.kind == "enum":
+        return widget.currentData()
+    return None
+
+
 def _numeric_decimals(step: float | None) -> int:
     """Return the number of decimals to show for one numeric control."""
 
@@ -534,6 +804,7 @@ class PreviewApplication:
         self._application = qt_application
         self._spec = build_shell_spec()
         self._backend = self._build_backend()
+        self._settings = qt_core.QSettings("apostolovbg", APP_NAME)
         self._session = None
         self._cameras: tuple[CameraDescriptor, ...] = ()
         self._selected_camera_id: str | None = None
@@ -542,18 +813,59 @@ class PreviewApplication:
         self._latest_frame: PreviewFrame | None = None
         self._last_frame_number = -1
         self._closed = False
-        self._is_fullscreen = False
-        self._fullscreen_surface_expanded = True
+        self._is_fullscreen = _settings_bool(
+            self._settings.value(SETTINGS_FULLSCREEN_KEY),
+            default=False,
+        )
+        self._fullscreen_surface_expanded = _settings_bool(
+            self._settings.value(SETTINGS_FULLSCREEN_EXPANDED_KEY),
+            default=True,
+        )
         self._suspend_dock_sync = False
-        self._controls_dock_requested = True
+        self._controls_dock_requested = _settings_bool(
+            self._settings.value(SETTINGS_CONTROLS_VISIBLE_KEY),
+            default=True,
+        )
         self._preview_state = "idle"
-        self._preview_framing_mode = "fit"
-        self._capture_framing_mode = "fit"
+        self._preview_framing_mode = self._settings_mode_value(
+            SETTINGS_PREVIEW_FRAMING_KEY,
+            default="fit",
+        )
+        self._capture_framing_mode = self._settings_mode_value(
+            SETTINGS_CAPTURE_FRAMING_KEY,
+            default="fit",
+        )
+        self._named_presets = _named_presets_from_value(
+            self._settings.value(SETTINGS_NAMED_PRESETS_KEY)
+        )
+        loaded_preset_name = _settings_text(
+            self._settings.value(SETTINGS_CURRENT_PRESET_KEY),
+            default="",
+        )
+        self._current_preset_name = (
+            loaded_preset_name
+            if loaded_preset_name in self._named_presets
+            else None
+        )
+        self._selected_camera_id = (
+            _settings_text(
+                self._settings.value(SETTINGS_SELECTED_CAMERA_KEY),
+                default="",
+            )
+            or None
+        )
         self._recording_state = "not ready"
-        self._image_directory = DEFAULT_IMAGE_DIRECTORY
-        self._video_directory = DEFAULT_VIDEO_DIRECTORY
+        self._image_directory = _directory_setting_path(
+            self._settings.value(SETTINGS_IMAGE_DIRECTORY_KEY),
+            default=DEFAULT_IMAGE_DIRECTORY,
+        )
+        self._video_directory = _directory_setting_path(
+            self._settings.value(SETTINGS_VIDEO_DIRECTORY_KEY),
+            default=DEFAULT_VIDEO_DIRECTORY,
+        )
         self._last_recording_error: str | None = None
         self._status_notice = "Workspace ready."
+        self._shortcut_text_by_action: dict[str, str] = {}
 
         self._window = None
         self._central_layout = None
@@ -581,6 +893,10 @@ class PreviewApplication:
         self._escape_shortcut = None
         self._preview_timer = None
 
+        self._shortcut_actions: tuple[
+            tuple[str, str, str, str | None], ...
+        ] = PRIMARY_SHORTCUT_SPECS
+
         self._build_window()
 
     def _build_backend(self):
@@ -590,6 +906,14 @@ class PreviewApplication:
             return QtCameraBackend()
         except MissingCameraDependencyError:
             return NullCameraBackend()
+
+    def _settings_mode_value(self, key: str, *, default: str) -> str:
+        """Return one persisted mode value from the settings store."""
+
+        value = _settings_text(self._settings.value(key), default=default)
+        if value not in PREVIEW_FRAMING_MODES:
+            return default
+        return value
 
     def _build_window(self) -> None:
         """Build the Qt Widgets preview-first workspace."""
@@ -679,6 +1003,7 @@ class PreviewApplication:
 
         self._status_label = QtWidgets.QLabel()
         self._window.statusBar().addWidget(self._status_label, 1)
+        self._restore_workspace_state()
         self._application.aboutToQuit.connect(self._handle_quit)
         self._sync_controls_summary()
         self._set_status("idle", notice="Workspace ready.")
@@ -802,6 +1127,22 @@ class PreviewApplication:
             QtGui.QAction.MenuRole.PreferencesRole
         )
         self._preferences_action.triggered.connect(self._open_preferences)
+
+        self._collapse_fullscreen_action = QtGui.QAction(
+            "Collapse Fullscreen Surface",
+            self._window,
+        )
+        self._collapse_fullscreen_action.triggered.connect(
+            lambda _checked=False: self._set_fullscreen_surface_expanded(False)
+        )
+
+        self._expand_fullscreen_action = QtGui.QAction(
+            "Expand Fullscreen Surface",
+            self._window,
+        )
+        self._expand_fullscreen_action.triggered.connect(
+            lambda _checked=False: self._set_fullscreen_surface_expanded(True)
+        )
 
         self._diagnostics_action = QtGui.QAction("Diagnostics", self._window)
         self._diagnostics_action.triggered.connect(self._open_diagnostics)
@@ -934,6 +1275,238 @@ class PreviewApplication:
         )
         self._escape_shortcut.activated.connect(self._handle_escape_shortcut)
 
+    def _restore_workspace_state(self) -> None:
+        """Restore the persisted window and shortcut state."""
+
+        geometry = self._settings.value(SETTINGS_WINDOW_GEOMETRY_KEY)
+        if geometry is not None:
+            self._window.restoreGeometry(geometry)
+        window_state = self._settings.value(SETTINGS_WINDOW_STATE_KEY)
+        if window_state is not None:
+            self._window.restoreState(window_state)
+        self._controls_dock.setVisible(self._controls_dock_requested)
+        self._apply_persisted_shortcuts()
+        if self._fullscreen_surface_expanded is not None:
+            self._rebuild_fullscreen_surface()
+
+    def _persist_workspace_state(self) -> None:
+        """Store the current window and workspace preferences."""
+
+        self._settings.setValue(
+            SETTINGS_SELECTED_CAMERA_KEY,
+            self._selected_camera_id or "",
+        )
+        self._settings.setValue(
+            SETTINGS_PREVIEW_FRAMING_KEY,
+            self._preview_framing_mode,
+        )
+        self._settings.setValue(
+            SETTINGS_CAPTURE_FRAMING_KEY,
+            self._capture_framing_mode,
+        )
+        self._settings.setValue(
+            SETTINGS_CONTROLS_VISIBLE_KEY,
+            self._controls_dock.isVisible(),
+        )
+        self._settings.setValue(
+            SETTINGS_FULLSCREEN_KEY,
+            self._is_fullscreen,
+        )
+        self._settings.setValue(
+            SETTINGS_FULLSCREEN_EXPANDED_KEY,
+            self._fullscreen_surface_expanded,
+        )
+        self._settings.setValue(
+            SETTINGS_WINDOW_GEOMETRY_KEY,
+            self._window.saveGeometry(),
+        )
+        self._settings.setValue(
+            SETTINGS_WINDOW_STATE_KEY,
+            self._window.saveState(),
+        )
+        self._settings.setValue(
+            SETTINGS_IMAGE_DIRECTORY_KEY,
+            str(self._image_directory),
+        )
+        self._settings.setValue(
+            SETTINGS_VIDEO_DIRECTORY_KEY,
+            str(self._video_directory),
+        )
+        self._settings.setValue(
+            SETTINGS_CURRENT_PRESET_KEY,
+            self._current_preset_name or "",
+        )
+        self._settings.setValue(
+            SETTINGS_NAMED_PRESETS_KEY,
+            _named_presets_to_value(self._named_presets),
+        )
+        self._persist_shortcuts()
+
+    def _shortcut_action_for_id(self, action_id: str):
+        """Return one QAction matching the persisted shortcut id."""
+
+        action_name_map = {
+            "controls": self._toggle_controls_action,
+            "refresh": self._refresh_action,
+            "open": self._open_action,
+            "close_camera": self._close_camera_action,
+            "fit": self._fit_action,
+            "fill": self._fill_action,
+            "crop": self._crop_action,
+            "still": self._still_action,
+            "record": self._record_action,
+            "fullscreen": self._fullscreen_action,
+            "fullscreen_collapse": self._collapse_fullscreen_action,
+            "fullscreen_expand": self._expand_fullscreen_action,
+            "preferences": self._preferences_action,
+        }
+        return action_name_map.get(action_id)
+
+    def _load_shortcut_text(self, action_id: str, default_text: str) -> str:
+        """Return one shortcut text from settings or the fallback value."""
+
+        value = self._settings.value(_shortcut_setting_key(action_id))
+        shortcut_text = _shortcut_text(value, default=default_text)
+        return shortcut_text
+
+    def _apply_shortcut_texts(
+        self,
+        shortcut_text_by_action: dict[str, str],
+    ) -> None:
+        """Apply one shortcut map to the editable primary actions."""
+
+        for action_id, shortcut_text in shortcut_text_by_action.items():
+            action = self._shortcut_action_for_id(action_id)
+            if action is None:
+                continue
+            action.setShortcut(self._qt_gui.QKeySequence(shortcut_text))
+
+    def _apply_persisted_shortcuts(self) -> None:
+        """Restore the persisted shortcut map or its defaults."""
+
+        shortcut_text_by_action = {}
+        for (
+            action_id,
+            _label,
+            default_text,
+            _action_attr,
+        ) in self._shortcut_actions:
+            shortcut_text_by_action[action_id] = self._load_shortcut_text(
+                action_id,
+                default_text,
+            )
+        self._apply_shortcut_texts(shortcut_text_by_action)
+        self._shortcut_text_by_action = shortcut_text_by_action
+
+    def _persist_shortcuts(self) -> None:
+        """Store the current shortcut texts for the editable actions."""
+
+        shortcut_text_by_action = getattr(
+            self,
+            "_shortcut_text_by_action",
+            {},
+        )
+        for action_id, shortcut_text in shortcut_text_by_action.items():
+            self._settings.setValue(
+                _shortcut_setting_key(action_id),
+                shortcut_text,
+            )
+
+    def _current_preset_snapshot(self) -> dict[str, object]:
+        """Return one named-preset snapshot from the live shell state."""
+
+        controls: dict[str, object] = {}
+        for control in self._active_controls:
+            if control.value is None:
+                continue
+            controls[control.control_id] = control.value
+        return {
+            "preview_framing_mode": self._preview_framing_mode,
+            "capture_framing_mode": self._capture_framing_mode,
+            "controls": controls,
+        }
+
+    def _apply_named_preset(self, preset_name: str) -> bool:
+        """Apply one named preset when the preset exists."""
+
+        preset_name = _settings_text(preset_name)
+        if not preset_name:
+            return False
+        preset = self._named_presets.get(preset_name)
+        if preset is None:
+            return False
+        self._current_preset_name = preset_name
+        preview_mode = _settings_text(
+            preset.get("preview_framing_mode"),
+            default=self._preview_framing_mode,
+        )
+        if preview_mode in PREVIEW_FRAMING_MODES:
+            self._set_preview_framing_mode(preview_mode)
+        capture_mode = _settings_text(
+            preset.get("capture_framing_mode"),
+            default=self._capture_framing_mode,
+        )
+        if capture_mode in PREVIEW_FRAMING_MODES:
+            self._set_capture_framing_mode(capture_mode)
+        descriptor = self._selected_descriptor()
+        if descriptor is None:
+            self._persist_workspace_state()
+            return True
+        control_values = preset.get("controls")
+        if not isinstance(control_values, dict):
+            self._persist_workspace_state()
+            return True
+        for control in self._active_controls:
+            raw_value = control_values.get(control.control_id)
+            value = _persisted_control_value(control, raw_value)
+            if value is None:
+                continue
+            try:
+                self._backend.set_control_value(
+                    descriptor,
+                    control.control_id,
+                    value,
+                )
+            except CameraControlApplyError:
+                continue
+            self._settings.setValue(
+                _camera_control_setting_key(
+                    descriptor.stable_id,
+                    control.control_id,
+                ),
+                value,
+            )
+        self._refresh_control_surface(notice=f"Applied preset {preset_name}.")
+        self._set_status(
+            self._preview_state,
+            notice=f"Applied preset {preset_name}.",
+        )
+        self._persist_workspace_state()
+        return True
+
+    def _save_named_preset(self, preset_name: str) -> bool:
+        """Store the live shell state under one preset name."""
+
+        preset_name = _settings_text(preset_name)
+        if not preset_name:
+            return False
+        self._named_presets[preset_name] = self._current_preset_snapshot()
+        self._current_preset_name = preset_name
+        self._persist_workspace_state()
+        return True
+
+    def _delete_named_preset(self, preset_name: str) -> bool:
+        """Delete one stored named preset when it exists."""
+
+        preset_name = _settings_text(preset_name)
+        if not preset_name or preset_name not in self._named_presets:
+            return False
+        del self._named_presets[preset_name]
+        if self._current_preset_name == preset_name:
+            self._current_preset_name = None
+        self._persist_workspace_state()
+        return True
+
     def _make_fullscreen_surface_action_button(self, action):
         """Return one fullscreen-surface button bound to a shared action."""
 
@@ -1047,6 +1620,7 @@ class PreviewApplication:
             else "Fullscreen controls collapsed."
         )
         self._set_status(self._preview_state, notice=notice)
+        self._persist_workspace_state()
 
     def _handle_escape_shortcut(self) -> None:
         """Leave fullscreen safely when Escape is pressed."""
@@ -1159,6 +1733,7 @@ class PreviewApplication:
             preview_framing_mode=self._preview_framing_mode,
             capture_framing_mode=self._capture_framing_mode,
             control_count=len(self._active_controls),
+            current_preset_name=self._current_preset_name or "none",
             recording_state=self._recording_state,
             image_directory=str(self._image_directory),
             video_directory=str(self._video_directory),
@@ -1221,6 +1796,7 @@ class PreviewApplication:
                 "active."
             ),
         )
+        self._persist_workspace_state()
 
     def _controls_section_heading(self, heading: str):
         """Build one controls-dock section heading."""
@@ -1637,12 +2213,56 @@ class PreviewApplication:
             self._set_controls_notice(str(exc))
             self._set_status(self._preview_state, notice=str(exc))
             return
+        self._settings.setValue(
+            _camera_control_setting_key(descriptor.stable_id, control_id),
+            value,
+        )
         message = f"Updated {control.label}."
         self._set_controls_notice(message)
         if status_notice:
             self._set_status(self._preview_state, notice=message)
         if refresh_surface:
             self._refresh_control_surface(notice=message)
+
+    def _apply_persisted_control_state(self) -> None:
+        """Apply built-in, user, and remembered control values."""
+
+        descriptor = self._selected_descriptor()
+        if descriptor is None or self._session is None:
+            return
+        if not self._active_controls:
+            return
+        applied_controls: list[str] = []
+        for control in self._active_controls:
+            if control.read_only or not control.enabled:
+                continue
+            value = BUILTIN_CONTROL_DEFAULT_VALUES.get(control.control_id)
+            stored_default = self._settings.value(
+                _control_default_setting_key(control.control_id)
+            )
+            if stored_default is not None:
+                value = stored_default
+            stored_camera_value = self._settings.value(
+                _camera_control_setting_key(
+                    descriptor.stable_id,
+                    control.control_id,
+                )
+            )
+            if stored_camera_value is not None:
+                value = stored_camera_value
+            if value is None:
+                continue
+            try:
+                self._backend.set_control_value(
+                    descriptor, control.control_id, value
+                )
+            except CameraControlApplyError:
+                continue
+            applied_controls.append(control.control_id)
+        if applied_controls:
+            self._refresh_control_surface(
+                notice="Applied saved camera settings."
+            )
 
     def _handle_boolean_toggle(self, control_id: str, value: object) -> None:
         """Apply one boolean control from its check-box state."""
@@ -1702,6 +2322,7 @@ class PreviewApplication:
             framing_mode=self._preview_framing_mode,
             capture_framing_mode=self._capture_framing_mode,
             controls_surface_state=self._controls_surface_state(),
+            current_preset_name=self._current_preset_name or "none",
             recording_state=self._recording_state,
             notice=self._status_notice,
         )
@@ -1713,6 +2334,7 @@ class PreviewApplication:
                 framing=status.framing_mode,
                 capture_framing=status.capture_framing_mode,
                 controls=status.controls_surface_state,
+                preset=status.current_preset_name,
                 recording=status.recording_state,
                 notice=status.notice,
             )
@@ -1793,15 +2415,23 @@ class PreviewApplication:
             self._set_status(
                 "no devices", notice="No camera devices detected."
             )
+            self._persist_workspace_state()
             return
 
-        self._selected_camera_id = self._cameras[0].stable_id
+        selected_index = 0
+        if self._selected_camera_id is not None:
+            for index, descriptor in enumerate(self._cameras):
+                if descriptor.stable_id == self._selected_camera_id:
+                    selected_index = index
+                    break
+        self._selected_camera_id = self._cameras[selected_index].stable_id
         was_blocked = self._camera_combo.blockSignals(True)
-        self._camera_combo.setCurrentIndex(0)
+        self._camera_combo.setCurrentIndex(selected_index)
         self._camera_combo.blockSignals(was_blocked)
         self._set_preview_message("Opening camera...")
         self._refresh_control_surface(notice="Camera list refreshed.")
         self._set_status("camera ready", notice="Camera list refreshed.")
+        self._persist_workspace_state()
         if auto_open:
             self.open_selected_camera()
 
@@ -1811,6 +2441,7 @@ class PreviewApplication:
         if index < 0 or index >= len(self._cameras):
             return
         self._selected_camera_id = self._cameras[index].stable_id
+        self._persist_workspace_state()
         self.open_selected_camera()
 
     def open_selected_camera(self) -> None:
@@ -1833,7 +2464,13 @@ class PreviewApplication:
         self._refresh_recording_state()
         self._set_preview_message("Waiting for live preview frames...")
         self._refresh_control_surface(notice="Loaded camera controls.")
-        self._set_status("opening", notice="Opening selected camera.")
+        self._apply_persisted_control_state()
+        if self._current_preset_name is not None:
+            if not self._apply_named_preset(self._current_preset_name):
+                self._current_preset_name = None
+                self._persist_workspace_state()
+        else:
+            self._set_status("opening", notice="Opening selected camera.")
 
     def _poll_preview_frame(self) -> None:
         """Poll the newest frame and refresh the preview without lagging."""
@@ -1894,6 +2531,7 @@ class PreviewApplication:
                 "active."
             ),
         )
+        self._persist_workspace_state()
 
     def _set_fullscreen(self, enabled: bool) -> None:
         """Enter or leave fullscreen mode through the native Qt window."""
@@ -1928,6 +2566,7 @@ class PreviewApplication:
             notice = "Windowed view active."
         self._render_latest_preview()
         self._set_status(self._preview_state, notice=notice)
+        self._persist_workspace_state()
 
     def _toggle_fullscreen(self, checked: bool | None = None) -> None:
         """Toggle the main window between windowed and fullscreen states."""
@@ -1948,6 +2587,7 @@ class PreviewApplication:
         self._set_status(self._preview_state, notice=notice)
         self._render_latest_preview()
         self._layout_fullscreen_surface()
+        self._persist_workspace_state()
 
     def _toggle_controls_dock(self, checked: bool | None = None) -> None:
         """Open or close the dedicated controls dock."""
@@ -1960,6 +2600,18 @@ class PreviewApplication:
         """Refresh cameras from the native menu and toolbar actions."""
 
         self.refresh_cameras(auto_open=True)
+
+    def _persist_output_directories(self) -> None:
+        """Store the current output directories for the next launch."""
+
+        self._settings.setValue(
+            SETTINGS_IMAGE_DIRECTORY_KEY,
+            str(self._image_directory),
+        )
+        self._settings.setValue(
+            SETTINGS_VIDEO_DIRECTORY_KEY,
+            str(self._video_directory),
+        )
 
     def _open_selected_camera_action(self, _checked=False) -> None:
         """Open the selected camera from a native Qt action callback."""
@@ -2006,6 +2658,7 @@ class PreviewApplication:
             )
             return
         self._image_directory = output_path.parent
+        self._persist_output_directories()
         self._set_status(
             self._preview_state,
             notice=f"Saved still to {output_path.name}.",
@@ -2041,12 +2694,29 @@ class PreviewApplication:
             return
         if not output_path.suffix:
             output_path = output_path.with_suffix(".mp4")
+        if self._latest_frame is None:
+            self._set_status(
+                self._preview_state,
+                notice="Wait for a live preview frame before recording.",
+            )
+            return
+        target_width, target_height = self._preview_target_size()
+        crop_plan = _recording_crop_plan_from_frame(
+            self._latest_frame,
+            framing_mode=self._capture_framing_mode,
+            target_width=target_width,
+            target_height=target_height,
+        )
         try:
-            self._session.start_recording(output_path)
+            self._session.start_recording(
+                output_path,
+                crop_plan=crop_plan,
+            )
         except CameraOutputError as exc:
             self._set_status(self._preview_state, notice=str(exc))
             return
         self._video_directory = output_path.parent
+        self._persist_output_directories()
         self._recording_state = "recording 00:00"
         self._set_status(
             self._preview_state,
@@ -2060,7 +2730,7 @@ class PreviewApplication:
 
         dialog = QtWidgets.QDialog(self._window)
         dialog.setWindowTitle("Preferences")
-        dialog.resize(520, 240)
+        dialog.resize(660, 560)
         layout = QtWidgets.QVBoxLayout(dialog)
         form = QtWidgets.QFormLayout()
         form.setFieldGrowthPolicy(
@@ -2115,12 +2785,255 @@ class PreviewApplication:
         form.addRow("Video folder", video_widget)
         layout.addLayout(form)
 
+        preset_combo = QtWidgets.QComboBox(dialog)
+        preset_combo.setEditable(True)
+        preset_combo.setInsertPolicy(QtWidgets.QComboBox.InsertPolicy.NoInsert)
+        preset_combo.setMinimumContentsLength(24)
+        preset_line_edit = preset_combo.lineEdit()
+        if preset_line_edit is not None:
+            preset_line_edit.setPlaceholderText("Choose or name a preset")
+
+        # Keep preset storage and recall in the same dialog as the other
+        # session-level preferences so microscope setups can be captured
+        # without opening another surface.
+        def refresh_preset_combo(selected_name: str | None = None) -> None:
+            """Rebuild the preset picker from the stored preset map."""
+
+            if selected_name is None:
+                current_name = _settings_text(
+                    preset_combo.currentText(),
+                    default="",
+                )
+            else:
+                current_name = _settings_text(selected_name, default="")
+            was_blocked = preset_combo.blockSignals(True)
+            preset_combo.clear()
+            for preset_name in sorted(self._named_presets):
+                preset_combo.addItem(preset_name, preset_name)
+            if current_name:
+                index = preset_combo.findData(current_name)
+                if index >= 0:
+                    preset_combo.setCurrentIndex(index)
+                else:
+                    preset_combo.setEditText(current_name)
+            else:
+                preset_combo.setEditText("")
+            preset_combo.blockSignals(was_blocked)
+
+        named_presets_box = QtWidgets.QGroupBox("Named Presets", dialog)
+        named_presets_layout = QtWidgets.QVBoxLayout(named_presets_box)
+        named_presets_layout.setContentsMargins(12, 12, 12, 12)
+        named_presets_layout.setSpacing(8)
+        presets_note = QtWidgets.QLabel(
+            "Choose an existing preset or type a new name, then save or "
+            "apply it.",
+            named_presets_box,
+        )
+        presets_note.setWordWrap(True)
+        named_presets_layout.addWidget(presets_note)
+        named_presets_form = QtWidgets.QFormLayout()
+        named_presets_form.setFieldGrowthPolicy(
+            QtWidgets.QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+        )
+        named_presets_form.addRow("Preset name", preset_combo)
+        named_presets_layout.addLayout(named_presets_form)
+        preset_buttons_row = QtWidgets.QHBoxLayout()
+        save_preset_button = QtWidgets.QPushButton(
+            "Save Current",
+            named_presets_box,
+        )
+        apply_preset_button = QtWidgets.QPushButton(
+            "Apply Selected",
+            named_presets_box,
+        )
+        preset_buttons_row.addWidget(save_preset_button)
+        preset_buttons_row.addWidget(apply_preset_button)
+        preset_buttons_row.addStretch(1)
+        preset_buttons_widget = QtWidgets.QWidget(named_presets_box)
+        preset_buttons_widget.setLayout(preset_buttons_row)
+        named_presets_layout.addWidget(preset_buttons_widget)
+        layout.addWidget(named_presets_box)
+        refresh_preset_combo(self._current_preset_name)
+
+        default_widgets: dict[str, object] = {}
+        defaults_box = QtWidgets.QGroupBox("Control Defaults", dialog)
+        defaults_layout = QtWidgets.QFormLayout(defaults_box)
+        defaults_layout.setFieldGrowthPolicy(
+            QtWidgets.QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+        )
+        editable_controls = [
+            control
+            for control in self._active_controls
+            if control.kind in {"numeric", "boolean", "enum"}
+            and control.value is not None
+        ]
+        if editable_controls:
+            for control in editable_controls:
+                default_value = self._settings.value(
+                    _control_default_setting_key(control.control_id)
+                )
+                if default_value is None:
+                    default_value = BUILTIN_CONTROL_DEFAULT_VALUES.get(
+                        control.control_id,
+                        control.value,
+                    )
+                if control.kind == "boolean":
+                    widget = QtWidgets.QCheckBox(defaults_box)
+                    widget.setChecked(bool(default_value))
+                elif control.kind == "enum":
+                    widget = QtWidgets.QComboBox(defaults_box)
+                    for choice in control.choices:
+                        widget.addItem(choice.label, choice.value)
+                    if default_value is not None:
+                        index = widget.findData(str(default_value))
+                        if index >= 0:
+                            widget.setCurrentIndex(index)
+                else:
+                    widget = QtWidgets.QLineEdit(
+                        str(
+                            default_value if default_value is not None else ""
+                        ),
+                        defaults_box,
+                    )
+                default_widgets[control.control_id] = widget
+                defaults_layout.addRow(control.label, widget)
+        else:
+            defaults_layout.addRow(
+                QtWidgets.QLabel(
+                    "Open a camera to edit control defaults.", defaults_box
+                )
+            )
+        layout.addWidget(defaults_box)
+
+        shortcut_widgets: dict[str, object] = {}
+        shortcuts_box = QtWidgets.QGroupBox("Keyboard Shortcuts", dialog)
+        shortcuts_layout = QtWidgets.QFormLayout(shortcuts_box)
+        shortcuts_layout.setFieldGrowthPolicy(
+            QtWidgets.QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+        )
+        for (
+            action_id,
+            label,
+            default_text,
+            _action_attr,
+        ) in self._shortcut_actions:
+            action = self._shortcut_action_for_id(action_id)
+            current_text = (
+                action.shortcut().toString()
+                if action is not None
+                else default_text
+            )
+            widget = QtWidgets.QLineEdit(current_text, shortcuts_box)
+            shortcut_widgets[action_id] = widget
+            shortcuts_layout.addRow(label, widget)
+        layout.addWidget(shortcuts_box)
+
+        def save_named_preset() -> None:
+            """Save the current workspace snapshot under one preset name."""
+
+            preset_name = _settings_text(
+                preset_combo.currentText(), default=""
+            )
+            if not preset_name:
+                QtWidgets.QMessageBox.warning(
+                    dialog,
+                    "Invalid preset",
+                    "Preset names cannot be blank.",
+                )
+                return
+            if not self._save_named_preset(preset_name):
+                QtWidgets.QMessageBox.warning(
+                    dialog,
+                    "Invalid preset",
+                    "Preset names cannot be blank.",
+                )
+                return
+            refresh_preset_combo(preset_name)
+            self._set_status(
+                self._preview_state,
+                notice=f"Saved preset {preset_name}.",
+            )
+
+        def apply_named_preset() -> None:
+            """Recall one stored preset into the live shell."""
+
+            preset_name = _settings_text(
+                preset_combo.currentText(), default=""
+            )
+            if not preset_name:
+                QtWidgets.QMessageBox.warning(
+                    dialog,
+                    "Invalid preset",
+                    "Choose or name a preset before applying it.",
+                )
+                return
+            if not self._apply_named_preset(preset_name):
+                QtWidgets.QMessageBox.warning(
+                    dialog,
+                    "Missing preset",
+                    "Save the named preset before applying it.",
+                )
+                return
+            refresh_preset_combo(preset_name)
+
+        save_preset_button.clicked.connect(save_named_preset)
+        apply_preset_button.clicked.connect(apply_named_preset)
+
         buttons = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.StandardButton.Ok
             | QtWidgets.QDialogButtonBox.StandardButton.Cancel,
             parent=dialog,
         )
-        buttons.accepted.connect(dialog.accept)
+
+        def accept_dialog() -> None:
+            """Validate and persist preferences before closing."""
+
+            for control in editable_controls:
+                widget = default_widgets[control.control_id]
+                value = _control_value_for_storage(
+                    control,
+                    widget,
+                    qt_gui=self._qt_gui,
+                )
+                if control.kind == "numeric" and value is None:
+                    QtWidgets.QMessageBox.warning(
+                        dialog,
+                        "Invalid default",
+                        f"{control.label} needs a valid numeric value.",
+                    )
+                    return
+                self._settings.setValue(
+                    _control_default_setting_key(control.control_id),
+                    value,
+                )
+
+            shortcut_values: dict[str, str] = {}
+            for action_id, widget in shortcut_widgets.items():
+                shortcut_text = _shortcut_key_text(widget.text())
+                if not shortcut_text:
+                    QtWidgets.QMessageBox.warning(
+                        dialog,
+                        "Invalid shortcut",
+                        "Shortcut entries cannot be blank.",
+                    )
+                    return
+                shortcut_values[action_id] = shortcut_text
+            conflict = _shortcut_conflict_label(shortcut_values)
+            if conflict is not None:
+                QtWidgets.QMessageBox.warning(
+                    dialog,
+                    "Shortcut conflict",
+                    conflict,
+                )
+                return
+            self._apply_shortcut_texts(shortcut_values)
+            self._shortcut_text_by_action = shortcut_values
+            self._persist_workspace_state()
+            if self._selected_descriptor() is not None:
+                self._apply_persisted_control_state()
+            dialog.accept()
+
+        buttons.accepted.connect(accept_dialog)
         buttons.rejected.connect(dialog.reject)
         layout.addWidget(buttons)
 
@@ -2135,6 +3048,7 @@ class PreviewApplication:
 
         self._image_directory = Path(image_field.text()).expanduser()
         self._video_directory = Path(video_field.text()).expanduser()
+        self._persist_output_directories()
         self._set_preview_framing_mode(str(preview_combo.currentData()))
         self._set_capture_framing_mode(str(capture_combo.currentData()))
         self._set_status(
@@ -2213,6 +3127,7 @@ class PreviewApplication:
         if self._closed:
             return
         self._closed = True
+        self._persist_workspace_state()
         self.close_session()
 
     def run(self) -> int:
@@ -2226,6 +3141,8 @@ class PreviewApplication:
         self._sync_action_states()
         self.refresh_cameras(auto_open=True)
         self._window.show()
+        if self._is_fullscreen:
+            self._set_fullscreen(True)
         exec_method = getattr(self._application, "exec")
         return int(exec_method())
 

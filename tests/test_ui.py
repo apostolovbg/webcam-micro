@@ -4,13 +4,24 @@ from __future__ import annotations
 
 import inspect
 import unittest
+from pathlib import Path
 
+from webcam_micro.camera import PreviewFrame
 from webcam_micro.ui import (
     MissingGuiDependencyError,
     PreviewApplication,
     RenderedPreview,
     RuntimeStatus,
     ShellSpec,
+    _control_default_setting_key,
+    _directory_setting_path,
+    _named_presets_from_value,
+    _named_presets_to_value,
+    _recording_crop_plan_from_frame,
+    _settings_bool,
+    _settings_text,
+    _shortcut_conflict_label,
+    _shortcut_setting_key,
     build_controls_surface_lines,
     build_diagnostics_lines,
     build_fullscreen_surface_actions,
@@ -84,10 +95,19 @@ class ShellSpecTest(unittest.TestCase):
         self.assertTrue(callable(launch_main_window))
         self.assertTrue(callable(parse_numeric_control_text))
         self.assertTrue(callable(render_preview_image))
+        self.assertTrue(callable(_named_presets_from_value))
+        self.assertTrue(callable(_named_presets_to_value))
         self.assertTrue(
             callable(PreviewApplication._set_fullscreen_surface_expanded)
         )
         self.assertTrue(callable(PreviewApplication._handle_escape_shortcut))
+        self.assertTrue(callable(PreviewApplication._persist_workspace_state))
+        self.assertTrue(
+            callable(PreviewApplication._apply_persisted_control_state)
+        )
+        self.assertTrue(
+            callable(PreviewApplication._apply_persisted_shortcuts)
+        )
         self.assertTrue(callable(PreviewApplication.refresh_cameras))
         self.assertTrue(callable(PreviewApplication.open_selected_camera))
         self.assertTrue(callable(PreviewApplication.close_session))
@@ -112,6 +132,7 @@ class ShellSpecTest(unittest.TestCase):
             framing_mode="fit",
             capture_framing_mode="crop",
             controls_surface_state="open",
+            current_preset_name="none",
             recording_state="not ready",
             notice="Live preview active.",
         )
@@ -124,6 +145,7 @@ class ShellSpecTest(unittest.TestCase):
         self.assertEqual("fit", status.framing_mode)
         self.assertEqual("crop", status.capture_framing_mode)
         self.assertEqual("open", status.controls_surface_state)
+        self.assertEqual("none", status.current_preset_name)
         self.assertEqual("not ready", status.recording_state)
         self.assertEqual("Live preview active.", status.notice)
 
@@ -234,6 +256,7 @@ class ShellSpecTest(unittest.TestCase):
                 "Preview framing: fill",
                 "Capture framing: crop",
                 "Controls surfaced: 7",
+                "Preset: daylight",
                 "Controls dock: open",
                 "Fullscreen: windowed",
                 "Recording: recording 00:05",
@@ -249,6 +272,7 @@ class ShellSpecTest(unittest.TestCase):
                 preview_framing_mode="fill",
                 capture_framing_mode="crop",
                 control_count=7,
+                current_preset_name="daylight",
                 recording_state="recording 00:05",
                 image_directory="/tmp/images",
                 video_directory="/tmp/videos",
@@ -258,7 +282,101 @@ class ShellSpecTest(unittest.TestCase):
             ),
         )
         self.assertEqual("00:05", format_recording_duration(5_900))
+
+    def test_output_helpers_freeze_capture_crop_and_setting_paths(
+        self,
+    ) -> None:
+        """Assert output helpers keep framing and persisted paths stable."""
+
+        frame = PreviewFrame(
+            width=1280,
+            height=720,
+            rgb_bytes=b"",
+            frame_number=1,
+        )
+
+        fill_plan = _recording_crop_plan_from_frame(
+            frame,
+            framing_mode="fill",
+            target_width=960,
+            target_height=640,
+        )
+        crop_plan = _recording_crop_plan_from_frame(
+            frame,
+            framing_mode="crop",
+            target_width=960,
+            target_height=640,
+        )
+
+        self.assertEqual(
+            (100, 0, 1080, 720),
+            (
+                fill_plan.source_x,
+                fill_plan.source_y,
+                fill_plan.source_width,
+                fill_plan.source_height,
+            ),
+        )
+        self.assertEqual(
+            (280, 0, 720, 720),
+            (
+                crop_plan.source_x,
+                crop_plan.source_y,
+                crop_plan.source_width,
+                crop_plan.source_height,
+            ),
+        )
+        self.assertEqual(
+            Path("/tmp/images"),
+            _directory_setting_path(
+                None,
+                default=Path("/tmp/images"),
+            ),
+        )
+        self.assertEqual(
+            Path("/tmp/videos"),
+            _directory_setting_path(
+                "  ",
+                default=Path("/tmp/videos"),
+            ),
+        )
         self.assertEqual("01:02:03", format_recording_duration(3_723_000))
+
+    def test_settings_helpers_keep_text_and_shortcuts_stable(self) -> None:
+        """Assert the small settings helpers stay predictable."""
+
+        self.assertEqual("abc", _settings_text("  abc  ", default=""))
+        self.assertEqual("fallback", _settings_text(None, default="fallback"))
+        self.assertTrue(_settings_bool("yes", default=False))
+        self.assertFalse(_settings_bool("no", default=True))
+        self.assertEqual(
+            "defaults/zoom_factor",
+            _control_default_setting_key("zoom_factor"),
+        )
+        self.assertEqual("shortcuts/record", _shortcut_setting_key("record"))
+        self.assertIsNone(
+            _shortcut_conflict_label({"controls": "Ctrl+1", "fit": "Ctrl+2"})
+        )
+        self.assertEqual(
+            "controls and fit share Ctrl+1.",
+            _shortcut_conflict_label({"controls": "Ctrl+1", "fit": "Ctrl+1"}),
+        )
+
+    def test_named_preset_helpers_round_trip_json(self) -> None:
+        """Assert named-preset storage stays deterministic and parseable."""
+
+        payload = {
+            "daylight": {
+                "preview_framing_mode": "fit",
+                "capture_framing_mode": "crop",
+                "controls": {"brightness": 10},
+            }
+        }
+        text = _named_presets_to_value(payload)
+
+        self.assertEqual(payload, _named_presets_from_value(text))
+        self.assertEqual({}, _named_presets_from_value("not json"))
+        self.assertEqual({}, _named_presets_from_value(""))
 
     def test_nested_shell_callbacks_remain_covered_by_name(self) -> None:
         """Assert nested helper names stay visible to contract coverage."""
@@ -283,6 +401,10 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("def handle_field_commit", numeric_builder_source)
         self.assertIn("def handle_step", numeric_builder_source)
         self.assertIn("def choose_directory", preferences_source)
+        self.assertIn("Named Presets", preferences_source)
+        self.assertIn("Save Current", preferences_source)
+        self.assertIn("Apply Selected", preferences_source)
+        self.assertIn("refresh_preset_combo", preferences_source)
         self.assertIn("class ResizeAwareLabel", window_source)
         self.assertIn("class ResizeAwareMainWindow", window_source)
         self.assertIn("def resizeEvent", window_source)
