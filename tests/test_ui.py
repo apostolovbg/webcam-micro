@@ -12,10 +12,12 @@ from webcam_micro.ui import (
     RuntimeStatus,
     ShellSpec,
     build_controls_surface_lines,
+    build_diagnostics_lines,
     build_fullscreen_surface_actions,
     build_runtime_status,
     build_shell_spec,
     format_numeric_control_value,
+    format_recording_duration,
     launch_main_window,
     parse_numeric_control_text,
     render_preview_image,
@@ -73,9 +75,11 @@ class ShellSpecTest(unittest.TestCase):
         """Assert the GUI-shell public contract stays named and importable."""
 
         self.assertTrue(callable(build_controls_surface_lines))
+        self.assertTrue(callable(build_diagnostics_lines))
         self.assertTrue(callable(build_fullscreen_surface_actions))
         self.assertTrue(callable(build_shell_spec))
         self.assertTrue(callable(build_runtime_status))
+        self.assertTrue(callable(format_recording_duration))
         self.assertTrue(callable(format_numeric_control_value))
         self.assertTrue(callable(launch_main_window))
         self.assertTrue(callable(parse_numeric_control_text))
@@ -202,6 +206,9 @@ class ShellSpecTest(unittest.TestCase):
         self.assertEqual(
             (
                 "Controls",
+                "Still",
+                "Record",
+                "Preferences",
                 "Fit",
                 "Fill",
                 "Crop",
@@ -215,6 +222,44 @@ class ShellSpecTest(unittest.TestCase):
             build_fullscreen_surface_actions(expanded=False),
         )
 
+    def test_diagnostics_helpers_report_shell_state(self) -> None:
+        """Assert diagnostics lines cover the governed Qt shell state."""
+
+        self.assertEqual(
+            (
+                "Backend: qt_multimedia",
+                "Camera: Camera 0",
+                "Preview: live",
+                "Source mode: 1280x720 live preview",
+                "Preview framing: fill",
+                "Capture framing: crop",
+                "Controls surfaced: 7",
+                "Controls dock: open",
+                "Fullscreen: windowed",
+                "Recording: recording 00:05",
+                "Image folder: /tmp/images",
+                "Video folder: /tmp/videos",
+                "Notice: Live preview active.",
+            ),
+            build_diagnostics_lines(
+                backend_name="qt_multimedia",
+                camera_name="Camera 0",
+                preview_state="live",
+                source_mode="1280x720 live preview",
+                preview_framing_mode="fill",
+                capture_framing_mode="crop",
+                control_count=7,
+                recording_state="recording 00:05",
+                image_directory="/tmp/images",
+                video_directory="/tmp/videos",
+                controls_surface_state="open",
+                fullscreen_state="windowed",
+                notice="Live preview active.",
+            ),
+        )
+        self.assertEqual("00:05", format_recording_duration(5_900))
+        self.assertEqual("01:02:03", format_recording_duration(3_723_000))
+
     def test_nested_shell_callbacks_remain_covered_by_name(self) -> None:
         """Assert nested helper names stay visible to contract coverage."""
 
@@ -227,6 +272,9 @@ class ShellSpecTest(unittest.TestCase):
         fullscreen_source = inspect.getsource(
             PreviewApplication._build_fullscreen_surface
         )
+        preferences_source = inspect.getsource(
+            PreviewApplication._open_preferences
+        )
 
         self.assertIn("def sync_field", numeric_builder_source)
         self.assertIn("def sync_slider", numeric_builder_source)
@@ -234,6 +282,7 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("def handle_slider_commit", numeric_builder_source)
         self.assertIn("def handle_field_commit", numeric_builder_source)
         self.assertIn("def handle_step", numeric_builder_source)
+        self.assertIn("def choose_directory", preferences_source)
         self.assertIn("class ResizeAwareLabel", window_source)
         self.assertIn("class ResizeAwareMainWindow", window_source)
         self.assertIn("def resizeEvent", window_source)

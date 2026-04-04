@@ -61,6 +61,34 @@ Example:
 ## Version 0.0.1
 
 - 2026-04-04:
+  Change: Completed the Qt workstation shell by replacing placeholder
+    capture, recording, preferences, and diagnostics actions with real native
+    Qt behavior and by cleaning stale active Flet references from the current
+    docs and dependency-management profile.
+  Why: Finished item 8 so the repo no longer describes or behaves like an
+    unfinished migration baseline, and so the active shell now carries the
+    intended native desktop workflow.
+  Impact: Added real still-save and recording shell flows, session-level
+    preferences and diagnostics dialogs, fuller fullscreen actions, and Qt-only
+    current docs and config so later work can focus on persistence and output
+    rules instead of migration cleanup.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  devcovenant/config.yaml
+  devcovenant/custom/profiles/userproject/userproject.yaml
+  devcovenant/registry/registry.yaml
+  tests/test_app.py
+  tests/test_camera.py
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/app.py
+  webcam_micro/camera.py
+  webcam_micro/ui.py
+
+- 2026-04-04:
   Change: Restored the image-wiring slice to the requested scope by removing
     the unsolicited root README and `pyproject.toml` edits and switching the
     package README image to the `main`-branch absolute GitHub raw URL.

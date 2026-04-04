@@ -37,8 +37,9 @@ def build_launch_plan() -> LaunchPlan:
         first_device_backend_target=backend_plan.first_device_backend_target,
         shell_contract=(
             "Preview-first Qt Widgets main window with a native desktop menu "
-            "bar, toolbar, controls dock, live fit/fill/crop framing, and "
-            "native window fullscreen support."
+            "bar, toolbar, controls dock, live fit/fill/crop framing, "
+            "native still-save and recording actions, session preferences, "
+            "diagnostics, and native window fullscreen support."
         ),
     )
 

@@ -1,7 +1,7 @@
 metadata:
   schema_version: 1
   registry_layout: single-root
-  policy_registry_input_hash: f557ca8437c36da34581af47b1ee0541b4c458092ee7582d5db9e1154ee7aabb
+  policy_registry_input_hash: 1f3ecf70e3e11937931cdff95f475063f4d5572ddba99c6ed9d06665604791d7
 project-governance:
   project_name: webcam-micro
   project_description: Cross-platform microscope camera application distributed as
@@ -2357,11 +2357,6 @@ policies:
             python_version: '3.14'
             abi: cp314
       license_source_overrides:
-      - id: flet
-        kind: archive_url
-        url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
-        member_globs:
-        - flet-{version}/LICENSE
       - id: pyside6
         kind: archive_url
         url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
@@ -3343,11 +3338,6 @@ policies:
         profile_overlays:
           values:
           - |-
-            - id: flet
-              kind: archive_url
-              url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
-              member_globs:
-              - flet-{version}/LICENSE
             - id: pyside6
               kind: archive_url
               url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
@@ -3361,11 +3351,6 @@ policies:
         autogen_overlays:
           values:
           - |-
-            - id: flet
-              kind: archive_url
-              url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
-              member_globs:
-              - flet-{version}/LICENSE
             - id: pyside6
               kind: archive_url
               url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
@@ -3379,11 +3364,6 @@ policies:
         effective:
           values:
           - |-
-            - id: flet
-              kind: archive_url
-              url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
-              member_globs:
-              - flet-{version}/LICENSE
             - id: pyside6
               kind: archive_url
               url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
@@ -3755,11 +3735,6 @@ policies:
             python_version: 3.14
             abi: cp314
       license_source_overrides: &id013
-      - id: flet
-        kind: archive_url
-        url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
-        member_globs:
-        - flet-{version}/LICENSE
       - id: pyside6
         kind: archive_url
         url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
@@ -3786,9 +3761,7 @@ policies:
     - devcovenant/licenses
     - devcovenant/licenses/THIRD_PARTY_LICENSES.md
     - devcovenant/runtime-requirements.lock
-    - flet-{version}/LICENSE
     - https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
-    - https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
     - licenses/THIRD_PARTY_LICENSES.md
     - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
     - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
@@ -14695,11 +14668,6 @@ profiles:
         version_file: webcam_micro/VERSION
       dependency-management:
         license_source_overrides:
-        - id: flet
-          kind: archive_url
-          url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
-          member_globs:
-          - flet-{version}/LICENSE
         - id: pyside6
           kind: archive_url
           url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz

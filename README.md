@@ -19,10 +19,11 @@ viewing, camera control, still capture, and recording.
 The current prototype is on the Qt Widgets migration foundation. Today it
 opens a native desktop Qt Widgets workspace with a native menu bar, toolbar,
 Qt Multimedia-backed camera discovery, live preview, typed camera controls,
-fit/fill/crop framing, a toggleable controls dock, a compact fullscreen
-command surface with expanded and collapsed states, and visible session
-status. Still capture, video recording, preferences, persistence, and
-diagnostics remain in progress.
+fit/fill/crop framing, a toggleable controls dock, still-image save,
+native recording start and stop, session preferences, diagnostics, a compact
+fullscreen command surface with expanded and collapsed states, and visible
+session status. Persistence, presets, shortcut editing, and deeper output
+rules remain in progress.
 
 ## Installation
 The packaged app supports Python `3.11+`.
@@ -40,15 +41,22 @@ webcam-micro
 - typed camera controls with numeric, boolean, enum, read-only, and action
   widgets
 - fit, fill, and microscope-centered crop preview framing
+- framed still-image save through native PNG or JPEG file dialogs
+- native Qt video recording with visible start, stop, and elapsed status
+- session-level preferences for preview framing, capture framing, and output
+  folders
+- diagnostics dialog that exposes current shell and runtime state
 - toggleable controls dock that keeps the preview central when hidden
-- compact fullscreen command surface with expanded and collapsed states
+- compact fullscreen command surface with expanded and collapsed states plus
+  still, record, and preferences actions
 - visible backend, camera, framing, and recording status summaries
 
 ## Interface
 The main window is organized around the microscope preview.
 The native menu bar and toolbar keep the primary actions close to the live
 image, the preview workspace stays central, the controls dock can be shown or
-hidden when needed, fullscreen replaces the windowed chrome with a compact
+hidden when needed, session preferences and diagnostics open through native
+desktop dialogs, fullscreen replaces the windowed chrome with a compact
 overlay command surface, and the status bar keeps backend and session state
 visible in windowed mode.
 
@@ -58,19 +66,22 @@ field with step buttons that clears invalid typed input instead of silently
 accepting a bad value.
 
 ## Platform Notes
-The preview path is built on Qt Multimedia camera devices and capture
-sessions.
+The preview and recording path are built on Qt Multimedia camera devices,
+capture sessions, and the native Qt recorder.
+Still-image save uses the current framed preview image so the saved still
+follows the active capture-framing choice.
 On macOS, camera controls can bridge into AVFoundation through
 `rubicon-objc` when the active device exposes real controls.
 Available controls and source capabilities still depend on the camera and
 platform, so the app only surfaces what the active backend can actually use.
+Recording container support also depends on the platform multimedia stack.
 
 ## Current Limitations
-The current prototype does not yet finish the capture and persistence parts of
-the workstation flow.
-Still capture, video recording, preferences, defaults, presets, shortcut
-editing, and diagnostics are planned slices on top of the Qt shell
-foundation that already landed.
+The current prototype does not yet finish the persistence and workstation
+polish parts of the flow.
+Built-in defaults, persisted preferences, named presets, shortcut editing,
+and advanced output-framing rules for recorded video remain planned slices on
+top of the now-working Qt shell baseline.
 
 <!-- REPO-ONLY:BEGIN -->
 ## Development Quick Start

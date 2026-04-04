@@ -1,16 +1,19 @@
-"""Qt Widgets shell assembly for the PySide6 migration foundation."""
+"""Qt Widgets workstation shell assembly for the current PySide6 baseline."""
 
 from __future__ import annotations
 
 import math
 import sys
 from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 
 from webcam_micro import APP_NAME, GUI_BASELINE, SHELL_TITLE
 from webcam_micro.camera import (
     CameraControl,
     CameraControlApplyError,
     CameraDescriptor,
+    CameraOutputError,
     MissingCameraDependencyError,
     NullCameraBackend,
     PreviewFrame,
@@ -32,6 +35,13 @@ PREVIEW_FRAMING_LABELS = {
 DEFAULT_PREVIEW_SIZE = (960, 640)
 WINDOWED_CONTENT_MARGINS = (16, 16, 16, 16)
 WINDOWED_LAYOUT_SPACING = 12
+DEFAULT_IMAGE_DIRECTORY = Path.home() / "microscope" / "images"
+DEFAULT_VIDEO_DIRECTORY = Path.home() / "microscope" / "videos"
+STILL_FILE_FILTER = "PNG Image (*.png);;JPEG Image (*.jpg *.jpeg)"
+VIDEO_FILE_FILTER = (
+    "MPEG-4 Video (*.mp4);;QuickTime Movie (*.mov);;"
+    "Matroska Video (*.mkv);;WebM Video (*.webm)"
+)
 
 
 @dataclass(frozen=True)
@@ -64,8 +74,9 @@ def build_shell_spec() -> ShellSpec:
             "Qt Multimedia owns camera discovery and capture sessions while "
             "the workspace keeps microscope-specific framing in the preview.",
             "A native desktop menu bar and toolbar keep the primary command "
-            "surface close to the preview workspace, and camera controls "
-            "live in a toggleable dock.",
+            "surface close to the preview workspace, camera controls live "
+            "in a toggleable dock, and native dialogs handle preferences, "
+            "diagnostics, still saves, and recording start or stop flows.",
         ),
         command_sections=(
             "Menu Bar",
@@ -162,6 +173,9 @@ def build_fullscreen_surface_actions(*, expanded: bool) -> tuple[str, ...]:
     if expanded:
         return (
             "Controls",
+            "Still",
+            "Record",
+            "Preferences",
             "Fit",
             "Fill",
             "Crop",
@@ -189,6 +203,52 @@ def build_controls_surface_lines(
         f"Preview framing: {preview_framing_mode}",
         f"Capture framing: {capture_framing_mode}",
         f"Controls surfaced: {control_count}",
+    )
+
+
+def format_recording_duration(milliseconds: int) -> str:
+    """Return one stable recording-duration label."""
+
+    total_seconds = max(0, int(milliseconds) // 1000)
+    minutes, seconds = divmod(total_seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    return f"{minutes:02d}:{seconds:02d}"
+
+
+def build_diagnostics_lines(
+    *,
+    backend_name: str,
+    camera_name: str,
+    preview_state: str,
+    source_mode: str,
+    preview_framing_mode: str,
+    capture_framing_mode: str,
+    control_count: int,
+    recording_state: str,
+    image_directory: str,
+    video_directory: str,
+    controls_surface_state: str,
+    fullscreen_state: str,
+    notice: str,
+) -> tuple[str, ...]:
+    """Return the visible diagnostics-report lines for one shell snapshot."""
+
+    return (
+        f"Backend: {backend_name}",
+        f"Camera: {camera_name}",
+        f"Preview: {preview_state}",
+        f"Source mode: {source_mode}",
+        f"Preview framing: {preview_framing_mode}",
+        f"Capture framing: {capture_framing_mode}",
+        f"Controls surfaced: {control_count}",
+        f"Controls dock: {controls_surface_state}",
+        f"Fullscreen: {fullscreen_state}",
+        f"Recording: {recording_state}",
+        f"Image folder: {image_directory}",
+        f"Video folder: {video_directory}",
+        f"Notice: {notice}",
     )
 
 
@@ -354,6 +414,33 @@ def render_preview_image(
     )
 
 
+def _timestamp_slug(now: datetime | None = None) -> str:
+    """Return one compact local timestamp for output filenames."""
+
+    current = datetime.now() if now is None else now
+    return current.strftime("%Y%m%d-%H%M%S")
+
+
+def _default_still_output_path(directory: Path) -> Path:
+    """Return one default still-image output path."""
+
+    return directory / f"microscope-{_timestamp_slug()}.png"
+
+
+def _default_recording_output_path(directory: Path) -> Path:
+    """Return one default recording output path."""
+
+    return directory / f"microscope-{_timestamp_slug()}.mp4"
+
+
+def _still_format_for_path(path: Path) -> str:
+    """Return the image format token that matches one still filename."""
+
+    if path.suffix.lower() in {".jpg", ".jpeg"}:
+        return "JPEG"
+    return "PNG"
+
+
 def _render_preview_pixmap(
     frame: PreviewFrame, *, plan: RenderedPreview, qt_core, qt_gui
 ):
@@ -379,6 +466,38 @@ def _render_preview_pixmap(
         qt_core.Qt.TransformationMode.SmoothTransformation,
     )
     return qt_gui.QPixmap.fromImage(scaled)
+
+
+def _capture_image_from_frame(
+    frame: PreviewFrame,
+    *,
+    framing_mode: str,
+    target_width: int,
+    target_height: int,
+    qt_gui,
+):
+    """Return one uncropped or cropped still image from the current frame."""
+
+    source_image = qt_gui.QImage(
+        frame.rgb_bytes,
+        frame.width,
+        frame.height,
+        frame.width * 3,
+        qt_gui.QImage.Format.Format_RGB888,
+    ).copy()
+    plan = render_preview_image(
+        source_width=frame.width,
+        source_height=frame.height,
+        target_width=target_width,
+        target_height=target_height,
+        framing_mode=framing_mode,
+    )
+    return source_image.copy(
+        plan.source_x,
+        plan.source_y,
+        plan.source_width,
+        plan.source_height,
+    )
 
 
 def _numeric_decimals(step: float | None) -> int:
@@ -431,6 +550,9 @@ class PreviewApplication:
         self._preview_framing_mode = "fit"
         self._capture_framing_mode = "fit"
         self._recording_state = "not ready"
+        self._image_directory = DEFAULT_IMAGE_DIRECTORY
+        self._video_directory = DEFAULT_VIDEO_DIRECTORY
+        self._last_recording_error: str | None = None
         self._status_notice = "Workspace ready."
 
         self._window = None
@@ -448,6 +570,7 @@ class PreviewApplication:
         self._controls_body_widget = None
         self._controls_body_layout = None
         self._toggle_controls_action = None
+        self._close_camera_action = None
         self._fit_action = None
         self._fill_action = None
         self._crop_action = None
@@ -624,10 +747,17 @@ class PreviewApplication:
         )
 
         self._refresh_action = QtGui.QAction("Refresh", self._window)
+        self._refresh_action.setShortcut(self._qt_gui.QKeySequence("F5"))
         self._refresh_action.triggered.connect(self._refresh_cameras_action)
 
         self._open_action = QtGui.QAction("Open", self._window)
         self._open_action.triggered.connect(self._open_selected_camera_action)
+
+        self._close_camera_action = QtGui.QAction(
+            "Close Camera",
+            self._window,
+        )
+        self._close_camera_action.triggered.connect(self.close_session)
 
         self._fit_action = QtGui.QAction("Fit", self._window)
         self._fit_action.setCheckable(True)
@@ -653,9 +783,13 @@ class PreviewApplication:
             self._framing_action_group.addAction(action)
 
         self._still_action = QtGui.QAction("Still", self._window)
+        self._still_action.setShortcut(
+            self._qt_gui.QKeySequence("Ctrl+Shift+S")
+        )
         self._still_action.triggered.connect(self._capture_still_action)
 
         self._record_action = QtGui.QAction("Record", self._window)
+        self._record_action.setShortcut(self._qt_gui.QKeySequence("Ctrl+R"))
         self._record_action.triggered.connect(self._toggle_recording_action)
 
         self._fullscreen_action = QtGui.QAction("Fullscreen", self._window)
@@ -675,6 +809,9 @@ class PreviewApplication:
         self._copy_status_action = QtGui.QAction(
             "Copy Status Summary", self._window
         )
+        self._copy_status_action.setShortcut(
+            self._qt_gui.QKeySequence.StandardKey.Copy
+        )
         self._copy_status_action.triggered.connect(self._copy_status_summary)
 
         self._about_action = QtGui.QAction("About", self._window)
@@ -693,6 +830,9 @@ class PreviewApplication:
             menu_bar.setNativeMenuBar(True)
 
         file_menu = menu_bar.addMenu("File")
+        file_menu.addAction(self._open_action)
+        file_menu.addAction(self._close_camera_action)
+        file_menu.addSeparator()
         file_menu.addAction(self._exit_action)
 
         edit_menu = menu_bar.addMenu("Edit")
@@ -710,6 +850,7 @@ class PreviewApplication:
         camera_menu = menu_bar.addMenu("Camera")
         camera_menu.addAction(self._refresh_action)
         camera_menu.addAction(self._open_action)
+        camera_menu.addAction(self._close_camera_action)
 
         capture_menu = menu_bar.addMenu("Capture")
         capture_menu.addAction(self._still_action)
@@ -741,6 +882,7 @@ class PreviewApplication:
         toolbar.addWidget(self._camera_combo)
 
         toolbar.addAction(self._open_action)
+        toolbar.addAction(self._close_camera_action)
         toolbar.addSeparator()
         toolbar.addAction(self._fit_action)
         toolbar.addAction(self._fill_action)
@@ -828,6 +970,17 @@ class PreviewApplication:
         action_buttons = {
             "Controls": lambda: self._make_fullscreen_surface_action_button(
                 self._toggle_controls_action
+            ),
+            "Still": lambda: self._make_fullscreen_surface_action_button(
+                self._still_action
+            ),
+            "Record": lambda: self._make_fullscreen_surface_action_button(
+                self._record_action
+            ),
+            "Preferences": lambda: (
+                self._make_fullscreen_surface_action_button(
+                    self._preferences_action
+                )
             ),
             "Fit": lambda: self._make_fullscreen_surface_action_button(
                 self._fit_action
@@ -940,6 +1093,102 @@ class PreviewApplication:
             return "none"
         return descriptor.display_name
 
+    def _fullscreen_state_label(self) -> str:
+        """Return the current fullscreen state label for diagnostics."""
+
+        if not self._is_fullscreen:
+            return "windowed"
+        if self._fullscreen_surface_expanded:
+            return "fullscreen expanded"
+        return "fullscreen collapsed"
+
+    def _refresh_recording_state(self) -> None:
+        """Mirror recorder state from the active session into the shell."""
+
+        if self._session is None:
+            self._recording_state = "not ready"
+            self._last_recording_error = None
+            return
+        recording_error = self._session.recording_error
+        if recording_error and recording_error != self._last_recording_error:
+            self._last_recording_error = recording_error
+            self._set_status(self._preview_state, notice=recording_error)
+        state = self._session.recording_state
+        duration = self._session.recording_duration_milliseconds
+        if state == "recording":
+            self._recording_state = (
+                "recording " f"{format_recording_duration(duration)}"
+            )
+            return
+        if self._session.recording_output_path is not None and duration > 0:
+            self._recording_state = (
+                "saved " f"{format_recording_duration(duration)}"
+            )
+            return
+        if self._session.recording_available:
+            self._recording_state = "ready"
+            return
+        self._recording_state = "not ready"
+
+    def _sync_action_states(self) -> None:
+        """Keep menus and toolbar actions aligned with live session state."""
+
+        has_session = self._session is not None
+        has_frame = self._latest_frame is not None
+        recording = bool(
+            has_session and self._session.recording_state == "recording"
+        )
+        self._open_action.setEnabled(self._selected_descriptor() is not None)
+        self._close_camera_action.setEnabled(has_session)
+        self._still_action.setEnabled(has_frame)
+        self._record_action.setEnabled(
+            bool(has_session and self._session.recording_available)
+        )
+        self._record_action.setText(
+            "Stop Recording" if recording else "Record"
+        )
+
+    def _current_diagnostics_lines(self) -> tuple[str, ...]:
+        """Return the current diagnostics report for the visible shell."""
+
+        return build_diagnostics_lines(
+            backend_name=self._backend.backend_name,
+            camera_name=self._selected_camera_name(),
+            preview_state=self._preview_state,
+            source_mode=self._source_mode_label(),
+            preview_framing_mode=self._preview_framing_mode,
+            capture_framing_mode=self._capture_framing_mode,
+            control_count=len(self._active_controls),
+            recording_state=self._recording_state,
+            image_directory=str(self._image_directory),
+            video_directory=str(self._video_directory),
+            controls_surface_state=self._controls_surface_state(),
+            fullscreen_state=self._fullscreen_state_label(),
+            notice=self._status_notice,
+        )
+
+    def _select_output_path(
+        self,
+        *,
+        title: str,
+        initial_path: Path,
+        filter_text: str,
+    ) -> Path | None:
+        """Open one native save dialog for a still or recording path."""
+
+        initial_path.parent.mkdir(parents=True, exist_ok=True)
+        selected_path, _selected_filter = (
+            self._qt_widgets.QFileDialog.getSaveFileName(
+                self._window,
+                title,
+                str(initial_path),
+                filter_text,
+            )
+        )
+        if not selected_path:
+            return None
+        return Path(selected_path)
+
     def _set_controls_notice(self, message: str) -> None:
         """Update the controls-dock notice text."""
 
@@ -957,6 +1206,21 @@ class PreviewApplication:
             control_count=len(self._active_controls),
         )
         self._controls_summary_label.setText("\n".join(lines))
+
+    def _set_capture_framing_mode(self, framing_mode: str) -> None:
+        """Switch capture framing without changing the live preview mode."""
+
+        if framing_mode not in PREVIEW_FRAMING_MODES:
+            return
+        self._capture_framing_mode = framing_mode
+        self._sync_controls_summary()
+        self._set_status(
+            self._preview_state,
+            notice=(
+                f"{PREVIEW_FRAMING_LABELS[framing_mode]} capture framing "
+                "active."
+            ),
+        )
 
     def _controls_section_heading(self, heading: str):
         """Build one controls-dock section heading."""
@@ -1454,6 +1718,7 @@ class PreviewApplication:
             )
         )
         self._sync_controls_summary()
+        self._sync_action_states()
 
     def _set_preview_message(self, message: str) -> None:
         """Show preview status text and clear any stale frame image."""
@@ -1565,6 +1830,7 @@ class PreviewApplication:
             self._refresh_control_surface(notice=str(exc))
             self._set_status("open failed", notice="Camera open failed.")
             return
+        self._refresh_recording_state()
         self._set_preview_message("Waiting for live preview frames...")
         self._refresh_control_surface(notice="Loaded camera controls.")
         self._set_status("opening", notice="Opening selected camera.")
@@ -1574,6 +1840,8 @@ class PreviewApplication:
 
         if self._closed or self._session is None:
             return
+        previous_recording_state = self._recording_state
+        self._refresh_recording_state()
         failure_reason = self._session.failure_reason
         if failure_reason:
             self._set_preview_message(failure_reason)
@@ -1583,6 +1851,8 @@ class PreviewApplication:
             )
             return
         frame = self._session.get_latest_frame()
+        if self._recording_state != previous_recording_state:
+            self._set_status(self._preview_state)
         if frame is None or frame.frame_number == self._last_frame_number:
             return
         self._last_frame_number = frame.frame_number
@@ -1599,6 +1869,12 @@ class PreviewApplication:
         self._session = None
         self._latest_frame = None
         self._last_frame_number = -1
+        self._refresh_recording_state()
+        self._set_preview_message(
+            "Camera closed.\nOpen a camera to restart preview."
+        )
+        self._refresh_control_surface(notice="Camera session closed.")
+        self._set_status("closed", notice="Camera session closed.")
         self._sync_controls_summary()
 
     def _set_preview_framing_mode(self, framing_mode: str) -> None:
@@ -1691,35 +1967,216 @@ class PreviewApplication:
         self.open_selected_camera()
 
     def _capture_still_action(self, _checked=False) -> None:
-        """Announce the staged still-capture placeholder."""
+        """Save one framed still image through the native Qt shell."""
 
+        if self._latest_frame is None:
+            self._set_status(
+                self._preview_state,
+                notice="Wait for a live preview frame before saving a still.",
+            )
+            return
+        output_path = self._select_output_path(
+            title="Save Still Image",
+            initial_path=_default_still_output_path(self._image_directory),
+            filter_text=STILL_FILE_FILTER,
+        )
+        if output_path is None:
+            self._set_status(
+                self._preview_state,
+                notice="Still capture canceled.",
+            )
+            return
+        if not output_path.suffix:
+            output_path = output_path.with_suffix(".png")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        target_width, target_height = self._preview_target_size()
+        image = _capture_image_from_frame(
+            self._latest_frame,
+            framing_mode=self._capture_framing_mode,
+            target_width=target_width,
+            target_height=target_height,
+            qt_gui=self._qt_gui,
+        )
+        if not image.save(
+            str(output_path), _still_format_for_path(output_path)
+        ):
+            self._set_status(
+                self._preview_state,
+                notice="Still capture failed.",
+            )
+            return
+        self._image_directory = output_path.parent
         self._set_status(
             self._preview_state,
-            notice="Still capture lands after the Qt foundation slice.",
+            notice=f"Saved still to {output_path.name}.",
         )
 
     def _toggle_recording_action(self, _checked=False) -> None:
-        """Announce the staged recording placeholder."""
+        """Start or stop native Qt recording for the active session."""
 
+        if self._session is None:
+            self._set_status(
+                self._preview_state,
+                notice="Open a camera before starting a recording.",
+            )
+            return
+        if self._session.recording_state == "recording":
+            output_path = self._session.stop_recording()
+            self._refresh_recording_state()
+            notice = "Stopped recording."
+            if output_path is not None:
+                notice = f"Stopped recording to {output_path.name}."
+            self._set_status(self._preview_state, notice=notice)
+            return
+        output_path = self._select_output_path(
+            title="Start Recording",
+            initial_path=_default_recording_output_path(self._video_directory),
+            filter_text=VIDEO_FILE_FILTER,
+        )
+        if output_path is None:
+            self._set_status(
+                self._preview_state,
+                notice="Recording canceled.",
+            )
+            return
+        if not output_path.suffix:
+            output_path = output_path.with_suffix(".mp4")
+        try:
+            self._session.start_recording(output_path)
+        except CameraOutputError as exc:
+            self._set_status(self._preview_state, notice=str(exc))
+            return
+        self._video_directory = output_path.parent
+        self._recording_state = "recording 00:00"
         self._set_status(
             self._preview_state,
-            notice="Recording lands after the Qt foundation slice.",
+            notice=f"Recording to {output_path.name}.",
         )
 
     def _open_preferences(self, _checked=False) -> None:
-        """Announce the staged preferences placeholder."""
+        """Open a native Qt dialog for session-level shell preferences."""
 
+        QtWidgets = self._qt_widgets
+
+        dialog = QtWidgets.QDialog(self._window)
+        dialog.setWindowTitle("Preferences")
+        dialog.resize(520, 240)
+        layout = QtWidgets.QVBoxLayout(dialog)
+        form = QtWidgets.QFormLayout()
+        form.setFieldGrowthPolicy(
+            QtWidgets.QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+        )
+
+        preview_combo = QtWidgets.QComboBox(dialog)
+        capture_combo = QtWidgets.QComboBox(dialog)
+        for mode in PREVIEW_FRAMING_MODES:
+            label = PREVIEW_FRAMING_LABELS[mode]
+            preview_combo.addItem(label, mode)
+            capture_combo.addItem(label, mode)
+        preview_combo.setCurrentIndex(
+            preview_combo.findData(self._preview_framing_mode)
+        )
+        capture_combo.setCurrentIndex(
+            capture_combo.findData(self._capture_framing_mode)
+        )
+
+        image_row = QtWidgets.QHBoxLayout()
+        image_field = QtWidgets.QLineEdit(str(self._image_directory), dialog)
+        image_browse = QtWidgets.QPushButton("Browse", dialog)
+        image_row.addWidget(image_field, 1)
+        image_row.addWidget(image_browse)
+
+        video_row = QtWidgets.QHBoxLayout()
+        video_field = QtWidgets.QLineEdit(str(self._video_directory), dialog)
+        video_browse = QtWidgets.QPushButton("Browse", dialog)
+        video_row.addWidget(video_field, 1)
+        video_row.addWidget(video_browse)
+
+        # Reuse one native folder chooser for both output-directory fields.
+        def choose_directory(field) -> None:
+            selected = QtWidgets.QFileDialog.getExistingDirectory(
+                dialog,
+                "Choose Folder",
+                field.text(),
+            )
+            if selected:
+                field.setText(selected)
+
+        image_browse.clicked.connect(lambda: choose_directory(image_field))
+        video_browse.clicked.connect(lambda: choose_directory(video_field))
+
+        image_widget = QtWidgets.QWidget(dialog)
+        image_widget.setLayout(image_row)
+        video_widget = QtWidgets.QWidget(dialog)
+        video_widget.setLayout(video_row)
+        form.addRow("Preview framing", preview_combo)
+        form.addRow("Capture framing", capture_combo)
+        form.addRow("Image folder", image_widget)
+        form.addRow("Video folder", video_widget)
+        layout.addLayout(form)
+
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.StandardButton.Ok
+            | QtWidgets.QDialogButtonBox.StandardButton.Cancel,
+            parent=dialog,
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if int(getattr(dialog, "exec")()) != int(
+            QtWidgets.QDialog.DialogCode.Accepted
+        ):
+            self._set_status(
+                self._preview_state,
+                notice="Preferences closed without changes.",
+            )
+            return
+
+        self._image_directory = Path(image_field.text()).expanduser()
+        self._video_directory = Path(video_field.text()).expanduser()
+        self._set_preview_framing_mode(str(preview_combo.currentData()))
+        self._set_capture_framing_mode(str(capture_combo.currentData()))
         self._set_status(
             self._preview_state,
-            notice="Preferences land after the Qt foundation slice.",
+            notice="Applied session preferences.",
         )
 
     def _open_diagnostics(self, _checked=False) -> None:
-        """Announce the staged diagnostics placeholder."""
+        """Open a native Qt diagnostics view for the current shell state."""
 
+        QtWidgets = self._qt_widgets
+
+        dialog = QtWidgets.QDialog(self._window)
+        dialog.setWindowTitle("Diagnostics")
+        dialog.resize(640, 420)
+        layout = QtWidgets.QVBoxLayout(dialog)
+
+        report = "\n".join(self._current_diagnostics_lines())
+        editor = QtWidgets.QPlainTextEdit(dialog)
+        editor.setReadOnly(True)
+        editor.setPlainText(report)
+        layout.addWidget(editor, 1)
+
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.StandardButton.Close,
+            parent=dialog,
+        )
+        copy_button = buttons.addButton(
+            "Copy",
+            QtWidgets.QDialogButtonBox.ButtonRole.ActionRole,
+        )
+        copy_button.clicked.connect(
+            lambda: self._application.clipboard().setText(report)
+        )
+        buttons.rejected.connect(dialog.reject)
+        buttons.accepted.connect(dialog.accept)
+        layout.addWidget(buttons)
+
+        getattr(dialog, "exec")()
         self._set_status(
             self._preview_state,
-            notice="Diagnostics land after the Qt foundation slice.",
+            notice="Viewed diagnostics.",
         )
 
     def _copy_status_summary(self, _checked=False) -> None:
@@ -1766,6 +2223,7 @@ class PreviewApplication:
         self._preview_timer.timeout.connect(self._poll_preview_frame)
         self._preview_timer.start()
         self._fit_action.setChecked(True)
+        self._sync_action_states()
         self.refresh_cameras(auto_open=True)
         self._window.show()
         exec_method = getattr(self._application, "exec")

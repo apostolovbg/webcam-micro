@@ -216,7 +216,7 @@ PyPI-distributed microscope camera application.
      workflow intact, so the next slice can finish workstation parity instead
      of bootstrapping the migration
 
-8. [not done] Complete the Qt workstation shell and native desktop parity.
+8. [done] Complete the Qt workstation shell and native desktop parity.
    Goal:
    - finish the Qt migration so the modern shell supports the governed
      workstation behaviors and native command surfaces on all desktop
@@ -235,19 +235,24 @@ PyPI-distributed microscope camera application.
    - aligned native menu actions with Qt menu roles for Preferences, About,
      and Quit so macOS and other desktop shells can place those commands more
      naturally
-   Work to do:
-   - implement the governed File, Edit, View, Camera, Capture, Tools, and
-     Help command structure through native menu-bar actions
-   - wire still capture, recording, output handling, and remaining
-     device-session behavior through Qt-native media objects where they meet
-     the governed product contract instead of rebuilding parallel native
-     stacks
-   - restore fullscreen, controls-surface, preferences, diagnostics, still,
-     and recording shell affordances on the Qt baseline
-   - validate preview, controls-surface behavior, fullscreen transitions,
-     and menu-bar behavior interactively across supported desktop platforms
-   - keep tests, docs, and governed artifacts aligned so only the Qt shell
-     baseline remains described in the repository
+   - completed the governed File, Edit, View, Camera, Capture, Tools, and
+     Help command structure through native menu-bar actions, including real
+     camera close, still, record, preferences, diagnostics, and status-copy
+     affordances
+   - restored still-image save, recording start or stop, session
+     preferences, diagnostics, and fullscreen command actions on the Qt
+     baseline instead of leaving placeholder “lands later” shell callbacks
+   - expanded the fullscreen command surface so the immersive microscope
+     mode keeps still, record, preferences, framing, controls, collapse, and
+     safe windowed-exit actions available
+   - cleaned stale active Flet references from the package-facing docs and
+     active dependency-management config so only the Qt shell baseline
+     remains live in current repo-owned surfaces
+   Outcome:
+   - the Qt shell now carries the intended native desktop workflow with no
+     placeholder command affordances, so later work can focus on output
+     rules, persistence, presets, and polish instead of finishing the
+     migration itself
    Done when:
    - the Qt shell carries the intended desktop workflow with native menu
      bars and no placeholder shell affordances
@@ -261,17 +266,23 @@ PyPI-distributed microscope camera application.
    Goal:
    - let users save microscope stills and videos without leaving the GUI
    Why this matters:
-   - preview alone is not enough; capture is one of the primary working
+     - preview alone is not enough; capture is one of the primary working
      outcomes promised by the product
+   Completed work so far:
+   - implemented native still-image save through PNG and JPEG file dialogs
+     with timestamp-based default names and auto-created output folders
+   - implemented native Qt recording start and stop with visible recording
+     status and elapsed time in the shell
+   - wired still and record actions into the menu bar, toolbar, fullscreen
+     command surface, and built-in keyboard shortcuts
+   - added session-level image and video folder preferences so the working
+     shell has real output destinations before persistence lands
    Work to do:
-   - implement still capture with timestamp-based default naming and JPEG/PNG
-     output
-   - implement video recording with explicit start and stop, visible
-     recording state, and elapsed time
-   - add default image and video folder handling and create missing folders
-     automatically
-   - wire capture and recording actions into toolbar, menu, and shortcut
-     flows
+   - persist image and video output destinations across launches
+   - reconcile recording output with the governed capture-framing and output
+     rules instead of relying only on the native camera feed
+   - validate native recording container and codec behavior interactively
+     across supported desktop platforms
    Done when:
    - stills and videos save into the configured destinations
    - recording start, stop, and status are visible and reliable

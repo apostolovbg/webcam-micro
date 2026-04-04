@@ -63,6 +63,10 @@ class CameraControlApplyError(CameraControlError):
     """Raised when one control value cannot be applied."""
 
 
+class CameraOutputError(RuntimeError):
+    """Raised when still or recording output work cannot complete."""
+
+
 class CameraSession(Protocol):
     """Represent one open camera session lifecycle."""
 
@@ -75,6 +79,32 @@ class CameraSession(Protocol):
     @property
     def failure_reason(self) -> str | None:
         """Return the most recent recoverable session failure."""
+
+    def start_recording(self, output_path: Path) -> Path:
+        """Start recording to one output path."""
+
+    def stop_recording(self) -> Path | None:
+        """Stop the active recording and return the resolved output path."""
+
+    @property
+    def recording_available(self) -> bool:
+        """Return whether the session can start a recording."""
+
+    @property
+    def recording_state(self) -> str:
+        """Return the current recording state label."""
+
+    @property
+    def recording_duration_milliseconds(self) -> int:
+        """Return the current recording duration in milliseconds."""
+
+    @property
+    def recording_output_path(self) -> Path | None:
+        """Return the active or last recording output path."""
+
+    @property
+    def recording_error(self) -> str | None:
+        """Return the most recent recoverable recording failure."""
 
 
 class CameraBackend(Protocol):
@@ -195,6 +225,48 @@ class NullCameraSession:
 
         return None
 
+    def start_recording(self, output_path: Path) -> Path:
+        """Raise because the placeholder session cannot record."""
+
+        raise CameraOutputError(
+            "Recording is unavailable for the placeholder camera backend."
+        )
+
+    def stop_recording(self) -> Path | None:
+        """Return no path because the placeholder session never records."""
+
+        return None
+
+    @property
+    def recording_available(self) -> bool:
+        """Return that the placeholder backend cannot record."""
+
+        return False
+
+    @property
+    def recording_state(self) -> str:
+        """Return the placeholder recording state."""
+
+        return "not ready"
+
+    @property
+    def recording_duration_milliseconds(self) -> int:
+        """Return zero because the placeholder backend never records."""
+
+        return 0
+
+    @property
+    def recording_output_path(self) -> Path | None:
+        """Return no path because no recording exists."""
+
+        return None
+
+    @property
+    def recording_error(self) -> str | None:
+        """Return no recording error for the placeholder backend."""
+
+        return None
+
 
 class NullCameraControlBackend:
     """Provide an empty control surface when no real controls exist."""
@@ -285,10 +357,10 @@ def _load_qt_camera_modules():
     """Import Qt Multimedia lazily so smoke tests stay lightweight."""
 
     try:
-        from PySide6 import QtGui, QtMultimedia
+        from PySide6 import QtCore, QtGui, QtMultimedia
     except ModuleNotFoundError:
-        return None, None
-    return QtGui, QtMultimedia
+        return None, None, None
+    return QtCore, QtGui, QtMultimedia
 
 
 def _load_avfoundation_modules():
@@ -367,7 +439,7 @@ def _qt_camera_label(
 def _discover_qt_cameras() -> tuple[CameraDescriptor, ...]:
     """Discover cameras through Qt Multimedia video-input devices."""
 
-    _qt_gui, qt_multimedia = _load_qt_camera_modules()
+    _qt_core, _qt_gui, qt_multimedia = _load_qt_camera_modules()
     if qt_multimedia is None:
         raise MissingCameraDependencyError(
             "Install the package runtime dependencies before opening a "
@@ -453,6 +525,31 @@ def _qimage_to_preview_frame(
         ),
         frame_number=frame_number,
     )
+
+
+def _qt_media_file_format_for_path(path: Path, qt_multimedia: Any) -> object:
+    """Return one Qt media file format that matches the output suffix."""
+
+    suffix = path.suffix.lower()
+    formats = qt_multimedia.QMediaFormat.FileFormat
+    if suffix == ".mov":
+        return formats.QuickTime
+    if suffix == ".mkv":
+        return formats.Matroska
+    if suffix == ".webm":
+        return formats.WebM
+    return formats.MPEG4
+
+
+def _qt_recorder_state_text(state: object, qt_multimedia: Any) -> str:
+    """Return a readable recording-state label for one Qt enum value."""
+
+    states = qt_multimedia.QMediaRecorder.RecorderState
+    if state == states.RecordingState:
+        return "recording"
+    if state == states.PausedState:
+        return "paused"
+    return "stopped"
 
 
 def _run_discovery_command(command: list[str]) -> str:
@@ -1041,26 +1138,44 @@ class QtCameraSession:
         descriptor: CameraDescriptor,
         camera_device: Any,
         *,
+        qt_core: Any,
         qt_gui: Any,
         qt_multimedia: Any,
     ) -> None:
         """Start one Qt camera, capture session, and preview sink."""
 
         self.descriptor = descriptor
+        self._qt_core = qt_core
         self._qt_gui = qt_gui
         self._qt_multimedia = qt_multimedia
         self._camera = qt_multimedia.QCamera(camera_device)
         self._capture_session = qt_multimedia.QMediaCaptureSession()
         self._video_sink = qt_multimedia.QVideoSink()
+        self._media_recorder = qt_multimedia.QMediaRecorder()
         self._capture_session.setCamera(self._camera)
         self._capture_session.setVideoSink(self._video_sink)
+        self._capture_session.setRecorder(self._media_recorder)
         self._latest_frame: PreviewFrame | None = None
         self._failure_reason: str | None = None
+        self._recording_error: str | None = None
+        self._recording_state = "stopped"
+        self._recording_duration_milliseconds = 0
+        self._recording_output_path: Path | None = None
         self._frame_number = -1
         self._closed = False
 
         self._video_sink.videoFrameChanged.connect(self._handle_video_frame)
         self._camera.errorOccurred.connect(self._handle_camera_error)
+        self._media_recorder.recorderStateChanged.connect(
+            self._handle_recorder_state_changed
+        )
+        self._media_recorder.durationChanged.connect(
+            self._handle_duration_changed
+        )
+        self._media_recorder.actualLocationChanged.connect(
+            self._handle_actual_location_changed
+        )
+        self._media_recorder.errorOccurred.connect(self._handle_recorder_error)
         self._camera.start()
 
     def _handle_camera_error(self, _error: object, message: str) -> None:
@@ -1094,6 +1209,70 @@ class QtCameraSession:
         )
         self._failure_reason = None
 
+    def _handle_recorder_state_changed(self, state: object) -> None:
+        """Mirror the Qt recorder state into a stable string label."""
+
+        self._recording_state = _qt_recorder_state_text(
+            state,
+            self._qt_multimedia,
+        )
+
+    def _handle_duration_changed(self, duration: int) -> None:
+        """Store the current recording duration in milliseconds."""
+
+        self._recording_duration_milliseconds = max(0, int(duration))
+
+    def _handle_actual_location_changed(self, location: object) -> None:
+        """Store the resolved recording output location when Qt reports it."""
+
+        if location is None:
+            return
+        local_path = location.toLocalFile()
+        if local_path:
+            self._recording_output_path = Path(local_path)
+
+    def _handle_recorder_error(self, _error: object, message: str) -> None:
+        """Record the newest visible recording error message."""
+
+        if message:
+            self._recording_error = message
+            return
+        self._recording_error = "Qt Multimedia recording failed."
+
+    def start_recording(self, output_path: Path) -> Path:
+        """Start one Qt Multimedia recording to the requested path."""
+
+        if self._closed:
+            raise CameraOutputError("The active camera session is closed.")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        media_format = self._qt_multimedia.QMediaFormat()
+        media_format.setFileFormat(
+            _qt_media_file_format_for_path(
+                output_path,
+                self._qt_multimedia,
+            )
+        )
+        self._media_recorder.setMediaFormat(media_format)
+        self._media_recorder.setQuality(
+            self._qt_multimedia.QMediaRecorder.Quality.HighQuality
+        )
+        self._media_recorder.setOutputLocation(
+            self._qt_core.QUrl.fromLocalFile(str(output_path))
+        )
+        self._recording_error = None
+        self._recording_duration_milliseconds = 0
+        self._recording_output_path = output_path
+        self._media_recorder.record()
+        return output_path
+
+    def stop_recording(self) -> Path | None:
+        """Stop the active Qt Multimedia recording cleanly."""
+
+        if self._recording_state != "recording":
+            return self._recording_output_path
+        self._media_recorder.stop()
+        return self._recording_output_path
+
     def close(self) -> None:
         """Stop the Qt camera and disconnect the preview sink cleanly."""
 
@@ -1107,6 +1286,24 @@ class QtCameraSession:
         with contextlib.suppress(Exception):
             self._camera.errorOccurred.disconnect(self._handle_camera_error)
         with contextlib.suppress(Exception):
+            self._media_recorder.recorderStateChanged.disconnect(
+                self._handle_recorder_state_changed
+            )
+        with contextlib.suppress(Exception):
+            self._media_recorder.durationChanged.disconnect(
+                self._handle_duration_changed
+            )
+        with contextlib.suppress(Exception):
+            self._media_recorder.actualLocationChanged.disconnect(
+                self._handle_actual_location_changed
+            )
+        with contextlib.suppress(Exception):
+            self._media_recorder.errorOccurred.disconnect(
+                self._handle_recorder_error
+            )
+        with contextlib.suppress(Exception):
+            self._media_recorder.stop()
+        with contextlib.suppress(Exception):
             self._camera.stop()
 
     def get_latest_frame(self) -> PreviewFrame | None:
@@ -1119,6 +1316,36 @@ class QtCameraSession:
         """Return the most recent recoverable Qt session failure."""
 
         return self._failure_reason
+
+    @property
+    def recording_available(self) -> bool:
+        """Return whether this Qt session can start a recording."""
+
+        return not self._closed
+
+    @property
+    def recording_state(self) -> str:
+        """Return the current recorder-state label."""
+
+        return self._recording_state
+
+    @property
+    def recording_duration_milliseconds(self) -> int:
+        """Return the current recorder duration in milliseconds."""
+
+        return self._recording_duration_milliseconds
+
+    @property
+    def recording_output_path(self) -> Path | None:
+        """Return the current or last recording output path."""
+
+        return self._recording_output_path
+
+    @property
+    def recording_error(self) -> str | None:
+        """Return the newest recoverable recording error."""
+
+        return self._recording_error
 
 
 class FfmpegCameraSession:
@@ -1272,8 +1499,16 @@ class QtCameraBackend:
     def __init__(self) -> None:
         """Validate the Qt runtime backend and initialize controls."""
 
-        self._qt_gui, self._qt_multimedia = _load_qt_camera_modules()
-        if self._qt_gui is None or self._qt_multimedia is None:
+        (
+            self._qt_core,
+            self._qt_gui,
+            self._qt_multimedia,
+        ) = _load_qt_camera_modules()
+        if (
+            self._qt_core is None
+            or self._qt_gui is None
+            or self._qt_multimedia is None
+        ):
             raise MissingCameraDependencyError(
                 "Install the package runtime dependencies before opening a "
                 "camera session."
@@ -1324,10 +1559,12 @@ class QtCameraBackend:
                 "device list."
             )
         assert self._qt_gui is not None
+        assert self._qt_core is not None
         assert self._qt_multimedia is not None
         return QtCameraSession(
             descriptor=descriptor,
             camera_device=camera_device,
+            qt_core=self._qt_core,
             qt_gui=self._qt_gui,
             qt_multimedia=self._qt_multimedia,
         )

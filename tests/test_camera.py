@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 from webcam_micro.camera import (
     AvFoundationCameraControlBackend,
@@ -14,6 +15,7 @@ from webcam_micro.camera import (
     CameraControlChoice,
     CameraControlError,
     CameraDescriptor,
+    CameraOutputError,
     CameraSession,
     FfmpegCameraBackend,
     FfmpegCameraSession,
@@ -60,6 +62,7 @@ class CameraContractTest(unittest.TestCase):
         self.assertEqual("CameraControlChoice", CameraControlChoice.__name__)
         self.assertEqual("CameraDescriptor", CameraDescriptor.__name__)
         self.assertEqual("CameraControlError", CameraControlError.__name__)
+        self.assertEqual("CameraOutputError", CameraOutputError.__name__)
         self.assertEqual("CameraSession", CameraSession.__name__)
         self.assertEqual(
             "CameraControlApplyError",
@@ -121,6 +124,14 @@ class CameraContractTest(unittest.TestCase):
         self.assertEqual(descriptor, session.descriptor)
         self.assertIsNone(session.failure_reason)
         self.assertIsNone(session.get_latest_frame())
+        self.assertFalse(session.recording_available)
+        self.assertEqual("not ready", session.recording_state)
+        self.assertEqual(0, session.recording_duration_milliseconds)
+        self.assertIsNone(session.recording_output_path)
+        self.assertIsNone(session.recording_error)
+        with self.assertRaises(CameraOutputError):
+            session.start_recording(Path("/tmp/null-camera.mp4"))
+        self.assertIsNone(session.stop_recording())
         session.close()
         self.assertTrue(session.closed)
 

@@ -35,6 +35,10 @@ class ApplicationEntryPointTest(unittest.TestCase):
         self.assertIn("toolbar", plan.shell_contract)
         self.assertIn("controls dock", plan.shell_contract)
         self.assertIn("fit/fill/crop", plan.shell_contract)
+        self.assertIn("still-save", plan.shell_contract)
+        self.assertIn("recording", plan.shell_contract)
+        self.assertIn("preferences", plan.shell_contract)
+        self.assertIn("diagnostics", plan.shell_contract)
         self.assertIn("fullscreen", plan.shell_contract)
 
     def test_launch_plan_symbol_stays_explicit(self) -> None:
@@ -100,6 +104,8 @@ class ApplicationEntryPointTest(unittest.TestCase):
 
         self.assertIn("<!-- REPO-ONLY:BEGIN -->", root_readme)
         self.assertIn("## What Works Today", package_readme)
+        self.assertIn("Qt Widgets", package_readme)
+        self.assertNotIn("Flet", package_readme)
         self.assertNotIn("## Development Quick Start", package_readme)
         self.assertNotIn("## Workflow", package_readme)
         self.assertNotIn("<!-- REPO-ONLY:BEGIN -->", package_readme)
