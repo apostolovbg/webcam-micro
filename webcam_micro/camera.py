@@ -11,6 +11,7 @@ import subprocess
 import sys
 import threading
 from collections import deque
+from ctypes import c_bool
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -443,8 +444,6 @@ def _request_macos_camera_permission(qt_core: Any) -> tuple[bool, str]:
         return True, ""
     if status in {1, 2}:
         return False, _camera_permission_denied_message()
-
-    from ctypes import c_bool
 
     from rubicon.objc import Block
 

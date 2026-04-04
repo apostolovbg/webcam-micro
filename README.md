@@ -92,7 +92,9 @@ The application starts in a preview-first Qt Widgets window.
 The `webcam_micro.launcher` module uses `webcam_micro.runtime_bootstrap` to
 create or reuse a stable per-user runtime interpreter on Windows, macOS,
 and Linux before the Qt shell starts, so the first launch sets up the
-Python identity that will own later camera access on macOS.
+Python identity that will own later camera access on macOS. The runtime
+bridge keeps the package imports visible in that interpreter so Qt still
+loads from the installed package set.
 The command bar and native menu bar provide access to the core camera,
 capture, framing, preference, and diagnostics actions without requiring a
 terminal once the app is running.

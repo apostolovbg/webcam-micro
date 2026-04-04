@@ -59,7 +59,8 @@ def bootstrap_runtime(argv: Sequence[str] | None = None) -> None:
     plan = build_runtime_bootstrap_plan()
     if plan.needs_runtime_creation:
         _create_runtime_environment(plan.runtime_root)
-    _write_import_bridge(plan.runtime_site_packages, plan.import_roots)
+    if plan.needs_relaunch:
+        _write_import_bridge(plan.runtime_site_packages, plan.import_roots)
     if plan.macos_info_plist is not None:
         _ensure_camera_usage_description(plan.macos_info_plist)
     if plan.needs_relaunch:
@@ -132,10 +133,6 @@ def _bridge_import_roots(runtime_root: Path) -> tuple[Path, ...]:
     candidates: list[Path] = [Path(__file__).resolve().parents[1]]
     for site_root in _site_paths():
         candidates.append(site_root)
-    for sys_path_entry in sys.path:
-        if not sys_path_entry:
-            continue
-        candidates.append(Path(sys_path_entry))
 
     roots: list[Path] = []
     for candidate in candidates:
@@ -148,8 +145,6 @@ def _bridge_import_roots(runtime_root: Path) -> tuple[Path, ...]:
         if not resolved.exists():
             continue
         if resolved == runtime_root or runtime_root in resolved.parents:
-            continue
-        if _is_stdlib_path(resolved):
             continue
         if resolved not in roots:
             roots.append(resolved)
@@ -170,28 +165,6 @@ def _site_paths() -> tuple[Path, ...]:
     elif isinstance(user_site, (list, tuple)):
         paths.extend(Path(path) for path in user_site)
     return tuple(path for path in paths if path)
-
-
-def _is_stdlib_path(path: Path) -> bool:
-    """Return True when a path belongs to the active stdlib roots."""
-
-    stdlib_paths: list[Path] = []
-    for key in ("stdlib", "platstdlib"):
-        configured = sysconfig.get_paths().get(key)
-        if configured:
-            stdlib_paths.append(Path(configured).resolve())
-    base_prefix = Path(sys.base_prefix).resolve()
-    stdlib_paths.extend(
-        [
-            base_prefix,
-            base_prefix / "Lib",
-            base_prefix / "lib",
-        ]
-    )
-    for stdlib_path in stdlib_paths:
-        if path == stdlib_path or stdlib_path in path.parents:
-            return True
-    return False
 
 
 def _write_import_bridge(

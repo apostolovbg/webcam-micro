@@ -61,6 +61,31 @@ Example:
 ## Version 0.1.0a1
 
 - 2026-04-04:
+  Change: Replaced the completed alpha roadmap with a beta hardening plan
+    focused on layout, capture, preview, controls, and validation.
+  Why: The official alpha is complete, and operational testing now defines
+    the beta follow-up work rather than the original delivery path.
+  Impact: PLAN now defines only the post-alpha slices that tighten the app
+    toward beta while preserving the alpha history below it.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+
+- 2026-04-04:
+  Change: Fixed the runtime bootstrap so the private interpreter keeps the
+    original package bridge instead of overwriting it from the runtime hop.
+  Why: Prevented the macOS permission runtime from dropping `PySide6` and
+    other package dependencies after the first exec into the private venv.
+  Impact: Updated `webcam-micro` so the stable runtime interpreter can start
+    its GUI shell on all supported OSes without losing the package imports.
+  Files:
+  CHANGELOG.md
+  README.md
+  tests/test_runtime_bootstrap.py
+  webcam_micro/runtime_bootstrap.py
+  webcam_micro/README.md
+
+- 2026-04-04:
   Change: Bootstrapped a per-user runtime launcher and redirected the
     package entrypoint to it.
   Why: Enabled the app to reuse a stable interpreter identity for macOS
