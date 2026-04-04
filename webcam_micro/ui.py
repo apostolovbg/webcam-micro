@@ -23,6 +23,7 @@ from webcam_micro.camera import (
     _choice_for_value,
     _safe_float,
     build_backend_plan,
+    request_camera_permission,
 )
 
 
@@ -2552,6 +2553,20 @@ class PreviewApplication:
             self._refresh_control_surface(notice="Choose a camera first.")
             self._set_status("no selection", notice="Choose a camera first.")
             self._record_diagnostic_event("No camera selected.")
+            return
+        granted, permission_notice = request_camera_permission(
+            self._qt_core,
+        )
+        if not granted:
+            notice = (
+                permission_notice
+                or "Camera access was denied before opening the camera."
+            )
+            if self._session is None:
+                self._set_preview_message(notice)
+            self._refresh_control_surface(notice=notice)
+            self._set_status("permission denied", notice=notice)
+            self._record_diagnostic_event(notice)
             return
         self.close_session()
         try:

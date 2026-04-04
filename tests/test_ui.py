@@ -5,8 +5,9 @@ from __future__ import annotations
 import inspect
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from webcam_micro.camera import PreviewFrame
+from webcam_micro.camera import CameraDescriptor, PreviewFrame
 from webcam_micro.ui import (
     MissingGuiDependencyError,
     PreviewApplication,
@@ -135,6 +136,113 @@ class ShellSpecTest(unittest.TestCase):
         self.assertEqual("RenderedPreview", RenderedPreview.__name__)
         self.assertEqual("RuntimeStatus", RuntimeStatus.__name__)
         self.assertEqual("ShellSpec", ShellSpec.__name__)
+
+    def test_open_selected_camera_checks_permission_before_opening(
+        self,
+    ) -> None:
+        """Assert the camera-open path requests permission first."""
+
+        class FakeBackend:
+            """Record whether the backend was asked to open a session."""
+
+            backend_name = "qt_multimedia"
+
+            def __init__(self) -> None:
+                """Initialize the list of opened descriptors."""
+
+                self.opened_descriptors: list[CameraDescriptor] = []
+
+            def open_session(self, descriptor: CameraDescriptor) -> object:
+                """Record the open request and return a placeholder session."""
+
+                self.opened_descriptors.append(descriptor)
+                return object()
+
+        class FakeShell:
+            """Provide the minimum surface needed by the open path."""
+
+            def __init__(self) -> None:
+                """Initialize the shell state used by the permission guard."""
+
+                self._backend = fake_backend
+                self._cameras = [descriptor]
+                self._selected_camera_id = descriptor.stable_id
+                self._qt_core = object()
+                self._session = None
+                self._preview_state = "live"
+                self._current_preset_name = None
+                self.calls: list[object] = []
+
+            def _selected_descriptor(self) -> CameraDescriptor | None:
+                """Return the selected descriptor used for the open path."""
+
+                return descriptor
+
+            def close_session(self) -> None:
+                """Record that the shell tried to close an existing session."""
+
+                self.calls.append("close_session")
+
+            def _set_preview_message(self, message: str) -> None:
+                """Record the preview message shown to the user."""
+
+                self.calls.append(("preview", message))
+
+            def _refresh_control_surface(self, notice: str) -> None:
+                """Record the controls-surface notice."""
+
+                self.calls.append(("controls", notice))
+
+            def _set_status(self, state: str, notice: str) -> None:
+                """Record the visible status update."""
+
+                self.calls.append(("status", state, notice))
+
+            def _record_diagnostic_event(self, message: str) -> None:
+                """Record the diagnostic event emitted by the shell."""
+
+                self.calls.append(("diagnostic", message))
+
+            def _refresh_recording_state(self) -> None:
+                """Record the recording-state refresh call."""
+
+                self.calls.append("recording_state")
+
+            def _apply_persisted_control_state(self) -> None:
+                """Record the control-state restore call."""
+
+                self.calls.append("apply_controls")
+
+            def _persist_workspace_state(self) -> None:
+                """Record the workspace-persistence call."""
+
+                self.calls.append("persist")
+
+        descriptor = CameraDescriptor(
+            stable_id="camera-1",
+            display_name="Camera 1",
+            backend_name="qt_multimedia",
+            device_selector="camera-1",
+        )
+        fake_backend = FakeBackend()
+        shell = FakeShell()
+
+        with mock.patch(
+            "webcam_micro.ui.request_camera_permission",
+            return_value=(False, "Camera permission denied."),
+        ):
+            PreviewApplication.open_selected_camera(shell)
+
+        self.assertEqual([], fake_backend.opened_descriptors)
+        self.assertNotIn("close_session", shell.calls)
+        self.assertIn(
+            ("preview", "Camera permission denied."),
+            shell.calls,
+        )
+        self.assertIn(
+            ("status", "permission denied", "Camera permission denied."),
+            shell.calls,
+        )
 
     def test_runtime_status_preserves_main_shell_fields(self) -> None:
         """Assert the visible runtime status keeps the key shell fields."""

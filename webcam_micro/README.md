@@ -58,7 +58,8 @@ operational testing before beta planning begins.
 
 ## What Works Today
 - Launch and entrypoint: the application starts from the `webcam-micro`
-  command.
+  command and bootstraps a stable per-user runtime interpreter on every
+  supported OS.
 - Windowed workspace: the main shell keeps the preview central while the
   menu bar, toolbar, controls dock, and status bar expose the primary
   microscope actions.
@@ -87,9 +88,16 @@ webcam-micro
 
 ## Launch
 The application starts in a preview-first Qt Widgets window.
+The `webcam_micro.launcher` module uses `webcam_micro.runtime_bootstrap` to
+create or reuse a stable per-user runtime interpreter on Windows, macOS,
+and Linux before the Qt shell starts, so the first launch sets up the
+Python identity that will own later camera access on macOS.
 The command bar and native menu bar provide access to the core camera,
 capture, framing, preference, and diagnostics actions without requiring a
 terminal once the app is running.
+On macOS, the runtime interpreter requests camera permission the first time
+a camera opens; if it was denied before, reset the Camera privacy setting and
+relaunch.
 
 ## Windowed Workspace
 The main window keeps the microscope preview central.
@@ -158,7 +166,10 @@ Some camera controls and output formats remain backend-dependent.
 
 ## Packaging and Distribution
 `webcam-micro` is shipped as a Python package on PyPI.
-The launcher name is `webcam-micro`.
+The `webcam_micro.launcher` entrypoint uses `webcam_micro.runtime_bootstrap`
+to create or reuse the per-user runtime interpreter on every supported OS
+before handing off to the GUI app, and the launcher name is still
+`webcam-micro`.
 
 ## Security, Privacy, and Support
 `webcam-micro` is a local desktop utility by default.

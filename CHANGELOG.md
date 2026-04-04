@@ -61,6 +61,44 @@ Example:
 ## Version 0.1.0a1
 
 - 2026-04-04:
+  Change: Bootstrapped a per-user runtime launcher and redirected the
+    package entrypoint to it.
+  Why: Enabled the app to reuse a stable interpreter identity for macOS
+    camera access without giving up cross-platform launches.
+  Impact: Updated the launch path so `webcam-micro` starts through
+    `webcam_micro.launcher`, `webcam_micro.runtime_bootstrap`, and the
+    cross-platform docs and tests on every supported OS.
+  Files:
+  CHANGELOG.md
+  README.md
+  pyproject.toml
+  tests/test_app.py
+  tests/test_launcher.py
+  tests/test_runtime_bootstrap.py
+  webcam_micro/README.md
+  webcam_micro/__main__.py
+  webcam_micro/app.py
+  webcam_micro/launcher.py
+  webcam_micro/runtime_bootstrap.py
+
+- 2026-04-04:
+  Change: Fixed the camera-permission launch path so macOS requests access
+    before opening the first session.
+  Why: Fixed the launch path that left macOS silent on launch, so Python
+    never asked for camera access.
+  Impact: Updated the Qt shell, docs, and tests so the permission prompt is
+    now exercised before opening a camera.
+  Files:
+  README.md
+  tests/test_app.py
+  tests/test_camera.py
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/app.py
+  webcam_micro/camera.py
+  webcam_micro/ui.py
+
+- 2026-04-04:
   Change: Synced the alpha release notes, repo guidance, and roadmap with
     the full legal-owner notice and version source.
   Why: Kept the docs-growth surfaces aligned after the latest alpha polish

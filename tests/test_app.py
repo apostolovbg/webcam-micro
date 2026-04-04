@@ -42,6 +42,8 @@ class ApplicationEntryPointTest(unittest.TestCase):
         self.assertIn("failure log", plan.shell_contract)
         self.assertIn("exit checks", plan.shell_contract)
         self.assertIn("fullscreen", plan.shell_contract)
+        self.assertIn("per-user runtime interpreter", plan.shell_contract)
+        self.assertIn("camera permission prompt", plan.shell_contract)
 
     def test_launch_plan_symbol_stays_explicit(self) -> None:
         """Assert the launch-plan dataclass stays public."""
@@ -76,7 +78,7 @@ class ApplicationEntryPointTest(unittest.TestCase):
             payload["project"]["dependencies"],
         )
         self.assertEqual(
-            "webcam_micro.app:main",
+            "webcam_micro.launcher:main",
             payload["project"]["scripts"]["webcam-micro"],
         )
 
@@ -105,8 +107,11 @@ class ApplicationEntryPointTest(unittest.TestCase):
         )
 
         self.assertIn("<!-- REPO-ONLY:BEGIN -->", root_readme)
+        self.assertIn("per-user runtime interpreter", root_readme)
         self.assertIn("## What Works Today", package_readme)
         self.assertIn("Qt Widgets", package_readme)
+        self.assertIn("webcam_micro.launcher", package_readme)
+        self.assertIn("per-user runtime interpreter", package_readme)
         self.assertNotIn("Flet", package_readme)
         self.assertIn("## Alpha Status", package_readme)
         self.assertIn(

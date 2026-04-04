@@ -39,8 +39,10 @@ def build_launch_plan() -> LaunchPlan:
             "Preview-first Qt Widgets main window with a native desktop menu "
             "bar, toolbar, controls dock, live fit/fill/crop framing, "
             "native still-save and recording actions, session preferences, "
-            "diagnostics with a failure log and exit checks, and native "
-            "window fullscreen support."
+            "diagnostics with a failure log and exit checks, native "
+            "window fullscreen support, a stable per-user runtime "
+            "interpreter bootstrap, and a camera permission prompt on first "
+            "open when the platform requires it."
         ),
     )
 

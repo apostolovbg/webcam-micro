@@ -399,6 +399,145 @@ def _load_avfoundation_modules():
     return capture_device_class, media_type_video
 
 
+def _permission_value(value: object) -> object:
+    """Return one comparable scalar for a Qt or native permission status."""
+
+    return getattr(value, "value", value)
+
+
+def _camera_permission_denied_message() -> str:
+    """Return one readable message for a denied camera permission."""
+
+    if sys.platform == "darwin":
+        return (
+            "Camera access was denied. Open System Settings > Privacy & "
+            "Security > Camera, allow the app or terminal, then relaunch."
+        )
+    return (
+        "Camera access was denied. Open the system privacy settings and "
+        "relaunch."
+    )
+
+
+def request_camera_permission(qt_core: Any) -> tuple[bool, str]:
+    """Request camera permission through the native platform prompt."""
+
+    if sys.platform == "darwin":
+        return _request_macos_camera_permission(qt_core)
+    return _request_qt_camera_permission(qt_core)
+
+
+def _request_macos_camera_permission(qt_core: Any) -> tuple[bool, str]:
+    """Request macOS camera permission through AVFoundation."""
+
+    capture_device_class, media_type_video = _load_avfoundation_modules()
+    if capture_device_class is None or media_type_video is None:
+        return False, (
+            "Camera access could not be requested because the macOS camera "
+            "bridge is unavailable."
+        )
+    status = int(
+        capture_device_class.authorizationStatusForMediaType_(media_type_video)
+    )
+    if status == 3:
+        return True, ""
+    if status in {1, 2}:
+        return False, _camera_permission_denied_message()
+
+    from ctypes import c_bool
+
+    from rubicon.objc import Block
+
+    completion_loop = qt_core.QEventLoop()
+    result = {"granted": False, "finished": False}
+
+    @Block
+    def completion_handler(granted: c_bool) -> None:
+        """Store the macOS permission result and stop waiting."""
+
+        result["granted"] = bool(granted)
+        result["finished"] = True
+        completion_loop.quit()
+
+    capture_device_class.requestAccessForMediaType_completionHandler_(
+        media_type_video,
+        completion_handler,
+    )
+    if not result["finished"]:
+        getattr(completion_loop, "exec")()
+    if result["granted"]:
+        return True, ""
+    return False, _camera_permission_denied_message()
+
+
+def _request_qt_camera_permission(qt_core: Any) -> tuple[bool, str]:
+    """Request Qt camera permission on non-macOS platforms."""
+
+    permission_type = getattr(qt_core, "QCameraPermission", None)
+    qcore_application = getattr(qt_core, "QCoreApplication", None)
+    if permission_type is None or qcore_application is None:
+        return True, ""
+    application = getattr(qcore_application, "instance", None)
+    if application is None:
+        return True, ""
+    app = application()
+    if app is None:
+        return True, ""
+    permission = permission_type()
+    try:
+        current_status = app.checkPermission(permission)
+    except (AttributeError, RuntimeError, TypeError):
+        return True, ""
+    permission_status = getattr(
+        getattr(qt_core, "Qt", object()),
+        "PermissionStatus",
+        None,
+    )
+    granted_status = getattr(permission_status, "Granted", None)
+    denied_status = getattr(permission_status, "Denied", None)
+    if granted_status is not None and (
+        _permission_value(current_status) == _permission_value(granted_status)
+    ):
+        return True, ""
+    if denied_status is not None and (
+        _permission_value(current_status) == _permission_value(denied_status)
+    ):
+        return False, _camera_permission_denied_message()
+
+    completion_loop = qt_core.QEventLoop()
+    result = {"granted": False, "finished": False}
+
+    class PermissionReceiver(qt_core.QObject):
+        """Collect the camera-permission callback result."""
+
+        def __init__(self) -> None:
+            """Initialize the permission callback receiver."""
+
+            super().__init__()
+
+        def on_permission(self, status: object) -> None:
+            """Store the permission callback result and stop waiting."""
+
+            result["granted"] = bool(
+                _permission_value(status) == _permission_value(granted_status)
+                if granted_status is not None
+                else status
+            )
+            result["finished"] = True
+            completion_loop.quit()
+
+    receiver = PermissionReceiver()
+    try:
+        app.requestPermission(permission, receiver, receiver.on_permission)
+    except (AttributeError, RuntimeError, TypeError):
+        return True, ""
+    if not result["finished"]:
+        getattr(completion_loop, "exec")()
+    if result["granted"]:
+        return True, ""
+    return False, _camera_permission_denied_message()
+
+
 def _call_or_value(value: object) -> object:
     """Return the result of a bound Objective-C method or the raw value."""
 

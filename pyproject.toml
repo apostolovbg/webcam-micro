@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-webcam-micro = "webcam_micro.app:main"
+webcam-micro = "webcam_micro.launcher:main"
 
 [tool.setuptools.packages.find]
 include = ["webcam_micro*"]

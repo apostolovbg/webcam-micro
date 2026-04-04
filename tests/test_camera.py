@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import inspect
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from webcam_micro.camera import (
     AvFoundationCameraControlBackend,
@@ -27,8 +29,11 @@ from webcam_micro.camera import (
     QtCameraBackend,
     QtCameraSession,
     RecordingCropPlan,
+    _request_macos_camera_permission,
+    _request_qt_camera_permission,
     build_backend_plan,
     pack_preview_rgb_rows,
+    request_camera_permission,
 )
 
 
@@ -88,6 +93,83 @@ class CameraContractTest(unittest.TestCase):
 
         avfoundation_backend = AvFoundationCameraControlBackend()
         self.assertIsInstance(avfoundation_backend.available, bool)
+
+    @mock.patch("rubicon.objc.Block", side_effect=lambda func: func)
+    @mock.patch("webcam_micro.camera._load_avfoundation_modules")
+    @mock.patch("webcam_micro.camera.sys.platform", "darwin")
+    def test_camera_permission_helper_requests_macos_prompt(
+        self,
+        load_modules: mock.MagicMock,
+        _block: mock.MagicMock,
+    ) -> None:
+        """Assert the macOS helper requests camera access explicitly."""
+
+        class FakeLoop:
+            """Provide the minimal Qt event-loop surface for the helper."""
+
+            def __init__(self) -> None:
+                """Initialize the test event-loop bookkeeping."""
+
+                self.quit_called = False
+                self.exec_called = False
+
+            def quit(self) -> None:
+                """Record that the helper asked the loop to stop."""
+
+                self.quit_called = True
+
+            def exec(self) -> None:
+                """Record that the helper entered the loop."""
+
+                self.exec_called = True
+
+        class FakeQtCore:
+            """Provide the QtCore pieces used by the permission helper."""
+
+            QEventLoop = FakeLoop
+
+        class FakeCaptureDeviceClass:
+            """Record the macOS permission request path."""
+
+            requested_media_types: list[object] = []
+
+            @staticmethod
+            def authorizationStatusForMediaType_(media_type: object) -> int:
+                """Return the prompt-needed authorization state."""
+
+                return 0
+
+            @classmethod
+            def requestAccessForMediaType_completionHandler_(
+                cls,
+                media_type: object,
+                completion_handler,
+            ) -> None:
+                """Record the prompt request and invoke the callback."""
+
+                cls.requested_media_types.append(media_type)
+                completion_handler(True)
+
+        media_type = object()
+        load_modules.return_value = (FakeCaptureDeviceClass, media_type)
+
+        granted, notice = request_camera_permission(FakeQtCore)
+
+        self.assertTrue(granted)
+        self.assertEqual("", notice)
+        self.assertEqual(
+            [media_type], FakeCaptureDeviceClass.requested_media_types
+        )
+
+    def test_camera_permission_helper_mentions_callback_names(self) -> None:
+        """Assert the permission helper keeps the callback symbols visible."""
+
+        macos_source = inspect.getsource(_request_macos_camera_permission)
+        qt_source = inspect.getsource(_request_qt_camera_permission)
+
+        self.assertIn("completion_handler", macos_source)
+        self.assertIn("PermissionReceiver", qt_source)
+        self.assertIn("on_permission", qt_source)
 
     def test_null_backend_discovers_no_cameras(self) -> None:
         """Assert the fallback backend stays empty by design."""
