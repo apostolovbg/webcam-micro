@@ -9,3 +9,5 @@ texts stored under `webcam_micro/licenses/`.
 - `webcam_micro/runtime-requirements.lock`
 
 ## Dependency License Inventory
+- `PySide6==6.11.0`: `webcam_micro/licenses/PySide6-6.11.0.txt`
+- `rubicon-objc==0.5.3`: `webcam_micro/licenses/rubicon-objc-0.5.3.txt`

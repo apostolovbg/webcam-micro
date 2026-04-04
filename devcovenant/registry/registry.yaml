@@ -1,7 +1,7 @@
 metadata:
   schema_version: 1
   registry_layout: single-root
-  policy_registry_input_hash: f378e35d6e2440f02bce5bea14d01795d595e6f0eb079b729d857a41cdd2e5f1
+  policy_registry_input_hash: f557ca8437c36da34581af47b1ee0541b4c458092ee7582d5db9e1154ee7aabb
 project-governance:
   project_name: webcam-micro
   project_description: Cross-platform microscope camera application distributed as
@@ -2362,6 +2362,13 @@ policies:
         url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
         member_globs:
         - flet-{version}/LICENSE
+      - id: pyside6
+        kind: archive_url
+        url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+        member_globs:
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
       selector_roles: dependency
       dependency_globs: []
       dependency_files: []
@@ -3341,6 +3348,13 @@ policies:
               url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
               member_globs:
               - flet-{version}/LICENSE
+            - id: pyside6
+              kind: archive_url
+              url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+              member_globs:
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
           behavior: append
           replaced_inherited_values:
           - ()
@@ -3352,6 +3366,13 @@ policies:
               url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
               member_globs:
               - flet-{version}/LICENSE
+            - id: pyside6
+              kind: archive_url
+              url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+              member_globs:
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
           behavior: append
           replaced_inherited_values:
           - ()
@@ -3363,6 +3384,13 @@ policies:
               url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
               member_globs:
               - flet-{version}/LICENSE
+            - id: pyside6
+              kind: archive_url
+              url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+              member_globs:
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
       selector_roles:
         descriptor:
           values:
@@ -3732,6 +3760,13 @@ policies:
         url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
         member_globs:
         - flet-{version}/LICENSE
+      - id: pyside6
+        kind: archive_url
+        url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+        member_globs:
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
       selector_roles: dependency
       dependency_globs: []
       dependency_files: []
@@ -3752,8 +3787,12 @@ policies:
     - devcovenant/licenses/THIRD_PARTY_LICENSES.md
     - devcovenant/runtime-requirements.lock
     - flet-{version}/LICENSE
+    - https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
     - https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
     - licenses/THIRD_PARTY_LICENSES.md
+    - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+    - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+    - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
     - webcam_micro/licenses
     - webcam_micro/licenses/THIRD_PARTY_LICENSES.md
     - webcam_micro/runtime-requirements.lock
@@ -3767,8 +3806,8 @@ policies:
           input_fingerprint: 0eefb74625e3bda5f416ca546c93250811973e875dfb566d5c22d170be731474
           output_fingerprints:
             lock_file: 52596dddc9845f439a19054fbfee380ea3d3e8e2bef10963da93fb6ac1d1e52d
-            third_party_file: f2020d6ca1e6131217b1a86c06a9207f76160781dc177c747090405ee883bb94
-            licenses_dir: 19b2959754fc069018ed57ea380826678519bfcc035df145a812847eb78b6218
+            third_party_file: 90c01742df94c812abe89b6ab4ae5b3f64b546d092a1d501cfdcf52aabc08d88
+            licenses_dir: db12c594e207ecc9f2ab1633297401b4c722fac698031640ef0ecad9105695a6
         root_workspace:
           input_fingerprint: bb8d07788437ffbbb7588ee4da80f78b65b9bbe3c5bcd80721cc6f3f14cd3550
           output_fingerprints:
@@ -14661,6 +14700,13 @@ profiles:
           url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
           member_globs:
           - flet-{version}/LICENSE
+        - id: pyside6
+          kind: archive_url
+          url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+          member_globs:
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
         surfaces:
         - id: root_workspace
           direct_dependency_files:

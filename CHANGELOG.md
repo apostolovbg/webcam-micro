@@ -61,6 +61,41 @@ Example:
 ## Version 0.0.1
 
 - 2026-04-04:
+  Change: Restored the image-wiring slice to the requested scope by removing
+    the unsolicited root README and `pyproject.toml` edits and switching the
+    package README image to the `main`-branch absolute GitHub raw URL.
+  Why: Removed the overshoot after the earlier package-image wiring changed
+    repo-level docs and package metadata beyond what was requested.
+  Impact: Preserved the packaged README image as a PyPI-safe `main`-branch
+    absolute URL while leaving the repo README and package metadata
+    otherwise untouched.
+  Files:
+  CHANGELOG.md
+  README.md
+  pyproject.toml
+  webcam_micro/README.md
+
+- 2026-04-04:
+  Change: Added the packaged webcam-micro preview image to the repository
+    README and package README, and configured the missing `PySide6` license
+    source override needed for governed refresh to complete.
+  Why: Added the new package-owned image with the same raw GitHub packaging
+    pattern DevCovenant uses, added project URL metadata for stable PyPI
+    rendering, and fixed the blocking refresh complaint raised by `PySide6`.
+  Impact: Shows the app preview in repository docs, keeps the packaged README
+    PyPI-safe with an absolute release-stable GitHub image path, and lets the
+    dependency-maintenance refresh finish under the Qt dependency set.
+  Files:
+  CHANGELOG.md
+  README.md
+  devcovenant/custom/profiles/userproject/userproject.yaml
+  pyproject.toml
+  webcam_micro/README.md
+  webcam_micro/licenses/PySide6-6.11.0.txt
+  webcam_micro/licenses/THIRD_PARTY_LICENSES.md
+  webcam_micro/licenses/rubicon-objc-0.5.3.txt
+
+- 2026-04-04:
   Change: Restored the Qt fullscreen workflow with a compact command surface
     that supports expanded and collapsed states plus safe Escape or button
     exit back to the windowed workspace.

@@ -835,6 +835,13 @@ license_source_overrides:
   url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
   member_globs:
   - flet-{version}/LICENSE
+- id: pyside6
+  kind: archive_url
+  url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+  member_globs:
+  - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+  - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+  - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
 selector_roles: dependency
 dependency_globs: []
 dependency_files: []

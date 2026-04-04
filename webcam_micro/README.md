@@ -9,6 +9,8 @@
 
 <!-- DEVCOV:END -->
 
+![webcam-micro preview](https://raw.githubusercontent.com/apostolovbg/webcam-micro/main/webcam_micro/webcam-micro.png)
+
 Cross-platform microscope camera application distributed as a Python package
 on PyPI.
 
