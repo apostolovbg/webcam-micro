@@ -1,7 +1,7 @@
-# click 8.3.1
+# click 8.3.2
 
 This file aggregates the upstream license texts bundled with the
-installed distribution for `click==8.3.1`.
+installed distribution for `click==8.3.2`.
 
 Included upstream files:
 - LICENSE.txt

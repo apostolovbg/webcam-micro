@@ -2,7 +2,7 @@
 **Doc ID:** README
 **Doc Type:** repo-readme
 **Project Version:** 1.0.1b1
-**Last Updated:** 2026-04-03
+**Last Updated:** 2026-04-04
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -84,8 +84,9 @@ The practical split is:
 - config tunes the active stack with local overlays and overrides
 
 Customization is override-based by design:
-- a same-id custom policy overrides the builtin policy with that id
-- a same-name custom profile overrides the builtin profile with that name
+- a same-id custom policy fully shadows the builtin policy with that id
+- a same-name custom profile fully shadows the builtin profile with that name
+- when a custom entry shadows a builtin one, the builtin entry is ignored
 
 For the deeper authoring model, go straight to
 [policies.md](https://github.com/apostolovbg/devcovenant/blob/v1.0.1b1/devcovenant/docs/policies.md),
@@ -141,7 +142,7 @@ What those steps mean:
    Do not restate them in the copied profile.
    Here, "inherited" means values from other active profiles.
    When a custom and builtin profile share a profile name, the custom profile
-   is loaded and the builtin profile with that name is ignored.
+   fully shadows it and the builtin profile with that name is ignored.
    Use direct overlays only for small local exceptions.
 
 4. `deploy` writes the managed docs, generated files, and other DevCovenant

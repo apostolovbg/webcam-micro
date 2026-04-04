@@ -9,7 +9,7 @@ description = """
 Cross-platform microscope camera application distributed \
 as a Python package on PyPI."""
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
 dependencies = [
     "imageio-ffmpeg>=0.6,<0.7",

@@ -61,6 +61,72 @@ Example:
 ## Version 0.0.1
 
 - 2026-04-04:
+  Change: Removed stray duplicate ` 2` directories left under `devcovenant`
+    after earlier repo updates.
+  Why: Cleaned duplicate-named directory debris before it could confuse
+    future profile, docs, license, or registry reads.
+  Impact: The repo tree no longer contains the extra `devcovenant/* 2`
+    directories, so future work resolves only the intended live paths.
+  Files:
+  CHANGELOG.md
+
+- 2026-04-04:
+  Change: Upgraded the repo to the rebuilt DevCovenant core, restored the
+    repo-owned `userproject` dependency surface after `upgrade`, and
+    regenerated the root dependency inventory from the current managed
+    environment.
+  Why: Aligned the upgraded builtin profile stack with the repo's custom
+    `userproject` ownership and kept the root workspace surface aware of
+    `webcam_micro/runtime-requirements.lock`.
+  Impact: Restored the governed root lock and license report to the updated
+    `click==8.3.2` state while keeping the package-runtime dependency surface
+    represented in the active policy block.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  licenses/THIRD_PARTY_LICENSES.md
+  licenses/click-8.3.1.txt
+  licenses/click-8.3.2.txt
+  requirements.lock
+
+- 2026-04-04:
+  Change: Migrated the repo-owned custom profile from `webcam-micro` to
+    `userproject`, added a governance-gated `Build` job plus manual
+    `publish.yml`, and dropped Python `3.10` support across the repo-owned
+    package and workflow surfaces.
+  Why: Kept repo-specific ownership on the copy-ready `userproject` profile,
+    aligned release automation with validated CI artifacts, and moved the
+    package baseline to a modern Python floor for 2026.
+  Impact: The repo now uses a custom `userproject` profile, `CI` builds and
+    uploads validated distributions after `Governance`, manual publish pulls
+    those exact artifacts by CI run id, and the supported floor is now Python
+    `3.11+`.
+  Files:
+  .github/workflows/ci.yml
+  .github/workflows/publish.yml
+  AGENTS.md
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  devcovenant/config.yaml
+  devcovenant/custom/profiles/github/assets/ci.yml
+  devcovenant/custom/profiles/github/github.yaml
+  devcovenant/custom/profiles/python/python.yaml
+  devcovenant/custom/profiles/python/python_translator.py
+  devcovenant/custom/profiles/userproject/assets/publish.yml
+  devcovenant/custom/profiles/userproject/userproject.yaml
+  devcovenant/custom/profiles/webcam-micro/webcam-micro.yaml
+  devcovenant/registry/registry.yaml
+  licenses/THIRD_PARTY_LICENSES.md
+  pyproject.toml
+  requirements.lock
+  tests/test_app.py
+  tests/test_bootstrap.py
+  tests/test_release_workflows.py
+  tests/devcovenant/custom/profiles/python/test_python_translator.py
+  webcam_micro/runtime-requirements.lock
+
+- 2026-04-04:
   Change: Removed accidental ` 2` and ` 3` duplicate files and folders
     from the repo tree after comparing them with their unsuffixed
     counterparts.

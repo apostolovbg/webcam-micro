@@ -1,5 +1,5 @@
 # Profiles
-**Last Updated:** 2026-04-03
+**Last Updated:** 2026-04-04
 
 **Project Version:** 1.0.1b1
 
@@ -55,7 +55,23 @@ Keep inherited values inherited.
 Do not restate builtin values in the copied profile.
 Here, "inherited" means values from other active profiles.
 When a custom and builtin profile share a profile name, the custom profile is
-loaded and the builtin profile with that name is ignored.
+loaded, fully shadows the builtin profile, and the builtin profile with that
+name is ignored.
+
+## Same-Name Shadowing
+Same-name custom profiles are the supported way to replace shipped profile
+behavior without editing the builtin package files.
+
+The rule is strict:
+- if `devcovenant/custom/profiles/python/python.yaml` exists, that custom
+  `python` profile is the active `python` profile
+- the builtin `python` profile is ignored
+- DevCovenant does not merge the builtin profile into the custom one
+
+That is why copied same-name shadow profiles should stay thin.
+Keep inherited values inherited from the other active profiles instead of
+restating them in the copied profile, and copy only the owned assets,
+translators, helpers, or tests that the shadow profile now replaces.
 
 ## Custom Profiles As Governance Packs
 A custom profile is the normal way to package governance for one repository
@@ -230,6 +246,9 @@ instead of upgrading `pip` live first.
 If a repository needs extra project dependency setup or extra CI steps, that
 extension belongs in the relevant profile instead of in the builtin base
 workflow.
+Repository-owned artifact-proof bootstrap snippets should update the real
+`install.config_reviewed` field line in `devcovenant/config.yaml`, not a
+comment occurrence earlier in the template text.
 If a Python repository turns on hash-locked `requirements.lock`, keep any
 local-artifact install path split into two steps:
 1. install the locked requirements
@@ -271,7 +290,7 @@ In the default Python stack, `root_workspace` starts from `requirements.in`.
 That input inherits the shipped `devcovenant/runtime-requirements.lock`, and
 `dependency-management` then writes the real `requirements.lock` during
 `deploy`/`refresh`.
-The builtin Python surfaces resolve against the supported CPython 3.10 through
+The builtin Python surfaces resolve against the supported CPython 3.11 through
 3.14 matrix on Linux, Windows, and macOS so workspace locks do not depend on
 the machine that happened to run refresh.
 Tracked dependency fingerprints for those surfaces must stay repo-relative and
@@ -283,6 +302,9 @@ The shipped defaults keep the Python dependency surfaces hash-locked:
 repository enables that optional package surface.
 A custom profile can override those defaults per surface instead of inventing
 a second special-case dependency model.
+When a repository needs repo-specific dependency-lock ownership, that usually
+belongs in its copied `userproject` custom profile instead of in a same-name
+shadow of the builtin language profile.
 
 Profile ownership also includes the shipped translator maps.
 The builtin language translator set currently covers `csharp`, `dart`, `go`,

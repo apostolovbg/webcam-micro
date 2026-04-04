@@ -32,3 +32,81 @@ jobs:
       run: python -m devcovenant run
     - name: Run DevCovenant end gate
       run: python -m devcovenant gate --end
+  build:
+    name: Build
+    needs: governance
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+    - name: Set up Python
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+      with:
+        python-version: '3.11'
+    - name: Configure Python cache root
+      run: |
+        echo "PYTHONPYCACHEPREFIX=$RUNNER_TEMP/devcovenant-pycache" \
+          >> "$GITHUB_ENV"
+    - name: Clean local build artifacts
+      run: |
+        rm -rf build dist ./*.egg-info .pytest_cache .ruff_cache
+    - name: Install build tooling
+      run: |
+        python -m pip install -r requirements.lock
+        python -m pip install twine==6.2.0
+    - name: Build distributions
+      run: python -m build
+    - name: Validate distributions
+      run: python -m twine check dist/*
+    - name: Generate build provenance
+      env:
+        CI_RUN_ID: ${{ github.run_id }}
+        CI_RUN_ATTEMPT: ${{ github.run_attempt }}
+        CI_HEAD_SHA: ${{ github.sha }}
+      run: |
+        mkdir -p artifacts/provenance
+        python - <<'PY'
+        import hashlib
+        import json
+        import os
+        from pathlib import Path
+
+        def sha256_for(path: Path) -> str:
+            digest = hashlib.sha256()
+            digest.update(path.read_bytes())
+            return digest.hexdigest()
+
+        dist_files = sorted(
+            path for path in Path("dist").glob("*") if path.is_file()
+        )
+        payload = {
+            "workflow": "CI",
+            "job": "Build",
+            "ci_run_id": os.environ["CI_RUN_ID"],
+            "ci_run_attempt": os.environ["CI_RUN_ATTEMPT"],
+            "head_sha": os.environ["CI_HEAD_SHA"],
+            "distributions": [
+                {
+                    "name": path.name,
+                    "sha256": sha256_for(path),
+                }
+                for path in dist_files
+            ],
+        }
+        Path("artifacts/provenance/build-provenance.json").write_text(
+            json.dumps(payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        PY
+    - name: Upload distributions
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: webcam-micro-dist
+        path: dist/*
+    - name: Upload build provenance
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+      with:
+        name: webcam-micro-provenance
+        path: artifacts/provenance/*.json

@@ -5,6 +5,7 @@ from __future__ import annotations
 import fnmatch
 import json
 import re
+import tomllib
 from pathlib import Path
 from typing import Any, Iterable, List, Optional
 
@@ -16,12 +17,6 @@ from devcovenant.core.policy_contract import (
     PolicyCheck,
     Violation,
 )
-
-try:
-    import tomllib  # type: ignore[attr-defined]
-except ModuleNotFoundError:  # pragma: no cover
-    import tomli as tomllib  # type: ignore[assignment]
-
 
 _PROJECT_VERSION_LINE_PATTERN = re.compile(
     r"^\s*(?:\*\*Project Version:\*\*|Project Version:)\s*"

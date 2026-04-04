@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
+import tomllib
 import unittest
 from pathlib import Path
-
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover
-    import tomli as tomllib
 
 from webcam_micro.app import LaunchPlan, build_launch_plan, main
 
@@ -55,7 +51,7 @@ class ApplicationEntryPointTest(unittest.TestCase):
         )
 
         self.assertEqual("0.0.1", payload["project"]["version"])
-        self.assertEqual(">=3.10", payload["project"]["requires-python"])
+        self.assertEqual(">=3.11", payload["project"]["requires-python"])
         self.assertIn(
             "imageio-ffmpeg>=0.6,<0.7",
             payload["project"]["dependencies"],

@@ -1,5 +1,5 @@
 # Workflow
-**Last Updated:** 2026-04-03
+**Last Updated:** 2026-04-04
 
 **Project Version:** 1.0.1b1
 
@@ -149,6 +149,12 @@ That split usually looks like this:
    managed environment details, and repository workflow runs
 2. an optional GitHub-specific custom profile owns reusable GitHub-only CI
    fragments when the repository wants more than the builtin base
+When a repository shadows the builtin `github` profile with a same-name custom
+profile, that custom profile fully replaces the builtin workflow template for
+generated `ci.yml` ownership.
+The same profile-merge order also feeds generated `.pre-commit-config.yaml`,
+so changes to same-name shadow profiles should be documented as workflow
+contract changes.
 If a repository uses a hash-locked Python requirements file and also installs a
 local wheel or sdist in CI, split that into:
 1. install the locked requirements
@@ -157,6 +163,9 @@ If a repository documents a particular public install path, test that same
 public path in a project-owned CI extension.
 If a repository adds a separate release workflow, that workflow should publish
 validated CI artifacts instead of rebuilding a fresh distribution later.
+When CI bootstraps a proof repository and needs `deploy`, flip the actual
+`install.config_reviewed` field line in `devcovenant/config.yaml` rather than
+replacing the first plain-text match in the commented config template.
 
 If you intentionally rebuild or re-baseline the changelog during an open work
 session, run `devcovenant policy changelog-coverage reset-baseline` after

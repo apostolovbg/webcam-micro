@@ -1,0 +1,18 @@
+id: package-doc-sync
+text: |
+  Ensure package-facing documentation files stay synchronized with their
+  canonical repository-source docs. Configured `sync_pairs` map
+  `source=>target` doc paths. Configured `omit_block_pairs` remove
+  repo-only sections between paired begin/end markers before comparison.
+  When `rewrite_repo_relative_links` is true, repo-relative Markdown links
+  and images are rewritten to release-stable repository URLs resolved from
+  `pyproject.toml`. Auto-fix rewrites the configured package docs from
+  their source docs after those transforms.
+metadata:
+  id: package-doc-sync
+  severity: error
+  auto_fix: 'true'
+  enforcement: active
+  sync_pairs: []
+  omit_block_pairs: []
+  rewrite_repo_relative_links: 'true'

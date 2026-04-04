@@ -2,7 +2,7 @@
 **Doc ID:** README
 **Doc Type:** repo-readme
 **Project Version:** 0.0.1
-**Last Updated:** 2026-04-03
+**Last Updated:** 2026-04-04
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -28,6 +28,12 @@ spinbox input. On macOS, the active control bridge uses `rubicon-objc` to
 reach AVFoundation when the camera exposes real controls. The app-owned
 source, version, and package-runtime artifacts live together under
 `webcam_micro/`.
+
+The current package support floor is Python `3.11+`. The repository's
+generated `CI` workflow now keeps the builtin `Governance` job as the gate
+owner, runs a dependent `Build` job for validated package artifacts, and uses
+a separate manual `publish.yml` workflow that publishes only artifacts and
+provenance downloaded from a successful `CI` run.
 
 ## Quick Start
 Run the source entrypoint smoke test:
@@ -63,8 +69,8 @@ Keep durable product rules in `SPEC.md`, active implementation sequencing in
 Call out the few settings or files a human must review consciously.
 Prefer short explanations of what each checkpoint controls.
 For most repositories, keep `devcovuser` active and add a repository-specific
-custom profile on top when the repository needs its own reusable rules,
-assets, or workflow additions.
+custom `userproject` profile on top when the repository needs its own
+reusable rules, assets, or workflow additions.
 
 The current preview runtime depends on `imageio-ffmpeg`, `pillow`, and
 `ttkbootstrap` through the package-runtime lock under `webcam_micro/`.

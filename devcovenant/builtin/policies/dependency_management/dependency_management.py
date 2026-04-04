@@ -3,14 +3,10 @@
 import fnmatch
 import importlib.metadata as importlib_metadata
 import re
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Sequence
-
-try:  # pragma: no cover - Python 3.11+ path in managed env.
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback path.
-    tomllib = None
 
 from packaging.requirements import Requirement
 
@@ -886,52 +882,16 @@ def _parse_requirements_in(path: Path) -> list[str]:
     )
 
 
-def _fallback_project_dependency_strings(path: Path) -> list[str]:
-    """Best-effort fallback for `[project].dependencies` on Python 3.10."""
-    strings: list[str] = []
-    in_project = False
-    collecting = False
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        stripped = raw_line.strip()
-        if stripped.startswith("[") and stripped.endswith("]"):
-            in_project = stripped == "[project]"
-            if not in_project:
-                collecting = False
-            continue
-        if not in_project:
-            continue
-        line_to_scan = ""
-        if not collecting:
-            match = _PROJECT_DEPENDENCIES_RE.match(stripped)
-            if match is None:
-                continue
-            collecting = True
-            line_to_scan = str(match.group("rest") or "")
-        else:
-            line_to_scan = stripped
-        for quote in ('"', "'"):
-            needle = re.compile(rf"{quote}([^\"']+){quote}")
-            for match in needle.finditer(line_to_scan):
-                strings.append(str(match.group(1)))
-        if "]" in line_to_scan:
-            collecting = False
-    return strings
-
-
 def _parse_pyproject_dependency_strings(path: Path) -> list[str]:
     """Return raw dependency requirement strings from pyproject metadata."""
     if not path.exists():
         return []
-    dependency_strings: list[str] = []
-    if tomllib is not None:
-        payload = tomllib.loads(path.read_text(encoding="utf-8"))
-        project_block = payload.get("project", {})
-        raw_dependencies = project_block.get("dependencies", [])
-        if isinstance(raw_dependencies, list):
-            dependency_strings = [str(entry) for entry in raw_dependencies]
-    if not dependency_strings:
-        dependency_strings = _fallback_project_dependency_strings(path)
-    return dependency_strings
+    payload = tomllib.loads(path.read_text(encoding="utf-8"))
+    project_block = payload.get("project", {})
+    raw_dependencies = project_block.get("dependencies", [])
+    if isinstance(raw_dependencies, list):
+        return [str(entry) for entry in raw_dependencies]
+    return []
 
 
 def _parse_pyproject_dependencies(path: Path) -> list[str]:

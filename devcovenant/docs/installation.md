@@ -1,5 +1,5 @@
 # Installation and Lifecycle
-**Last Updated:** 2026-04-03
+**Last Updated:** 2026-04-04
 
 **Project Version:** 1.0.1b1
 
@@ -91,7 +91,8 @@ The shortest accurate model is:
    Do not restate them in the copied profile.
    Here, "inherited" means values from other active profiles.
    When a custom and builtin profile share a profile name, the custom profile
-   is loaded and the builtin profile with that name is ignored.
+   is loaded, fully shadows the builtin profile, and the builtin profile with
+   that name is ignored.
    Keep `github` active when the repository wants the generic generated
    GitHub Actions workflow that ships in the default user stack; remove it
    when the repository does not want that workflow.
@@ -115,6 +116,8 @@ profile:
 - edit the copied manifest there
 - keep inherited values inherited instead of copying builtin metadata into the
   custom layer
+- when the copied profile keeps the same profile name, it fully shadows the
+  builtin profile with that name
 
 Use that copied profile for repo-specific identity, version paths, package
 paths, extra hooks, local workflow runs, or managed-environment details.

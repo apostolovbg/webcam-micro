@@ -690,8 +690,17 @@ def _read_active_profiles(repo_root: Path) -> list[str]:
 
 
 def _repo_requires_bytecode_hygiene(repo_root: Path) -> bool:
-    """Return True when repo profiles enforce bytecode hygiene."""
-    return "devcovrepo" in _read_active_profiles(repo_root)
+    """Return True when developer-mode repos enforce bytecode hygiene."""
+    config_path = repo_root / "devcovenant" / "config.yaml"
+    if not config_path.exists():
+        return False
+    try:
+        payload = yaml_cache_service.load_yaml(config_path)
+    except (OSError, yaml.YAMLError):
+        return False
+    if not isinstance(payload, dict):
+        return False
+    return bool(payload.get("developer_mode", False))
 
 
 def _find_nested_core_paths(repo_root: Path) -> list[str]:

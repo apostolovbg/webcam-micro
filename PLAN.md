@@ -6,7 +6,7 @@
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
-**Last Updated:** 2026-04-03
+**Last Updated:** 2026-04-04
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -210,7 +210,9 @@ PyPI-distributed microscope camera application.
    - add a user-accessible diagnostics surface or log view for runtime state
      and non-fatal failures
    - expand automated coverage beyond bootstrap so core app flows are tested
-   - complete package metadata and release-path validation for PyPI
+   - keep the package metadata, CI build artifact flow, and manual publish
+     path aligned with the Python `3.11+` support floor and validated CI
+     artifacts
    - verify the prototype against the spec acceptance criteria and capture
      open gaps before any stage change discussion
    Done when:

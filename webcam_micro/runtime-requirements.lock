@@ -13,18 +13,15 @@ pillow==12.2.0 \
     --hash=sha256:390ede346628ccc626e5730107cde16c42d3836b89662a115a921f28440e6a3b \
     --hash=sha256:4e6c62e9d237e9b65fac06857d511e90d8461a32adcc1b9065ea0c0fa3a28150 \
     --hash=sha256:5d2fd0fa6b5d9d1de415060363433f28da8b1526c1c129020435e186794b3795 \
-    --hash=sha256:673aa32138f3e7531ccdbca7b3901dba9b70940a19ccecc6a37c77d5fdeb05b5 \
     --hash=sha256:6e6b2a0c538fc200b38ff9eb6628228b77908c319a005815f2dde585a0664b60 \
     --hash=sha256:7b14cc0106cd9aecda615dd6903840a058b4700fcb817687d0ee4fc8b6e389be \
     --hash=sha256:7f84204dee22a783350679a0333981df803dac21a0190d706a50475e361c93f5 \
     --hash=sha256:8bd7903a5f2a4545f6fd5935c90058b89d30045568985a71c79f5fd6edf9b91e \
     --hash=sha256:8be29e59487a79f173507c30ddf57e733a357f67881430449bb32614075a40ab \
-    --hash=sha256:975385f4776fafde056abb318f612ef6285b10a1f12b8570f3647ad0d74b48ec \
-    --hash=sha256:a4e8f36e677d3336f35089648c8955c51c6d386a13cf6ee9c189c5f5bd713a9f \
     --hash=sha256:b86024e52a1b269467a802258c25521e6d742349d760728092e1bc2d135b4d76
     # via -r pyproject.toml
 
-rubicon-objc==0.5.3 ; (sys_platform == "darwin" and python_version == "3.10") or (sys_platform == "darwin" and python_version == "3.11") or (sys_platform == "darwin" and python_version == "3.12") or (sys_platform == "darwin" and python_version == "3.13") or (sys_platform == "darwin" and python_version == "3.14") \
+rubicon-objc==0.5.3 ; (sys_platform == "darwin" and python_version == "3.11") or (sys_platform == "darwin" and python_version == "3.12") or (sys_platform == "darwin" and python_version == "3.13") or (sys_platform == "darwin" and python_version == "3.14") \
     --hash=sha256:31dedcda9be38435f5ec067906e1eea5d0ddb790330e98a22e94ff424758b415
     # via -r pyproject.toml
 

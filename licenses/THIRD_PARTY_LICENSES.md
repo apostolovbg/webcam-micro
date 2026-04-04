@@ -8,11 +8,12 @@ texts stored under `licenses/`.
 - `devcovenant/runtime-requirements.lock`
 - `requirements.in`
 - `requirements.lock`
+- `webcam_micro/runtime-requirements.lock`
 
 ## Dependency License Inventory
 - `build==1.4.2`: `licenses/build-1.4.2.txt`
 - `cfgv==3.5.0`: `licenses/cfgv-3.5.0.txt`
-- `click==8.3.1`: `licenses/click-8.3.1.txt`
+- `click==8.3.2`: `licenses/click-8.3.2.txt`
 - `distlib==0.4.0`: `licenses/distlib-0.4.0.txt`
 - `filelock==3.25.2`: `licenses/filelock-3.25.2.txt`
 - `identify==2.6.18`: `licenses/identify-2.6.18.txt`

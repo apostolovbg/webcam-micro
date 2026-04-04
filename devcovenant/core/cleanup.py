@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -26,11 +27,6 @@ from devcovenant.core.execution import (
     runtime_print,
 )
 from devcovenant.core.repository_paths import display_path
-
-try:
-    import tomllib  # type: ignore[attr-defined]
-except ModuleNotFoundError:  # pragma: no cover
-    import tomli as tomllib  # type: ignore[assignment]
 
 _CLEAN_TARGET_KEYS = (
     "build_dirs",

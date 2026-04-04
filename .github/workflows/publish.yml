@@ -1,0 +1,156 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      ci_run_id:
+        description: Successful CI workflow run ID to publish from.
+        required: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/p/webcam-micro
+    steps:
+      - name: Validate selected CI run
+        id: ci-run
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        with:
+          script: |
+            const rawRunId = `${{ inputs.ci_run_id }}`.trim();
+            const runId = Number(rawRunId);
+            if (!Number.isInteger(runId) || runId <= 0) {
+              core.setFailed(`Invalid ci_run_id: ${rawRunId}`);
+              return;
+            }
+
+            const { data: run } = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+            });
+
+            if (run.name !== "CI") {
+              core.setFailed(
+                `Run ${runId} is ${run.name}, expected CI.`,
+              );
+              return;
+            }
+
+            if (
+              run.status !== "completed" ||
+              run.conclusion !== "success"
+            ) {
+              core.setFailed(
+                `Run ${runId} is ${run.status}/${run.conclusion}, ` +
+                "expected completed/success.",
+              );
+              return;
+            }
+
+            core.setOutput("run_id", String(run.id));
+            core.setOutput("run_attempt", String(run.run_attempt));
+            core.setOutput("head_sha", run.head_sha);
+            core.setOutput("html_url", run.html_url);
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: "3.11"
+      - name: Configure Python cache root
+        run: |
+          echo "PYTHONPYCACHEPREFIX=$RUNNER_TEMP/devcovenant-pycache" \
+            >> "$GITHUB_ENV"
+      - name: Download validated distributions
+        uses: "actions/download-artifact@\
+          3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.ci-run.outputs.run_id }}
+          name: webcam-micro-dist
+          path: dist
+      - name: Download build provenance
+        uses: "actions/download-artifact@\
+          3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.ci-run.outputs.run_id }}
+          name: webcam-micro-provenance
+          path: artifacts/provenance
+      - name: Verify downloaded provenance
+        env:
+          EXPECTED_CI_RUN_ID: ${{ steps.ci-run.outputs.run_id }}
+          EXPECTED_CI_RUN_ATTEMPT: ${{ steps.ci-run.outputs.run_attempt }}
+          EXPECTED_HEAD_SHA: ${{ steps.ci-run.outputs.head_sha }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          provenance_path = Path("artifacts/provenance/build-provenance.json")
+          payload = json.loads(provenance_path.read_text(encoding="utf-8"))
+          if str(payload.get("ci_run_id")) != os.environ[
+              "EXPECTED_CI_RUN_ID"
+          ]:
+              raise SystemExit(
+                  "Downloaded provenance ci_run_id does not match the "
+                  "selected CI run."
+              )
+          if str(payload.get("ci_run_attempt")) != os.environ[
+              "EXPECTED_CI_RUN_ATTEMPT"
+          ]:
+              raise SystemExit(
+                  "Downloaded provenance ci_run_attempt does not match "
+                  "the selected CI run attempt."
+              )
+          if payload.get("head_sha") != os.environ["EXPECTED_HEAD_SHA"]:
+              raise SystemExit(
+                  "Downloaded provenance head_sha does not match the "
+                  "selected CI run."
+              )
+
+          dist_dir = Path("dist")
+          dist_files = sorted(
+              path for path in dist_dir.iterdir() if path.is_file()
+          )
+          dist_hashes = {
+              path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+              for path in dist_files
+          }
+          expected_hashes = {
+              str(item.get("name")): str(item.get("sha256"))
+              for item in payload.get("distributions", [])
+          }
+          if dist_hashes != expected_hashes:
+              raise SystemExit(
+                  "Downloaded distributions do not match the validated "
+                  "artifact provenance."
+              )
+          PY
+      - name: Record artifact provenance
+        run: |
+          {
+            echo "Publishing distributions from CI run "
+            echo "\`${{ steps.ci-run.outputs.run_id }}\`"
+            echo
+            echo "Source SHA: \`${{ steps.ci-run.outputs.head_sha }}\`"
+            echo
+            echo "CI run URL: ${{ steps.ci-run.outputs.html_url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish to PyPI with trusted publishing
+        uses: "pypa/gh-action-pypi-publish@\
+          ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e"
+        with:
+          packages-dir: dist/

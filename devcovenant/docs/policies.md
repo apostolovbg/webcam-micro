@@ -1,5 +1,5 @@
 # Policies
-**Last Updated:** 2026-04-03
+**Last Updated:** 2026-04-04
 
 **Project Version:** 1.0.1b1
 
@@ -34,7 +34,8 @@ They are not the limit of what DevCovenant can govern.
 A repository can define brand-new policy ids or replace builtin policies with
 custom ones under `devcovenant/custom/policies/<policy-id>/`.
 When a custom policy uses the same `id` as a builtin policy, the custom policy
-overrides the builtin one.
+fully shadows the builtin one, and the builtin policy with that id is
+ignored.
 Custom policies run through the same engine surface as builtin policies:
 - the same metadata resolver
 - the same check context
@@ -147,6 +148,14 @@ If you intentionally rebuild changelog history, run
 session. That command relaxes only the preserved-old-entry requirement for the
 active session. It does not relax the normal date, summary, or file-coverage
 rules.
+
+The package-facing builtin sync policies follow the same contract.
+`package-doc-sync` can synchronize one or more configured `source=>target`
+doc pairs, strip configured repo-only marker blocks, and rewrite repo-relative
+public links for packaged docs.
+`package-artifact-mirror` can keep configured file and directory mirrors
+inside the shipped package synchronized from their canonical repository-root
+sources.
 
 `version-sync` is a good example of that split.
 Its check path resolves the configured canonical version file and compares the

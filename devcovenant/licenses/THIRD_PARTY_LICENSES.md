@@ -15,4 +15,3 @@ texts stored under `devcovenant/licenses/`.
 - `pytest==9.0.2`: `devcovenant/licenses/pytest-9.0.2.txt`
 - `PyYAML==6.0.3`: `devcovenant/licenses/PyYAML-6.0.3.txt`
 - `semver==3.0.4`: `devcovenant/licenses/semver-3.0.4.txt`
-- `tomli==2.4.1`: `devcovenant/licenses/tomli-2.4.1.txt`

@@ -16,6 +16,7 @@ class BootstrapFilesTest(unittest.TestCase):
             "CHANGELOG.md",
             ".pre-commit-config.yaml",
             ".github/workflows/ci.yml",
+            ".github/workflows/publish.yml",
         )
 
         missing_paths = [

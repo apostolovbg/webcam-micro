@@ -1,5 +1,5 @@
 # Configuration
-**Last Updated:** 2026-04-03
+**Last Updated:** 2026-04-04
 
 **Project Version:** 1.0.1b1
 
@@ -90,7 +90,8 @@ Keep inherited values inherited.
 Do not restate builtin values in the copied profile.
 Here, "inherited" means values from other active profiles.
 When a custom and builtin profile share a profile name, the custom profile is
-loaded and the builtin profile with that name is ignored.
+loaded, fully shadows the builtin profile, and the builtin profile with that
+name is ignored.
 
 Use direct overlays for small one-off tweaks.
 Use a custom profile when the repository has real repeatable behavior of its

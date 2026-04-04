@@ -1,5 +1,5 @@
 # Registry
-**Last Updated:** 2026-04-03
+**Last Updated:** 2026-04-04
 **Project Version:** 1.0.1b1
 
 ## Overview
@@ -89,8 +89,12 @@ policy metadata records that policy as `custom: true` based on the active
 resolved script path, even though the builtin implementation still exists
 on disk under `devcovenant/builtin/policies/`.
 The same customization contract applies to profiles: a same-name custom
-profile shadows the builtin profile with that name, and the tracked registry
-records the resolved active profile metadata.
+profile fully shadows the builtin profile with that name, the builtin profile
+is ignored, and the tracked registry records the resolved active profile
+metadata.
+The same registry output also records generated CI inputs, so a source fix in
+the artifact-proof bootstrap path is expected to refresh
+`devcovenant/registry/registry.yaml` alongside `.github/workflows/ci.yml`.
 That is why `devcovenant/registry/registry.yaml` can change when one declared
 surface moves, when a repository-specific custom profile overrides
 `root_workspace`, when a repository adds its own `package_runtime`, or when

@@ -7,5 +7,5 @@ name = "{{ PROJECT_NAME }}"
 version = "{{version}}"
 description = {{ PROJECT_DESCRIPTION_TOML }}
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { text = "MIT" }

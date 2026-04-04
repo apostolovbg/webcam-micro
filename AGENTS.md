@@ -6,7 +6,7 @@
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
-**Last Updated:** 2026-04-03
+**Last Updated:** 2026-04-04
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -543,13 +543,6 @@ surfaces:
   required_paths:
   - devcovenant/runtime-requirements.lock
   hash_targets:
-  - id: linux-py310
-    marker: sys_platform == "linux" and python_version == "3.10"
-    pip:
-      platform: manylinux2014_x86_64
-      implementation: cp
-      python_version: '3.10'
-      abi: cp310
   - id: linux-py311
     marker: sys_platform == "linux" and python_version == "3.11"
     pip:
@@ -578,13 +571,6 @@ surfaces:
       implementation: cp
       python_version: '3.14'
       abi: cp314
-  - id: windows-py310
-    marker: sys_platform == "win32" and python_version == "3.10"
-    pip:
-      platform: win_amd64
-      implementation: cp
-      python_version: '3.10'
-      abi: cp310
   - id: windows-py311
     marker: sys_platform == "win32" and python_version == "3.11"
     pip:
@@ -613,13 +599,6 @@ surfaces:
       implementation: cp
       python_version: '3.14'
       abi: cp314
-  - id: macos-py310
-    marker: sys_platform == "darwin" and python_version == "3.10"
-    pip:
-      platform: macosx_11_0_x86_64
-      implementation: cp
-      python_version: '3.10'
-      abi: cp310
   - id: macos-py311
     marker: sys_platform == "darwin" and python_version == "3.11"
     pip:
@@ -652,9 +631,11 @@ surfaces:
   lock_file: requirements.lock
   direct_dependency_files:
   - requirements.in
+  - webcam_micro/runtime-requirements.lock
   dependency_files:
   - requirements.in
   - devcovenant/runtime-requirements.lock
+  - webcam_micro/runtime-requirements.lock
   third_party_file: licenses/THIRD_PARTY_LICENSES.md
   licenses_dir: licenses
   report_heading: '## License Report'
@@ -663,14 +644,8 @@ surfaces:
   required_paths:
   - requirements.in
   - devcovenant/runtime-requirements.lock
+  - webcam_micro/runtime-requirements.lock
   hash_targets:
-  - id: linux-py310
-    marker: sys_platform == "linux" and python_version == "3.10"
-    pip:
-      platform: manylinux2014_x86_64
-      implementation: cp
-      python_version: '3.10'
-      abi: cp310
   - id: linux-py311
     marker: sys_platform == "linux" and python_version == "3.11"
     pip:
@@ -699,13 +674,6 @@ surfaces:
       implementation: cp
       python_version: '3.14'
       abi: cp314
-  - id: windows-py310
-    marker: sys_platform == "win32" and python_version == "3.10"
-    pip:
-      platform: win_amd64
-      implementation: cp
-      python_version: '3.10'
-      abi: cp310
   - id: windows-py311
     marker: sys_platform == "win32" and python_version == "3.11"
     pip:
@@ -734,13 +702,6 @@ surfaces:
       implementation: cp
       python_version: '3.14'
       abi: cp314
-  - id: macos-py310
-    marker: sys_platform == "darwin" and python_version == "3.10"
-    pip:
-      platform: macosx_11_0_x86_64
-      implementation: cp
-      python_version: '3.10'
-      abi: cp310
   - id: macos-py311
     marker: sys_platform == "darwin" and python_version == "3.11"
     pip:
@@ -784,13 +745,6 @@ surfaces:
   - pyproject.toml
   - '{{ PROJECT_NAME_PATH }}'
   hash_targets:
-  - id: linux-py310
-    marker: sys_platform == "linux" and python_version == "3.10"
-    pip:
-      platform: manylinux2014_x86_64
-      implementation: cp
-      python_version: '3.10'
-      abi: cp310
   - id: linux-py311
     marker: sys_platform == "linux" and python_version == "3.11"
     pip:
@@ -819,13 +773,6 @@ surfaces:
       implementation: cp
       python_version: '3.14'
       abi: cp314
-  - id: windows-py310
-    marker: sys_platform == "win32" and python_version == "3.10"
-    pip:
-      platform: win_amd64
-      implementation: cp
-      python_version: '3.10'
-      abi: cp310
   - id: windows-py311
     marker: sys_platform == "win32" and python_version == "3.11"
     pip:
@@ -854,13 +801,6 @@ surfaces:
       implementation: cp
       python_version: '3.14'
       abi: cp314
-  - id: macos-py310
-    marker: sys_platform == "darwin" and python_version == "3.10"
-    pip:
-      platform: macosx_11_0_x86_64
-      implementation: cp
-      python_version: '3.10'
-      abi: cp310
   - id: macos-py311
     marker: sys_platform == "darwin" and python_version == "3.11"
     pip:

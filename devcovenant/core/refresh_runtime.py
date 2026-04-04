@@ -1059,7 +1059,7 @@ def _apply_profile_aware_engine_defaults(
         engine_block = {}
         merged["engine"] = engine_block
 
-    if "devcovrepo" in active_profiles:
+    if bool(merged.get("developer_mode", False)):
         if "auto_fix_enabled" not in user_engine_map:
             engine_block["auto_fix_enabled"] = True
         if "pycache_prefix_enabled" not in user_engine_map:

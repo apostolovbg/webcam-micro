@@ -33,7 +33,9 @@ _UPGRADE_REPO_ONLY_CUSTOM_PRUNE_DIRS = (
     Path("devcovenant/custom/policies/devcov_raw_string_escapes"),
     Path("devcovenant/custom/policies/managed_doc_assets"),
     Path("devcovenant/custom/policies/readme_sync"),
+    Path("devcovenant/custom/policies/package_artifact_mirror"),
     Path("devcovenant/custom/profiles/devcovrepo"),
+    Path("devcovenant/custom/profiles/userproject"),
 )
 
 
