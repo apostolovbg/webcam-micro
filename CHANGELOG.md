@@ -1,8 +1,8 @@
 # Changelog
 **Doc ID:** CHANGELOG
 **Doc Type:** changelog
-**Project Version:** 0.0.1
-**Project Stage:** prototype
+**Project Version:** 0.1.0a1
+**Project Stage:** alpha
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
@@ -58,7 +58,93 @@ Example:
 
 ## Log changes here
 
+## Version 0.1.0a1
+
+- 2026-04-04:
+  Change: Synced the alpha release notes, repo guidance, and roadmap with
+    the full legal-owner notice and version source.
+  Why: Kept the docs-growth surfaces aligned after the latest alpha polish
+    and the `webcam_micro/VERSION` handoff.
+  Impact: README, package README, governance notes, and the completed plan
+    now agree on the official alpha posture.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  CONTRIBUTING.md
+  PLAN.md
+  README.md
+  SPEC.md
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/ui.py
+
+- 2026-04-04:
+  Change: Aligned the alpha docs and repo notes with the version source of
+    truth and the full legal-owner notice.
+  Why: Kept the official alpha release documentation consistent after the
+    copyright and version freeze.
+  Impact: The repo notes, spec, roadmap, and package-facing docs now agree
+    on `webcam_micro/VERSION` and the Black Epsilon owner line.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  CONTRIBUTING.md
+  PLAN.md
+  README.md
+  SPEC.md
+  webcam_micro/README.md
+
+- 2026-04-04:
+  Change: Corrected the alpha shell copyright literal and expanded the UI
+    contract test coverage for the nested preference and diagnostics
+    callbacks.
+  Why: Fixed the release-facing legal notice typo and satisfied the
+    callback-name coverage expected from the Qt shell slice.
+  Impact: The toolbar text now names the full legal owner, and the UI test
+    suite now proves the nested preference and diagnostics callbacks stay
+    visible by name.
+  Files:
+  CHANGELOG.md
+  tests/test_ui.py
+  webcam_micro/ui.py
+
+- 2026-04-04:
+  Change: Bumped the repo to official alpha and aligned the canonical
+    version, stage, copyright, and public docs with the new release
+    posture.
+  Why: Marked the Qt Widgets baseline as the first alpha-ready cut while
+    keeping the version source of truth in `webcam_micro/VERSION`.
+  Impact: The repository now reports alpha status consistently across
+    governance, package metadata, README surfaces, the shell chrome, and
+    release notes.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  README.md
+  PLAN.md
+  SPEC.md
+  devcovenant/config.yaml
+  devcovenant/registry/registry.yaml
+  pyproject.toml
+  tests/test_app.py
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/VERSION
+  webcam_micro/ui.py
+
 ## Version 0.0.1
+
+- 2026-04-04:
+  Change: Expanded the repo and package READMEs into TOC-driven microscope
+    guides with the full Qt shell surface map.
+  Why: Aligned the user-facing docs with the current product surfaces while
+    preserving the package-facing mirror.
+  Impact: Documented launch, preview, framing, capture, recording,
+    presets, diagnostics, and platform notes on both readme surfaces.
+  Files:
+  CHANGELOG.md
+  README.md
+  webcam_micro/README.md
 
 - 2026-04-04:
   Change: Updated the changelog and diagnostics UI contract test to align

@@ -365,8 +365,8 @@ project-governance:
   project_name: webcam-micro
   project_description: Cross-platform microscope camera application distributed as
     a Python package on PyPI.
-  copyright_notice: YEAR Legal Owner Name
-  stage: prototype
+  copyright_notice: 2026 Black Epsilon Ltd. and Apostol Apostolov
+  stage: alpha
   maintenance_stance: active
   compatibility_policy: forward-only
   versioning_mode: versioned

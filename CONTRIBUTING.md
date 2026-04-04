@@ -1,8 +1,8 @@
 # Contributing
 **Doc ID:** CONTRIBUTING
 **Doc Type:** contributing-guide
-**Project Version:** 0.0.1
-**Last Updated:** 2026-04-03
+**Project Version:** 0.1.0a1
+**Last Updated:** 2026-04-04
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -56,3 +56,6 @@ managed output.
 ## Repository Notes
 Add repository-specific contributor notes here. This section is preserved
 across DevCovenant refresh and upgrade runs.
+
+- Treat `webcam_micro/VERSION` as the release version source of truth for
+  alpha work.

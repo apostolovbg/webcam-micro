@@ -78,7 +78,10 @@ class ShellSpecTest(unittest.TestCase):
             spec.toolbar_actions,
         )
         self.assertEqual("Camera Controls", spec.controls_surface_title)
-        self.assertEqual("© Apostol Apostolov", spec.copyright_notice)
+        self.assertEqual(
+            "© 2026 Black Epsilon Ltd. and Apostol Apostolov",
+            spec.copyright_notice,
+        )
         self.assertIn("{backend}", spec.status_template)
         self.assertIn("{controls}", spec.status_template)
         self.assertIn("{capture_framing}", spec.status_template)
@@ -86,6 +89,12 @@ class ShellSpecTest(unittest.TestCase):
     def test_ui_contract_symbols_stay_explicit(self) -> None:
         """Assert the GUI-shell public contract stays named and importable."""
 
+        preferences_source = inspect.getsource(
+            PreviewApplication._open_preferences
+        )
+        diagnostics_source = inspect.getsource(
+            PreviewApplication._open_diagnostics
+        )
         self.assertTrue(callable(build_controls_surface_lines))
         self.assertTrue(callable(build_diagnostics_lines))
         self.assertTrue(callable(build_fullscreen_surface_actions))
@@ -114,6 +123,10 @@ class ShellSpecTest(unittest.TestCase):
         self.assertTrue(callable(PreviewApplication.open_selected_camera))
         self.assertTrue(callable(PreviewApplication.close_session))
         self.assertTrue(callable(PreviewApplication.run))
+        self.assertIn("accept_dialog", preferences_source)
+        self.assertIn("apply_named_preset", preferences_source)
+        self.assertIn("save_named_preset", preferences_source)
+        self.assertIn("add_text_tab", diagnostics_source)
         self.assertTrue(issubclass(MissingGuiDependencyError, RuntimeError))
         self.assertEqual(
             "MissingGuiDependencyError", MissingGuiDependencyError.__name__

@@ -155,7 +155,9 @@ def build_shell_spec() -> ShellSpec:
             "Capture framing: {capture_framing} | Controls: {controls} | "
             "Preset: {preset} | Recording: {recording} | {notice}"
         ),
-        copyright_notice="© Apostol Apostolov",
+        copyright_notice=(
+            "© 2026 Black Epsilon Ltd. and " "Apostol Apostolov"
+        ),
     )
 
 

@@ -1,14 +1,14 @@
 metadata:
   schema_version: 1
   registry_layout: single-root
-  policy_registry_input_hash: 1f3ecf70e3e11937931cdff95f475063f4d5572ddba99c6ed9d06665604791d7
+  policy_registry_input_hash: db5a976c1cc10e01c1bb0e2494ad34791c3d2ab507c64ef60546c5e1857251ca
 project-governance:
   project_name: webcam-micro
   project_description: Cross-platform microscope camera application distributed as
     a Python package on PyPI.
-  copyright_notice: YEAR Legal Owner Name
-  project_version: 0.0.1
-  stage: prototype
+  copyright_notice: 2026 Black Epsilon Ltd. and Apostol Apostolov
+  project_version: 0.1.0a1
+  stage: alpha
   maintenance_stance: active
   compatibility_policy: forward-only
   versioning_mode: versioned
@@ -3776,7 +3776,7 @@ policies:
     runtime_state:
       surfaces:
         package_runtime:
-          input_fingerprint: 0eefb74625e3bda5f416ca546c93250811973e875dfb566d5c22d170be731474
+          input_fingerprint: 5ee815e5b8d91d6805e935cf2acbb91acce77d3437b4d0f6c63dbe3c86697893
           output_fingerprints:
             lock_file: 52596dddc9845f439a19054fbfee380ea3d3e8e2bef10963da93fb6ac1d1e52d
             third_party_file: 90c01742df94c812abe89b6ab4ae5b3f64b546d092a1d501cfdcf52aabc08d88

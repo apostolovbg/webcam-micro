@@ -1,8 +1,8 @@
 # DevCovenant Development Guide
 **Doc ID:** AGENTS
 **Doc Type:** policy-source
-**Project Version:** 0.0.1
-**Project Stage:** prototype
+**Project Version:** 0.1.0a1
+**Project Stage:** alpha
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
@@ -49,6 +49,9 @@ DevCovenant lifecycle and command behavior used by the project.
 
 - YYYY-MM-DD: Add project-specific notes here. This section is preserved
   across install and refresh runs.
+
+- 2026-04-04: Release version is sourced from `webcam_micro/VERSION`; the
+  alpha shell chrome and package READMEs carry the full legal-owner notice.
 
 <!-- DEVCOV-WORKFLOW:BEGIN -->
 
@@ -178,8 +181,8 @@ directly.
 <!-- DEVCOV:BEGIN -->
 ## Project Governance
 This block reflects the repository's active project-governance state.
-- Project Version: 0.0.1
-- Project Stage: prototype
+- Project Version: 0.1.0a1
+- Project Stage: alpha
 - Maintenance Stance: active
 - Compatibility Policy: forward-only
 - Versioning Mode: versioned

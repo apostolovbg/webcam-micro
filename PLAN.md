@@ -1,8 +1,8 @@
 # Development Plan
 **Doc ID:** PLAN
 **Doc Type:** plan
-**Project Version:** 0.0.1
-**Project Stage:** prototype
+**Project Version:** 0.1.0a1
+**Project Stage:** alpha
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
@@ -14,16 +14,18 @@ This opening section is managed by DevCovenant.
 Use `PLAN.md` to track active implementation work below this block.
 <!-- DEVCOV:END -->
 
-Use this plan to track active implementation work.
+Use this plan to track the completed alpha delivery path.
 Keep items dependency-ordered, concrete, and current.
-Use it to take `webcam-micro` from governed prototype scaffolding to a usable
-PyPI-distributed microscope camera application.
+Use it as the record of how `webcam-micro` reached the official alpha
+release. The release version is sourced from `webcam_micro/VERSION`, and
+the alpha shell chrome now carries the full legal-owner notice. Create a
+new `PLAN.md` for beta work after operational testing.
 
 ## Table of Contents
 1. [Overview](#overview)
 2. [Workflow](#workflow)
 3. [Writing Direction](#writing-direction)
-4. [Active Work](#active-work)
+4. [Completed Work](#completed-work)
 5. [Validation Routine](#validation-routine)
 
 ## Overview
@@ -57,11 +59,13 @@ PyPI-distributed microscope camera application.
 - Treat vague work items as unfinished planning, not as good enough
   planning.
 
-## Active Work
+## Completed Work
 - Note: items 1-5 record the original shell delivery path. Item 6 records
   the completed Flet experiment. Items 7-8 supersede that experiment with a
   `PySide6` and Qt Widgets migration that restores native desktop menu bars
   and leans camera discovery and preview onto Qt-owned media objects.
+  All numbered items below are complete and retained as the alpha delivery
+  record.
 
 1. [done] Decide the application foundation and ship the package skeleton.
    Goal:
@@ -115,8 +119,8 @@ PyPI-distributed microscope camera application.
    - exposed the required File, Edit, View, Camera, Capture, Tools, and Help
      menu sections plus the primary toolbar actions for controls, camera
      refresh and open, still capture, recording, fullscreen, and preferences
-   - rendered `© Apostol Apostolov` at the rightmost visible end of the main
-     toolbar
+   - rendered `© 2026 Black Epsilon Ltd. and Apostol Apostolov` at the
+     rightmost visible end of the main toolbar
    Outcome:
    - the prototype now presents the governed preview-first shell contract
      while keeping the low-latency live preview path intact for later control,

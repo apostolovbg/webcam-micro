@@ -1,8 +1,8 @@
 # Project Specification
 **Doc ID:** SPEC
 **Doc Type:** specification
-**Project Version:** 0.0.1
-**Project Stage:** prototype
+**Project Version:** 0.1.0a1
+**Project Stage:** alpha
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
@@ -42,6 +42,9 @@ and required workflow law in `AGENTS.md`.
   for live preview, camera control, still capture, video recording, crop and
   framing control, calibration-oriented microscope work, and persistent
   per-camera defaults.
+
+- Release identity: the version is sourced from `webcam_micro/VERSION`, and
+  the shell chrome displays the full legal-owner notice.
 
 - Primary problem: existing webcam viewers either waste preview space, do not
   expose camera controls well, do not support microscope-friendly crop and
@@ -199,7 +202,7 @@ useful than a generic webcam app with accidental microscope applicability.
   related actions.
 
 - The rightmost visible end of the main toolbar must display:
-  `© Apostol Apostolov`
+  `© 2026 Black Epsilon Ltd. and Apostol Apostolov`
 
 - The product must provide a dedicated fullscreen mode in which the preview
   occupies the full screen and the windowed command surfaces are replaced by

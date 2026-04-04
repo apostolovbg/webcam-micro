@@ -59,7 +59,7 @@ class ApplicationEntryPointTest(unittest.TestCase):
             (repo_root / "pyproject.toml").read_text(encoding="utf-8")
         )
 
-        self.assertEqual("0.0.1", payload["project"]["version"])
+        self.assertEqual("0.1.0a1", payload["project"]["version"])
         self.assertEqual(
             {
                 "file": "webcam_micro/README.md",
@@ -108,6 +108,11 @@ class ApplicationEntryPointTest(unittest.TestCase):
         self.assertIn("## What Works Today", package_readme)
         self.assertIn("Qt Widgets", package_readme)
         self.assertNotIn("Flet", package_readme)
+        self.assertIn("## Alpha Status", package_readme)
+        self.assertIn(
+            "© 2026 Black Epsilon Ltd. and Apostol Apostolov",
+            package_readme,
+        )
         self.assertNotIn("## Development Quick Start", package_readme)
         self.assertNotIn("## Workflow", package_readme)
         self.assertNotIn("<!-- REPO-ONLY:BEGIN -->", package_readme)
