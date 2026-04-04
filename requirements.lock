@@ -32,6 +32,12 @@ identify==2.6.18 \
     --hash=sha256:8db9d3c8ea9079db92cafb0ebf97abdc09d52e97f4dcf773a2e694048b7cd737
     # via -r requirements.in
 
+imageio-ffmpeg==0.6.0 \
+    --hash=sha256:02fa47c83703c37df6bfe4896aab339013f62bf02c5ebf2dce6da56af04ffc0a \
+    --hash=sha256:9d2baaf867088508d4a3458e61eeb30e945c4ad8016025545f66c4b5aaef0a61 \
+    --hash=sha256:c7e46fcec401dd990405049d2e2f475e2b397779df2519b544b8aab515195282
+    # via -r requirements.in
+
 importlib_metadata==9.0.0 ; (sys_platform == "linux" and python_version == "3.10") or (sys_platform == "win32" and python_version == "3.10") or (sys_platform == "darwin" and python_version == "3.10") \
     --hash=sha256:2d21d1cc5a017bd0559e36150c21c830ab1dc304dedd1b7ea85d20f45ef3edd7
     # via -r requirements.in
@@ -118,6 +124,10 @@ PyYAML==6.0.3 \
     --hash=sha256:ba1cc08a7ccde2d2ec775841541641e4548226580ab850948cbfda66a1befcdc \
     --hash=sha256:bdb2c67c6c1390b63c6ff89f210c8fd09d9a1217a465701eac7316313c915e4c \
     --hash=sha256:c458b6d084f9b935061bc36216e8a69a7e293a2f1e68bf956dcd9e6cbcd143f5
+    # via -r requirements.in
+
+rubicon-objc==0.5.3 ; (sys_platform == "darwin" and python_version == "3.10") or (sys_platform == "darwin" and python_version == "3.11") or (sys_platform == "darwin" and python_version == "3.12") or (sys_platform == "darwin" and python_version == "3.13") or (sys_platform == "darwin" and python_version == "3.14") \
+    --hash=sha256:31dedcda9be38435f5ec067906e1eea5d0ddb790330e98a22e94ff424758b415
     # via -r requirements.in
 
 semver==3.0.4 \

@@ -13,6 +13,9 @@ project-governance:
   compatibility_policy: forward-only
   versioning_mode: versioned
 policy_overlays:
+  line-length-limit:
+    exclude_globs:
+      - webcam_micro/licenses/*.txt
   version-sync:
     version_file: webcam_micro/VERSION
   version-governance:

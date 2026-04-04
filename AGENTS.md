@@ -1308,6 +1308,7 @@ exclude_globs:
 - devcovenant/registry/runtime/**
 - node_modules/**
 - '**/*.egg-info/**'
+- webcam_micro/licenses/*.txt
 - devcovenant/**
 include_prefixes: []
 include_globs:

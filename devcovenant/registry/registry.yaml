@@ -1,7 +1,7 @@
 metadata:
   schema_version: 1
   registry_layout: single-root
-  policy_registry_input_hash: 9c715cc66adc267ffa0931f63bf115ef0bf96f87f8d7e52e4a03d43bbb97211c
+  policy_registry_input_hash: b3088a9a09832e0d22fc2c20db6edd6529cf540d7eced62a69d8b676e00792b1
 project-governance:
   project_name: webcam-micro
   project_description: Cross-platform microscope camera application distributed as
@@ -4009,15 +4009,15 @@ policies:
         root_workspace:
           input_fingerprint: 6b6b61c254bcd5d970f94f151ea40d247abe8e9dff2774a3a3f350f072299eba
           output_fingerprints:
-            lock_file: 9ad475f4bcab038374f1b0467ea4be49b30fb84993337c2268f9682ccd0cf310
-            third_party_file: a9cc358b41b057b814bc5bcbefd25b552a9c302572a620c55d4c81661031f054
-            licenses_dir: 2deea4a029112861ee692870a1b715aefc87e42518864bdabb9475999ec628a5
+            lock_file: 6a6ab80b4b57b2498cc670b2a7b5a06e84ec354a0cb4c41de5a152d95db422d8
+            third_party_file: bafbada1d9c00849c603465c49b3bb79dc86f034c1a6dccfb6ed936ba247faa8
+            licenses_dir: 6d08eedd9a674220d2f21595d003c4b2ab15fada5e9ed8671fbff57c17c58f1e
         package_runtime:
-          input_fingerprint: a298a35bbda7147e36d949ab252eb09aa65fef31563999c3ee33cc7c0039d07d
+          input_fingerprint: fbb2be457b006b669f07132017a0345f8d93d1d5b0627dd217d2effdfaaddb28
           output_fingerprints:
-            lock_file: 318d8e872c173cc10abca1c0d338b17462d556a62d297edb979fc1f4418a2ab5
-            third_party_file: 97ae7c28684dab2d3ac6586d43b9ae109ee7a33f36b834f431831ae5a77c18ee
-            licenses_dir: 5e6c654932ae46726285539ad24e63b25c547a6d4006a1c9be6f75fb757fd7e4
+            lock_file: 06a00458b46276823d90ffdf252e0b030cc0bb2218df5b9c24b91e87a3dd0b4a
+            third_party_file: 8db73404c0bceab7d18134b8df417867d840ddbe1f69fb53888bb1e978b51e72
+            licenses_dir: 8c1ccfabb3030502c202cb4fb2a4f26c1b51b502cbcd850c50dd26c3b13c00ba
   docstring-and-comment-coverage:
     enabled: true
     custom: false
@@ -6265,6 +6265,7 @@ policies:
       - devcovenant/registry/runtime/**
       - node_modules/**
       - '**/*.egg-info/**'
+      - webcam_micro/licenses/*.txt
       - devcovenant/**
       include_prefixes: []
       include_globs:
@@ -6630,6 +6631,7 @@ policies:
           - node_modules/**
           - '*.egg-info/**'
           - '**/*.egg-info/**'
+          - webcam_micro/licenses/*.txt
           behavior: append
           replaced_inherited_values:
           - ()
@@ -6641,6 +6643,7 @@ policies:
           - node_modules/**
           - '*.egg-info/**'
           - '**/*.egg-info/**'
+          - webcam_micro/licenses/*.txt
           behavior: append
           replaced_inherited_values:
           - ()
@@ -6676,6 +6679,7 @@ policies:
           - devcovenant/registry/runtime/**
           - node_modules/**
           - '**/*.egg-info/**'
+          - webcam_micro/licenses/*.txt
           - devcovenant/**
       include_prefixes:
         descriptor:
@@ -6991,6 +6995,7 @@ policies:
       - devcovenant/registry/runtime/**
       - node_modules/**
       - '**/*.egg-info/**'
+      - webcam_micro/licenses/*.txt
       - devcovenant/**
       include_prefixes: []
       include_globs: &id043
@@ -7114,6 +7119,7 @@ policies:
     - tests/devcovenant/custom/**
     - torrent:/**
     - urn:/**
+    - webcam_micro/licenses/*.txt
     - ws:/**
     - ws://
     - wss:/**
@@ -14837,6 +14843,9 @@ profiles:
       compatibility_policy: forward-only
       versioning_mode: versioned
     policy_overlays:
+      line-length-limit:
+        exclude_globs:
+        - webcam_micro/licenses/*.txt
       version-sync:
         version_file: webcam_micro/VERSION
       version-governance:

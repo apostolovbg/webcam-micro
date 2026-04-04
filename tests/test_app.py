@@ -1,4 +1,4 @@
-"""Stage 3 tests for the application entrypoint and package contract."""
+"""Stage 4 tests for the application entrypoint and package contract."""
 
 from __future__ import annotations
 
@@ -14,15 +14,15 @@ from webcam_micro.app import LaunchPlan, build_launch_plan, main
 
 
 class ApplicationEntryPointTest(unittest.TestCase):
-    """Verify the Stage 3 launcher wiring and package metadata."""
+    """Verify the Stage 4 launcher wiring and package metadata."""
 
     def test_smoke_mode_returns_success(self) -> None:
         """Assert the headless smoke path exits successfully."""
 
         self.assertEqual(0, main(["--smoke-test"]))
 
-    def test_launch_plan_describes_stage_three_baseline(self) -> None:
-        """Assert the launch plan documents the main-window baseline."""
+    def test_launch_plan_describes_stage_four_baseline(self) -> None:
+        """Assert the launch plan documents the controls-aware baseline."""
 
         plan = build_launch_plan()
 
@@ -31,9 +31,12 @@ class ApplicationEntryPointTest(unittest.TestCase):
         self.assertEqual("webcam-micro", plan.entrypoint_name)
         self.assertEqual("ttkbootstrap", plan.gui_baseline)
         self.assertIn("newest-frame", plan.backend_strategy)
+        self.assertIn("AVFoundation", plan.backend_strategy)
+        self.assertIn("rubicon", plan.backend_strategy)
         self.assertIn("FFmpeg", plan.first_device_backend_target)
         self.assertIn("toolbar", plan.shell_contract)
         self.assertIn("separate controls window", plan.shell_contract)
+        self.assertIn("typed camera controls", plan.shell_contract)
 
     def test_launch_plan_symbol_stays_explicit(self) -> None:
         """Assert the launch-plan dataclass stays public."""
@@ -60,6 +63,10 @@ class ApplicationEntryPointTest(unittest.TestCase):
         self.assertIn("pillow>=10,<13", payload["project"]["dependencies"])
         self.assertIn(
             "ttkbootstrap>=1.20,<2",
+            payload["project"]["dependencies"],
+        )
+        self.assertIn(
+            "rubicon-objc>=0.5,<0.6; sys_platform == 'darwin'",
             payload["project"]["dependencies"],
         )
         self.assertEqual(

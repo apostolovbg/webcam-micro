@@ -1,4 +1,4 @@
-"""Stage 3 tests for the GUI shell description layer."""
+"""Stage 4 tests for the GUI shell description layer."""
 
 from __future__ import annotations
 
@@ -11,15 +11,17 @@ from webcam_micro.ui import (
     ShellSpec,
     build_runtime_status,
     build_shell_spec,
+    format_numeric_control_value,
     launch_main_window,
+    parse_numeric_control_text,
 )
 
 
 class ShellSpecTest(unittest.TestCase):
     """Verify the headless-friendly main-window shell description."""
 
-    def test_shell_spec_mentions_stage_three_baseline(self) -> None:
-        """Assert the shell spec captures the Stage 3 shell contract."""
+    def test_shell_spec_mentions_stage_four_baseline(self) -> None:
+        """Assert the shell spec captures the Stage 4 shell contract."""
 
         spec = build_shell_spec()
         combined_body = " ".join(spec.hero_body)
@@ -56,7 +58,9 @@ class ShellSpecTest(unittest.TestCase):
 
         self.assertTrue(callable(build_shell_spec))
         self.assertTrue(callable(build_runtime_status))
+        self.assertTrue(callable(format_numeric_control_value))
         self.assertTrue(callable(launch_main_window))
+        self.assertTrue(callable(parse_numeric_control_text))
         self.assertTrue(callable(PreviewApplication.refresh_cameras))
         self.assertTrue(callable(PreviewApplication.open_selected_camera))
         self.assertTrue(callable(PreviewApplication.close_session))
@@ -92,3 +96,32 @@ class ShellSpecTest(unittest.TestCase):
         self.assertEqual("open", status.controls_window_state)
         self.assertEqual("not ready", status.recording_state)
         self.assertEqual("Live preview active.", status.notice)
+
+    def test_numeric_control_helpers_format_and_reject_invalid_text(
+        self,
+    ) -> None:
+        """Assert numeric helpers preserve valid values and blank bad ones."""
+
+        self.assertEqual("1.5", format_numeric_control_value(1.5, 0.1))
+        self.assertEqual(
+            12.5,
+            parse_numeric_control_text(
+                "12.5",
+                minimum=0.0,
+                maximum=20.0,
+            ),
+        )
+        self.assertIsNone(
+            parse_numeric_control_text(
+                "not-a-number",
+                minimum=0.0,
+                maximum=20.0,
+            )
+        )
+        self.assertIsNone(
+            parse_numeric_control_text(
+                "32",
+                minimum=0.0,
+                maximum=20.0,
+            )
+        )

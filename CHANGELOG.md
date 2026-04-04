@@ -6,7 +6,7 @@
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
-**Last Updated:** 2026-04-03
+**Last Updated:** 2026-04-04
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -59,6 +59,62 @@ Example:
 ## Log changes here
 
 ## Version 0.0.1
+
+- 2026-04-04:
+  Change: Removed accidental ` 2` and ` 3` duplicate files and folders
+    from the repo tree after comparing them with their unsuffixed
+    counterparts.
+  Why: Cleaned Finder-style duplicate-path debris and kept the live newer
+    or real copy instead of leaving empty or older shadow paths around the
+    repository.
+  Impact: The repo tree no longer contains stray numbered duplicates under
+    `devcovenant` or the managed environment, which reduces confusion and
+    avoids future accidental edits against junk copies.
+  Files:
+  CHANGELOG.md
+
+- 2026-04-04:
+  Change: Lowered the DevCovenant blocking threshold to `warning`,
+    and excluded generated package license text from line-length checks.
+  Why: Made warnings block by policy while solving the existing warning
+    surface at the source instead of rewriting generated third-party license
+    files by hand, and cleared stale mirrored custom-policy debris before
+    reopening the gate session.
+  Impact: DevCovenant now fails on warnings, the generated package license
+    bundle no longer emits line-length noise, and the repo can enforce
+    warning-level blocking cleanly.
+  Files:
+  CHANGELOG.md
+  devcovenant/config.yaml
+  devcovenant/custom/profiles/webcam-micro/webcam-micro.yaml
+  devcovenant/registry/registry.yaml
+
+- 2026-04-03:
+  Change: Completed Item 4 with a typed camera-control surface, a real
+    macOS AVFoundation control bridge through `rubicon-objc`, and
+    guvcview-style numeric widgets in the separate controls window.
+  Why: Exposed real backend controls through a trustworthy UI and aligned the
+    prototype with the governed slider-plus-spinbox behavior for numeric
+    settings.
+  Impact: Added backend-driven numeric, boolean, enum, read-only, and action
+    controls in the controls window, cleared invalid typed numeric values to
+    blank, and exposed the macOS runtime to real camera control APIs where
+    available.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  pyproject.toml
+  tests/test_app.py
+  tests/test_camera.py
+  tests/test_ui.py
+  webcam_micro/__init__.py
+  webcam_micro/app.py
+  webcam_micro/camera.py
+  webcam_micro/licenses/THIRD_PARTY_LICENSES.md
+  webcam_micro/licenses/rubicon-objc-0.5.3.txt
+  webcam_micro/runtime-requirements.lock
+  webcam_micro/ui.py
 
 - 2026-04-03:
   Change: Completed the Stage 3 preview-first shell with the governed main

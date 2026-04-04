@@ -24,6 +24,10 @@ pillow==12.2.0 \
     --hash=sha256:b86024e52a1b269467a802258c25521e6d742349d760728092e1bc2d135b4d76
     # via -r pyproject.toml
 
+rubicon-objc==0.5.3 ; (sys_platform == "darwin" and python_version == "3.10") or (sys_platform == "darwin" and python_version == "3.11") or (sys_platform == "darwin" and python_version == "3.12") or (sys_platform == "darwin" and python_version == "3.13") or (sys_platform == "darwin" and python_version == "3.14") \
+    --hash=sha256:31dedcda9be38435f5ec067906e1eea5d0ddb790330e98a22e94ff424758b415
+    # via -r pyproject.toml
+
 ttkbootstrap==1.20.2 \
     --hash=sha256:6b3f25aa173c09423474ac31eeb2d766cf0f9514c8debe24da8d1f062e4afdcf
     # via -r pyproject.toml

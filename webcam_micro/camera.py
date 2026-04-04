@@ -1,9 +1,10 @@
-"""Camera discovery and preview backends for the Stage 2 baseline."""
+"""Camera discovery, preview, and control backends for the prototype."""
 
 from __future__ import annotations
 
 import contextlib
 import glob
+import math
 import re
 import subprocess
 import sys
@@ -11,7 +12,7 @@ import threading
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,43 @@ class CameraDescriptor:
     display_name: str
     backend_name: str
     device_selector: str
+    native_identifier: str | None = None
+    display_occurrence_index: int = 0
+
+
+@dataclass(frozen=True)
+class CameraControlChoice:
+    """Describe one selectable option for an enumerated control."""
+
+    value: str
+    label: str
+
+
+@dataclass(frozen=True)
+class CameraControl:
+    """Describe one user-facing camera control."""
+
+    control_id: str
+    label: str
+    kind: str
+    value: object | None
+    choices: tuple[CameraControlChoice, ...] = ()
+    min_value: float | None = None
+    max_value: float | None = None
+    step: float | None = None
+    read_only: bool = False
+    enabled: bool = True
+    unit: str = ""
+    details: str = ""
+    action_label: str = ""
+
+
+class CameraControlError(RuntimeError):
+    """Raised when camera controls are unavailable or fail to apply."""
+
+
+class CameraControlApplyError(CameraControlError):
+    """Raised when one control value cannot be applied."""
 
 
 class CameraSession(Protocol):
@@ -49,6 +87,50 @@ class CameraBackend(Protocol):
     def open_session(self, descriptor: CameraDescriptor) -> CameraSession:
         """Open one camera session for the provided descriptor."""
 
+    def list_controls(
+        self, descriptor: CameraDescriptor
+    ) -> tuple[CameraControl, ...]:
+        """Return the current control surface for the selected camera."""
+
+    def set_control_value(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+        value: object,
+    ) -> None:
+        """Apply one control value for the selected camera."""
+
+    def trigger_control_action(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+    ) -> None:
+        """Trigger one action-style control for the selected camera."""
+
+
+class CameraControlBackend(Protocol):
+    """Represent the control-management surface behind one backend."""
+
+    def list_controls(
+        self, descriptor: CameraDescriptor
+    ) -> tuple[CameraControl, ...]:
+        """Return the current control surface for one descriptor."""
+
+    def set_control_value(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+        value: object,
+    ) -> None:
+        """Apply one camera-control value."""
+
+    def trigger_control_action(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+    ) -> None:
+        """Trigger one action-style control."""
+
 
 @dataclass(frozen=True)
 class PreviewFrame:
@@ -62,7 +144,7 @@ class PreviewFrame:
 
 @dataclass(frozen=True)
 class BackendPlan:
-    """Summarize the chosen Stage 2 backend direction."""
+    """Summarize the chosen backend direction for the prototype."""
 
     active_backend: str
     first_device_backend_target: str
@@ -80,6 +162,8 @@ def build_backend_plan() -> BackendPlan:
             "enumeration.",
             "Preview readers keep only the newest frame to avoid lag from "
             "stale buffered frames.",
+            "Stage 4 adds a typed control surface and uses AVFoundation for "
+            "macOS camera-control access when available.",
         ),
     )
 
@@ -108,10 +192,49 @@ class NullCameraSession:
         return None
 
 
+class NullCameraControlBackend:
+    """Provide an empty control surface when no real controls exist."""
+
+    def list_controls(
+        self, descriptor: CameraDescriptor
+    ) -> tuple[CameraControl, ...]:
+        """Return no controls for the placeholder backend."""
+
+        return ()
+
+    def set_control_value(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+        value: object,
+    ) -> None:
+        """Raise because the null backend has no writable controls."""
+
+        raise CameraControlApplyError(
+            "No writable controls are available for this camera backend."
+        )
+
+    def trigger_control_action(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+    ) -> None:
+        """Raise because the null backend has no action controls."""
+
+        raise CameraControlApplyError(
+            "No action controls are available for this camera backend."
+        )
+
+
 class NullCameraBackend:
     """Provide a fallback backend when real device I/O is unavailable."""
 
     backend_name = "null"
+
+    def __init__(self) -> None:
+        """Initialize the placeholder backend and its empty controls."""
+
+        self._control_backend = NullCameraControlBackend()
 
     def discover_cameras(self) -> tuple[CameraDescriptor, ...]:
         """Return no devices for the placeholder backend."""
@@ -122,6 +245,32 @@ class NullCameraBackend:
         """Return a placeholder session for the requested descriptor."""
 
         return NullCameraSession(descriptor=descriptor)
+
+    def list_controls(
+        self, descriptor: CameraDescriptor
+    ) -> tuple[CameraControl, ...]:
+        """Return no controls for the placeholder backend."""
+
+        return self._control_backend.list_controls(descriptor)
+
+    def set_control_value(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+        value: object,
+    ) -> None:
+        """Forward a control write to the empty control backend."""
+
+        self._control_backend.set_control_value(descriptor, control_id, value)
+
+    def trigger_control_action(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+    ) -> None:
+        """Forward an action request to the empty control backend."""
+
+        self._control_backend.trigger_control_action(descriptor, control_id)
 
 
 class MissingCameraDependencyError(RuntimeError):
@@ -136,6 +285,30 @@ def _load_imageio_ffmpeg():
     except ModuleNotFoundError:
         return None
     return imageio_ffmpeg
+
+
+def _load_avfoundation_modules():
+    """Import the macOS control bridge lazily when it is available."""
+
+    if sys.platform != "darwin":
+        return None, None
+    try:
+        from rubicon.objc import ObjCClass, objc_const
+        from rubicon.objc.runtime import load_library
+    except ModuleNotFoundError:
+        return None, None
+    framework = load_library("AVFoundation")
+    capture_device_class = ObjCClass("AVCaptureDevice")
+    media_type_video = objc_const(framework, "AVMediaTypeVideo")
+    return capture_device_class, media_type_video
+
+
+def _call_or_value(value: object) -> object:
+    """Return the result of a bound Objective-C method or the raw value."""
+
+    if callable(value):
+        return value()
+    return value
 
 
 def _ffmpeg_executable() -> str:
@@ -164,6 +337,57 @@ def _run_discovery_command(command: list[str]) -> str:
     )
 
 
+@dataclass(frozen=True)
+class _MacosVideoDevice:
+    """Describe one AVFoundation video device for discovery matching."""
+
+    display_name: str
+    unique_id: str
+    occurrence_index: int
+
+
+def _macos_video_devices() -> tuple[_MacosVideoDevice, ...]:
+    """Return AVFoundation devices for matching FFmpeg descriptors."""
+
+    capture_device_class, media_type_video = _load_avfoundation_modules()
+    if capture_device_class is None or media_type_video is None:
+        return ()
+    try:
+        devices = capture_device_class.devicesWithMediaType_(media_type_video)
+    except (AttributeError, OSError, RuntimeError, TypeError, ValueError):
+        return ()
+    counts: dict[str, int] = {}
+    descriptors: list[_MacosVideoDevice] = []
+    for device in devices:
+        display_name = str(_call_or_value(device.localizedName))
+        occurrence_index = counts.get(display_name, 0)
+        counts[display_name] = occurrence_index + 1
+        descriptors.append(
+            _MacosVideoDevice(
+                display_name=display_name,
+                unique_id=str(_call_or_value(device.uniqueID)),
+                occurrence_index=occurrence_index,
+            )
+        )
+    return tuple(descriptors)
+
+
+def _match_macos_video_device(
+    display_name: str,
+    occurrence_index: int,
+    devices: tuple[_MacosVideoDevice, ...],
+) -> _MacosVideoDevice | None:
+    """Return the AVFoundation device matching one FFmpeg display slot."""
+
+    for descriptor in devices:
+        if (
+            descriptor.display_name == display_name
+            and descriptor.occurrence_index == occurrence_index
+        ):
+            return descriptor
+    return None
+
+
 def _discover_macos_cameras(ffmpeg_exe: str) -> tuple[CameraDescriptor, ...]:
     """Discover cameras through FFmpeg's AVFoundation device listing."""
 
@@ -179,6 +403,8 @@ def _discover_macos_cameras(ffmpeg_exe: str) -> tuple[CameraDescriptor, ...]:
             "",
         ]
     )
+    avfoundation_devices = _macos_video_devices()
+    name_occurrence_counts: dict[str, int] = {}
     descriptors: list[CameraDescriptor] = []
     in_video_section = False
     pattern = re.compile(r"\[(?P<index>\d+)\]\s+(?P<name>.+)$")
@@ -195,12 +421,23 @@ def _discover_macos_cameras(ffmpeg_exe: str) -> tuple[CameraDescriptor, ...]:
             continue
         device_index = match.group("index")
         device_name = match.group("name").strip()
+        occurrence_index = name_occurrence_counts.get(device_name, 0)
+        name_occurrence_counts[device_name] = occurrence_index + 1
+        matched_device = _match_macos_video_device(
+            device_name,
+            occurrence_index,
+            avfoundation_devices,
+        )
         descriptors.append(
             CameraDescriptor(
                 stable_id=f"ffmpeg:avfoundation:{device_index}",
                 display_name=device_name,
                 backend_name="ffmpeg",
                 device_selector=device_index,
+                native_identifier=(
+                    matched_device.unique_id if matched_device else None
+                ),
+                display_occurrence_index=occurrence_index,
             )
         )
     return tuple(descriptors)
@@ -324,6 +561,344 @@ def _input_args(device_selector: str) -> tuple[str, ...]:
         "-i",
         device_selector,
     )
+
+
+def _safe_float(value: object) -> float | None:
+    """Return a finite float for the provided value when possible."""
+
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if math.isnan(number) or math.isinf(number):
+        return None
+    return number
+
+
+def _numeric_step(
+    minimum: float,
+    maximum: float,
+    *,
+    preferred_steps: int = 100,
+) -> float:
+    """Return a small but usable step size for numeric controls."""
+
+    span = maximum - minimum
+    if span <= 0:
+        return 0.1
+    return max(span / preferred_steps, 0.01)
+
+
+def _choice_for_value(
+    choices: tuple[CameraControlChoice, ...],
+    value: str,
+) -> CameraControlChoice | None:
+    """Return the first choice matching the provided control value."""
+
+    for choice in choices:
+        if choice.value == value:
+            return choice
+    return None
+
+
+class AvFoundationCameraControlBackend:
+    """Expose macOS AVFoundation camera controls when the bridge is present."""
+
+    def __init__(self) -> None:
+        """Load the bridge modules used to inspect and configure controls."""
+
+        self._capture_device_class, self._video_media_type = (
+            _load_avfoundation_modules()
+        )
+
+    @property
+    def available(self) -> bool:
+        """Return whether the macOS control bridge is ready."""
+
+        return (
+            self._capture_device_class is not None
+            and self._video_media_type is not None
+        )
+
+    def _device_for_descriptor(
+        self, descriptor: CameraDescriptor
+    ) -> Any | None:
+        """Return the AVFoundation device matching the provided descriptor."""
+
+        if not self.available:
+            return None
+        assert self._capture_device_class is not None
+        assert self._video_media_type is not None
+        devices = self._capture_device_class.devicesWithMediaType_(
+            self._video_media_type
+        )
+        if descriptor.native_identifier is not None:
+            for device in devices:
+                if (
+                    str(_call_or_value(device.uniqueID))
+                    == descriptor.native_identifier
+                ):
+                    return device
+        matching_name_devices = [
+            device
+            for device in devices
+            if str(_call_or_value(device.localizedName))
+            == descriptor.display_name
+        ]
+        if descriptor.display_occurrence_index < len(matching_name_devices):
+            return matching_name_devices[descriptor.display_occurrence_index]
+        return None
+
+    def _exposure_mode_choices(
+        self, device: Any
+    ) -> tuple[CameraControlChoice, ...]:
+        """Return the writable exposure-mode choices for one device."""
+
+        choices: list[CameraControlChoice] = []
+        supported_modes = (
+            (0, "locked", "Locked"),
+            (2, "continuous_auto", "Continuous Auto"),
+        )
+        for mode_value, value_name, label in supported_modes:
+            if device.isExposureModeSupported_(mode_value):
+                choices.append(
+                    CameraControlChoice(value=value_name, label=label)
+                )
+        return tuple(choices)
+
+    def _exposure_mode_name(self, device: Any) -> str:
+        """Return the current exposure mode as a stable string token."""
+
+        mode_map = {
+            0: "locked",
+            2: "continuous_auto",
+        }
+        return mode_map.get(int(_call_or_value(device.exposureMode)), "locked")
+
+    def _source_mode_text(self, device: Any) -> str:
+        """Return a readable active-format summary for one device."""
+
+        active_format = _call_or_value(device.activeFormat)
+        return str(active_format)
+
+    def list_controls(
+        self, descriptor: CameraDescriptor
+    ) -> tuple[CameraControl, ...]:
+        """Return the current AVFoundation control surface."""
+
+        if not self.available:
+            return ()
+        device = self._device_for_descriptor(descriptor)
+        if device is None:
+            return ()
+        controls: list[CameraControl] = []
+
+        exposure_choices = self._exposure_mode_choices(device)
+        if exposure_choices:
+            current_exposure_mode = self._exposure_mode_name(device)
+            controls.append(
+                CameraControl(
+                    control_id="exposure_mode",
+                    label="Exposure Mode",
+                    kind="enum",
+                    value=current_exposure_mode,
+                    choices=exposure_choices,
+                    details=(
+                        "AVFoundation exposure mode for the active camera."
+                    ),
+                )
+            )
+            supports_lock_toggle = (
+                _choice_for_value(exposure_choices, "locked") is not None
+                and _choice_for_value(exposure_choices, "continuous_auto")
+                is not None
+            )
+            if supports_lock_toggle:
+                controls.append(
+                    CameraControl(
+                        control_id="exposure_locked",
+                        label="Exposure Locked",
+                        kind="boolean",
+                        value=current_exposure_mode == "locked",
+                        details=(
+                            "Convenience toggle between locked and "
+                            "continuous auto exposure."
+                        ),
+                    )
+                )
+
+        zoom_minimum = (
+            _safe_float(_call_or_value(device.minAvailableVideoZoomFactor))
+            or 1.0
+        )
+        zoom_maximum = (
+            _safe_float(_call_or_value(device.maxAvailableVideoZoomFactor))
+            or 1.0
+        )
+        zoom_value = (
+            _safe_float(_call_or_value(device.videoZoomFactor)) or zoom_minimum
+        )
+        zoom_writable = zoom_maximum > zoom_minimum + 0.001
+        controls.append(
+            CameraControl(
+                control_id="zoom_factor",
+                label="Zoom Factor",
+                kind="numeric",
+                value=zoom_value,
+                min_value=zoom_minimum,
+                max_value=zoom_maximum,
+                step=_numeric_step(zoom_minimum, zoom_maximum),
+                read_only=not zoom_writable,
+                enabled=zoom_writable,
+                unit="x",
+                details="AVFoundation video zoom factor.",
+            )
+        )
+
+        controls.append(
+            CameraControl(
+                control_id="active_format",
+                label="Active Format",
+                kind="read_only",
+                value=self._source_mode_text(device),
+                details="Current AVFoundation source mode.",
+            )
+        )
+        controls.append(
+            CameraControl(
+                control_id="control_backend",
+                label="Control Backend",
+                kind="read_only",
+                value="AVFoundation",
+                details="Native control bridge used for macOS cameras.",
+            )
+        )
+        controls.append(
+            CameraControl(
+                control_id="low_light_boost_support",
+                label="Low Light Boost Supported",
+                kind="read_only",
+                value="Yes" if device.isLowLightBoostSupported() else "No",
+                details=(
+                    "Reports whether AVFoundation exposes low-light boost."
+                ),
+            )
+        )
+
+        if _choice_for_value(exposure_choices, "continuous_auto") is not None:
+            controls.append(
+                CameraControl(
+                    control_id="restore_auto_exposure",
+                    label="Restore Auto Exposure",
+                    kind="action",
+                    value=None,
+                    action_label="Restore",
+                    details=("Return the device to continuous auto exposure."),
+                )
+            )
+
+        return tuple(controls)
+
+    def _lock_device(self, device: Any) -> None:
+        """Lock one device for configuration or raise a readable error."""
+
+        lock_result = device.lockForConfiguration_(None)
+        if isinstance(lock_result, tuple):
+            locked, error = lock_result
+        else:
+            locked, error = bool(lock_result), None
+        if not locked:
+            message = str(error) if error else "Could not lock camera."
+            raise CameraControlApplyError(message)
+
+    def set_control_value(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+        value: object,
+    ) -> None:
+        """Apply one AVFoundation control value."""
+
+        if not self.available:
+            raise CameraControlApplyError(
+                "The macOS camera-control bridge is not installed."
+            )
+        device = self._device_for_descriptor(descriptor)
+        if device is None:
+            raise CameraControlApplyError(
+                "The selected camera could not be found for control updates."
+            )
+        self._lock_device(device)
+        try:
+            if control_id == "exposure_mode":
+                mode_map = {
+                    "locked": 0,
+                    "continuous_auto": 2,
+                }
+                mode_value = mode_map.get(str(value))
+                if mode_value is None:
+                    raise CameraControlApplyError(
+                        "Unsupported exposure mode selection."
+                    )
+                if not device.isExposureModeSupported_(mode_value):
+                    raise CameraControlApplyError(
+                        "The camera does not support that exposure mode."
+                    )
+                device.setExposureMode_(mode_value)
+                return
+            if control_id == "exposure_locked":
+                mode_value = 0 if bool(value) else 2
+                if not device.isExposureModeSupported_(mode_value):
+                    raise CameraControlApplyError(
+                        "The camera cannot switch exposure lock state."
+                    )
+                device.setExposureMode_(mode_value)
+                return
+            if control_id == "zoom_factor":
+                zoom_value = _safe_float(value)
+                if zoom_value is None:
+                    raise CameraControlApplyError("Zoom must be numeric.")
+                minimum = (
+                    _safe_float(
+                        _call_or_value(device.minAvailableVideoZoomFactor)
+                    )
+                    or 1.0
+                )
+                maximum = (
+                    _safe_float(
+                        _call_or_value(device.maxAvailableVideoZoomFactor)
+                    )
+                    or 1.0
+                )
+                if maximum <= minimum + 0.001:
+                    raise CameraControlApplyError(
+                        "Zoom is fixed on this camera."
+                    )
+                bounded_value = max(minimum, min(maximum, zoom_value))
+                device.setVideoZoomFactor_(bounded_value)
+                return
+            raise CameraControlApplyError(
+                f"Unsupported camera control `{control_id}`."
+            )
+        finally:
+            device.unlockForConfiguration()
+
+    def trigger_control_action(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+    ) -> None:
+        """Trigger one AVFoundation action control."""
+
+        if control_id != "restore_auto_exposure":
+            raise CameraControlApplyError(
+                f"Unsupported action control `{control_id}`."
+            )
+        self.set_control_value(
+            descriptor,
+            "exposure_mode",
+            "continuous_auto",
+        )
 
 
 class FfmpegCameraSession:
@@ -477,9 +1052,17 @@ class FfmpegCameraBackend:
     preview_height = 480
 
     def __init__(self) -> None:
-        """Validate that the runtime camera dependency is available."""
+        """Validate the runtime preview backend and initialize controls."""
 
         self._ffmpeg_exe = _ffmpeg_executable()
+        if sys.platform == "darwin":
+            control_backend = AvFoundationCameraControlBackend()
+            if control_backend.available:
+                self._control_backend: CameraControlBackend = control_backend
+            else:
+                self._control_backend = NullCameraControlBackend()
+        else:
+            self._control_backend = NullCameraControlBackend()
 
     def discover_cameras(self) -> tuple[CameraDescriptor, ...]:
         """Return the cameras FFmpeg can currently enumerate."""
@@ -526,4 +1109,33 @@ class FfmpegCameraBackend:
             process=process,
             width=self.preview_width,
             height=self.preview_height,
+        )
+
+    def list_controls(
+        self, descriptor: CameraDescriptor
+    ) -> tuple[CameraControl, ...]:
+        """Return the control surface for the selected camera."""
+
+        return self._control_backend.list_controls(descriptor)
+
+    def set_control_value(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+        value: object,
+    ) -> None:
+        """Apply one control value through the composed control backend."""
+
+        self._control_backend.set_control_value(descriptor, control_id, value)
+
+    def trigger_control_action(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+    ) -> None:
+        """Trigger one action control through the composed backend."""
+
+        self._control_backend.trigger_control_action(
+            descriptor,
+            control_id,
         )

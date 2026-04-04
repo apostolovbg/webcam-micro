@@ -117,26 +117,28 @@ PyPI-distributed microscope camera application.
      while keeping the low-latency live preview path intact for later control,
      fullscreen, and capture work
 
-4. [not done] Expose camera controls with guvcview-style numeric widgets.
+4. [done] Expose camera controls with guvcview-style numeric widgets.
    Goal:
    - expose real backend controls through a trustworthy and usable settings
      surface
-   Why this matters:
-   - camera control is a core value of the product, and the numeric widget
-     behavior is now a durable spec requirement
-   Work to do:
-   - map numeric, boolean, enumerated, read-only, and action controls from
-     the active backend into UI components
-   - implement the numeric control widget with a slider, min/mid/max labels
-     beneath it, and an adjacent input field with up/down arrows
-   - keep the input field synchronized live from slider movement
-   - clear invalid typed numeric values to blank instead of accepting bad
-     input
-   - fail softly when cameras omit controls or reject a requested value
-   Done when:
-   - exposed numeric controls use the required slider-plus-input behavior
-   - control updates apply live where the backend supports them
-   - unsupported or incompatible controls do not break the session
+   Completed work:
+   - defined a typed camera-control surface in the active backend contract so
+     numeric, boolean, enumerated, read-only, and action controls can render
+     truthfully from backend data
+   - added an AVFoundation-backed macOS control bridge under the FFmpeg
+     preview backend, with soft fallback when the selected camera or platform
+     does not expose controls
+   - rebuilt the separate controls window to render numeric sliders with
+     min/mid/max labels and adjacent spinbox input, plus boolean, enum,
+     read-only, and action widgets
+   - kept slider motion synchronized to the adjacent numeric field and cleared
+     invalid typed numeric values to blank instead of accepting bad input
+   - failed softly when controls were missing, fixed, unsupported, or
+     rejected by the backend so the preview session stayed usable
+   Outcome:
+   - the prototype now exposes the active camera's real control surface in a
+     separate settings window, and the governed numeric widget behavior is in
+     place for cameras that expose numeric values
 
 5. [not done] Implement preview framing and fullscreen microscope workflows.
    Goal:

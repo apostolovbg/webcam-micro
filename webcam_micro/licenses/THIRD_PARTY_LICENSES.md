@@ -11,4 +11,5 @@ texts stored under `webcam_micro/licenses/`.
 ## Dependency License Inventory
 - `imageio-ffmpeg==0.6.0`: `webcam_micro/licenses/imageio-ffmpeg-0.6.0.txt`
 - `pillow==12.2.0`: `webcam_micro/licenses/pillow-12.2.0.txt`
+- `rubicon-objc==0.5.3`: `webcam_micro/licenses/rubicon-objc-0.5.3.txt`
 - `ttkbootstrap==1.20.2`: `webcam_micro/licenses/ttkbootstrap-1.20.2.txt`

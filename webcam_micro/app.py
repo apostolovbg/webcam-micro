@@ -1,4 +1,4 @@
-"""Application entrypoints for the Stage 3 preview-first shell."""
+"""Application entrypoints for the Stage 4 controls-aware shell."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from webcam_micro.ui import MissingGuiDependencyError, launch_main_window
 
 @dataclass(frozen=True)
 class LaunchPlan:
-    """Describe the chosen Stage 3 launch baseline."""
+    """Describe the chosen Stage 4 launch baseline."""
 
     app_name: str
     package_name: str
@@ -25,7 +25,7 @@ class LaunchPlan:
 
 
 def build_launch_plan() -> LaunchPlan:
-    """Return the current Stage 3 application decision."""
+    """Return the current Stage 4 application decision."""
 
     backend_plan = build_backend_plan()
     return LaunchPlan(
@@ -37,25 +37,25 @@ def build_launch_plan() -> LaunchPlan:
         first_device_backend_target=backend_plan.first_device_backend_target,
         shell_contract=(
             "Preview-first main window with menus, toolbar, status bar, "
-            "and a separate controls window."
+            "a separate controls window, and typed camera controls."
         ),
     )
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    """Build the Stage 3 command-line parser."""
+    """Build the Stage 4 command-line parser."""
 
     parser = argparse.ArgumentParser(prog="webcam-micro")
     parser.add_argument(
         "--smoke-test",
         action="store_true",
-        help="exercise the Stage 3 entrypoint without launching the GUI",
+        help="exercise the Stage 4 entrypoint without launching the GUI",
     )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the Stage 3 application entrypoint."""
+    """Run the Stage 4 application entrypoint."""
 
     parsed = _build_parser().parse_args(argv)
     if parsed.smoke_test:
