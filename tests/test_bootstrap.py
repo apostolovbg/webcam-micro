@@ -13,6 +13,7 @@ class BootstrapFilesTest(unittest.TestCase):
         expected_paths = (
             "AGENTS.md",
             "README.md",
+            "webcam_micro/README.md",
             "CHANGELOG.md",
             ".pre-commit-config.yaml",
             ".github/workflows/ci.yml",

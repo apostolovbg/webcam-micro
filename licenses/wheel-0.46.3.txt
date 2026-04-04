@@ -1,7 +1,9 @@
 # wheel 0.46.3
 
-This file aggregates the upstream license texts bundled with the
-installed distribution for `wheel==0.46.3`.
+This file aggregates the upstream license texts resolved for
+`wheel==0.46.3`.
+
+Resolved from: installed distribution metadata
 
 Included upstream files:
 - LICENSE.txt

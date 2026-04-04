@@ -1,7 +1,9 @@
 # pytest 9.0.2
 
-This file aggregates the upstream license texts bundled with the
-installed distribution for `pytest==9.0.2`.
+This file aggregates the upstream license texts resolved for
+`pytest==9.0.2`.
+
+Resolved from: installed distribution metadata
 
 Included upstream files:
 - LICENSE

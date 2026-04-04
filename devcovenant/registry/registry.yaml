@@ -1,7 +1,7 @@
 metadata:
   schema_version: 1
   registry_layout: single-root
-  policy_registry_input_hash: 721c54d11080f2c87fca3a04bd05d4ac8d9fe39180518eb7c7557caecb9cb432
+  policy_registry_input_hash: f378e35d6e2440f02bce5bea14d01795d595e6f0eb079b729d857a41cdd2e5f1
 project-governance:
   project_name: webcam-micro
   project_description: Cross-platform microscope camera application distributed as
@@ -2044,6 +2044,10 @@ policies:
       enabled versus disabled. When one Python surface enables
       `generate_hashes`, DevCovenant resolves the full configured target closure
       from `hash_targets` and writes an all-target hash lock or fails explicitly.
+      When a direct dependency does not bundle upstream license files in installed
+      metadata, repositories may declare `license_source_overrides` keyed by
+      normalized package name. Builtin overrides currently support `archive_url`
+      sources with templated `url` and `member_globs` fields.
       Hash mode does not patch a host-local compile result or depend on
       GitHub-specific dependency logic. Artifact refresh remains
       deterministic/idempotent.
@@ -2172,28 +2176,28 @@ policies:
         - id: linux-py311
           marker: sys_platform == "linux" and python_version == "3.11"
           pip:
-            platform: manylinux2014_x86_64
+            platform: manylinux_2_34_x86_64
             implementation: cp
             python_version: '3.11'
             abi: cp311
         - id: linux-py312
           marker: sys_platform == "linux" and python_version == "3.12"
           pip:
-            platform: manylinux2014_x86_64
+            platform: manylinux_2_34_x86_64
             implementation: cp
             python_version: '3.12'
             abi: cp312
         - id: linux-py313
           marker: sys_platform == "linux" and python_version == "3.13"
           pip:
-            platform: manylinux2014_x86_64
+            platform: manylinux_2_34_x86_64
             implementation: cp
             python_version: '3.13'
             abi: cp313
         - id: linux-py314
           marker: sys_platform == "linux" and python_version == "3.14"
           pip:
-            platform: manylinux2014_x86_64
+            platform: manylinux_2_34_x86_64
             implementation: cp
             python_version: '3.14'
             abi: cp314
@@ -2228,28 +2232,28 @@ policies:
         - id: macos-py311
           marker: sys_platform == "darwin" and python_version == "3.11"
           pip:
-            platform: macosx_11_0_x86_64
+            platform: macosx_13_0_universal2
             implementation: cp
             python_version: '3.11'
             abi: cp311
         - id: macos-py312
           marker: sys_platform == "darwin" and python_version == "3.12"
           pip:
-            platform: macosx_11_0_x86_64
+            platform: macosx_13_0_universal2
             implementation: cp
             python_version: '3.12'
             abi: cp312
         - id: macos-py313
           marker: sys_platform == "darwin" and python_version == "3.13"
           pip:
-            platform: macosx_11_0_x86_64
+            platform: macosx_13_0_universal2
             implementation: cp
             python_version: '3.13'
             abi: cp313
         - id: macos-py314
           marker: sys_platform == "darwin" and python_version == "3.14"
           pip:
-            platform: macosx_11_0_x86_64
+            platform: macosx_13_0_universal2
             implementation: cp
             python_version: '3.14'
             abi: cp314
@@ -2271,28 +2275,28 @@ policies:
         - id: linux-py311
           marker: sys_platform == "linux" and python_version == "3.11"
           pip:
-            platform: manylinux2014_x86_64
+            platform: manylinux_2_34_x86_64
             implementation: cp
             python_version: '3.11'
             abi: cp311
         - id: linux-py312
           marker: sys_platform == "linux" and python_version == "3.12"
           pip:
-            platform: manylinux2014_x86_64
+            platform: manylinux_2_34_x86_64
             implementation: cp
             python_version: '3.12'
             abi: cp312
         - id: linux-py313
           marker: sys_platform == "linux" and python_version == "3.13"
           pip:
-            platform: manylinux2014_x86_64
+            platform: manylinux_2_34_x86_64
             implementation: cp
             python_version: '3.13'
             abi: cp313
         - id: linux-py314
           marker: sys_platform == "linux" and python_version == "3.14"
           pip:
-            platform: manylinux2014_x86_64
+            platform: manylinux_2_34_x86_64
             implementation: cp
             python_version: '3.14'
             abi: cp314
@@ -2327,31 +2331,37 @@ policies:
         - id: macos-py311
           marker: sys_platform == "darwin" and python_version == "3.11"
           pip:
-            platform: macosx_11_0_x86_64
+            platform: macosx_13_0_universal2
             implementation: cp
             python_version: '3.11'
             abi: cp311
         - id: macos-py312
           marker: sys_platform == "darwin" and python_version == "3.12"
           pip:
-            platform: macosx_11_0_x86_64
+            platform: macosx_13_0_universal2
             implementation: cp
             python_version: '3.12'
             abi: cp312
         - id: macos-py313
           marker: sys_platform == "darwin" and python_version == "3.13"
           pip:
-            platform: macosx_11_0_x86_64
+            platform: macosx_13_0_universal2
             implementation: cp
             python_version: '3.13'
             abi: cp313
         - id: macos-py314
           marker: sys_platform == "darwin" and python_version == "3.14"
           pip:
-            platform: macosx_11_0_x86_64
+            platform: macosx_13_0_universal2
             implementation: cp
             python_version: '3.14'
             abi: cp314
+      license_source_overrides:
+      - id: flet
+        kind: archive_url
+        url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
+        member_globs:
+        - flet-{version}/LICENSE
       selector_roles: dependency
       dependency_globs: []
       dependency_files: []
@@ -2530,28 +2540,28 @@ policies:
               - id: linux-py311
                 marker: sys_platform == "linux" and python_version == "3.11"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.11'
                   abi: cp311
               - id: linux-py312
                 marker: sys_platform == "linux" and python_version == "3.12"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.12'
                   abi: cp312
               - id: linux-py313
                 marker: sys_platform == "linux" and python_version == "3.13"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.13'
                   abi: cp313
               - id: linux-py314
                 marker: sys_platform == "linux" and python_version == "3.14"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.14'
                   abi: cp314
@@ -2586,28 +2596,28 @@ policies:
               - id: macos-py311
                 marker: sys_platform == "darwin" and python_version == "3.11"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.11'
                   abi: cp311
               - id: macos-py312
                 marker: sys_platform == "darwin" and python_version == "3.12"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.12'
                   abi: cp312
               - id: macos-py313
                 marker: sys_platform == "darwin" and python_version == "3.13"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.13'
                   abi: cp313
               - id: macos-py314
                 marker: sys_platform == "darwin" and python_version == "3.14"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.14'
                   abi: cp314
@@ -2629,28 +2639,28 @@ policies:
               - id: linux-py311
                 marker: sys_platform == "linux" and python_version == "3.11"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.11'
                   abi: cp311
               - id: linux-py312
                 marker: sys_platform == "linux" and python_version == "3.12"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.12'
                   abi: cp312
               - id: linux-py313
                 marker: sys_platform == "linux" and python_version == "3.13"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.13'
                   abi: cp313
               - id: linux-py314
                 marker: sys_platform == "linux" and python_version == "3.14"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.14'
                   abi: cp314
@@ -2685,28 +2695,28 @@ policies:
               - id: macos-py311
                 marker: sys_platform == "darwin" and python_version == "3.11"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.11'
                   abi: cp311
               - id: macos-py312
                 marker: sys_platform == "darwin" and python_version == "3.12"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.12'
                   abi: cp312
               - id: macos-py313
                 marker: sys_platform == "darwin" and python_version == "3.13"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.13'
                   abi: cp313
               - id: macos-py314
                 marker: sys_platform == "darwin" and python_version == "3.14"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.14'
                   abi: cp314
@@ -2833,28 +2843,28 @@ policies:
               - id: linux-py311
                 marker: sys_platform == "linux" and python_version == "3.11"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.11'
                   abi: cp311
               - id: linux-py312
                 marker: sys_platform == "linux" and python_version == "3.12"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.12'
                   abi: cp312
               - id: linux-py313
                 marker: sys_platform == "linux" and python_version == "3.13"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.13'
                   abi: cp313
               - id: linux-py314
                 marker: sys_platform == "linux" and python_version == "3.14"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.14'
                   abi: cp314
@@ -2889,28 +2899,28 @@ policies:
               - id: macos-py311
                 marker: sys_platform == "darwin" and python_version == "3.11"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.11'
                   abi: cp311
               - id: macos-py312
                 marker: sys_platform == "darwin" and python_version == "3.12"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.12'
                   abi: cp312
               - id: macos-py313
                 marker: sys_platform == "darwin" and python_version == "3.13"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.13'
                   abi: cp313
               - id: macos-py314
                 marker: sys_platform == "darwin" and python_version == "3.14"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.14'
                   abi: cp314
@@ -2932,28 +2942,28 @@ policies:
               - id: linux-py311
                 marker: sys_platform == "linux" and python_version == "3.11"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.11'
                   abi: cp311
               - id: linux-py312
                 marker: sys_platform == "linux" and python_version == "3.12"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.12'
                   abi: cp312
               - id: linux-py313
                 marker: sys_platform == "linux" and python_version == "3.13"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.13'
                   abi: cp313
               - id: linux-py314
                 marker: sys_platform == "linux" and python_version == "3.14"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.14'
                   abi: cp314
@@ -2988,28 +2998,28 @@ policies:
               - id: macos-py311
                 marker: sys_platform == "darwin" and python_version == "3.11"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.11'
                   abi: cp311
               - id: macos-py312
                 marker: sys_platform == "darwin" and python_version == "3.12"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.12'
                   abi: cp312
               - id: macos-py313
                 marker: sys_platform == "darwin" and python_version == "3.13"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.13'
                   abi: cp313
               - id: macos-py314
                 marker: sys_platform == "darwin" and python_version == "3.14"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.14'
                   abi: cp314
@@ -3136,28 +3146,28 @@ policies:
               - id: linux-py311
                 marker: sys_platform == "linux" and python_version == "3.11"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.11'
                   abi: cp311
               - id: linux-py312
                 marker: sys_platform == "linux" and python_version == "3.12"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.12'
                   abi: cp312
               - id: linux-py313
                 marker: sys_platform == "linux" and python_version == "3.13"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.13'
                   abi: cp313
               - id: linux-py314
                 marker: sys_platform == "linux" and python_version == "3.14"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.14'
                   abi: cp314
@@ -3192,28 +3202,28 @@ policies:
               - id: macos-py311
                 marker: sys_platform == "darwin" and python_version == "3.11"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.11'
                   abi: cp311
               - id: macos-py312
                 marker: sys_platform == "darwin" and python_version == "3.12"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.12'
                   abi: cp312
               - id: macos-py313
                 marker: sys_platform == "darwin" and python_version == "3.13"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.13'
                   abi: cp313
               - id: macos-py314
                 marker: sys_platform == "darwin" and python_version == "3.14"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.14'
                   abi: cp314
@@ -3235,28 +3245,28 @@ policies:
               - id: linux-py311
                 marker: sys_platform == "linux" and python_version == "3.11"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.11'
                   abi: cp311
               - id: linux-py312
                 marker: sys_platform == "linux" and python_version == "3.12"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.12'
                   abi: cp312
               - id: linux-py313
                 marker: sys_platform == "linux" and python_version == "3.13"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.13'
                   abi: cp313
               - id: linux-py314
                 marker: sys_platform == "linux" and python_version == "3.14"
                 pip:
-                  platform: manylinux2014_x86_64
+                  platform: manylinux_2_34_x86_64
                   implementation: cp
                   python_version: '3.14'
                   abi: cp314
@@ -3291,31 +3301,68 @@ policies:
               - id: macos-py311
                 marker: sys_platform == "darwin" and python_version == "3.11"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.11'
                   abi: cp311
               - id: macos-py312
                 marker: sys_platform == "darwin" and python_version == "3.12"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.12'
                   abi: cp312
               - id: macos-py313
                 marker: sys_platform == "darwin" and python_version == "3.13"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.13'
                   abi: cp313
               - id: macos-py314
                 marker: sys_platform == "darwin" and python_version == "3.14"
                 pip:
-                  platform: macosx_11_0_x86_64
+                  platform: macosx_13_0_universal2
                   implementation: cp
                   python_version: '3.14'
                   abi: cp314
+      license_source_overrides:
+        descriptor:
+          values:
+          - '[]'
+          behavior: base
+          replaced_inherited_values:
+          - ()
+        profile_overlays:
+          values:
+          - |-
+            - id: flet
+              kind: archive_url
+              url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
+              member_globs:
+              - flet-{version}/LICENSE
+          behavior: append
+          replaced_inherited_values:
+          - ()
+        autogen_overlays:
+          values:
+          - |-
+            - id: flet
+              kind: archive_url
+              url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
+              member_globs:
+              - flet-{version}/LICENSE
+          behavior: append
+          replaced_inherited_values:
+          - ()
+        effective:
+          values:
+          - |-
+            - id: flet
+              kind: archive_url
+              url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
+              member_globs:
+              - flet-{version}/LICENSE
       selector_roles:
         descriptor:
           values:
@@ -3499,28 +3546,28 @@ policies:
         - id: linux-py311
           marker: sys_platform == "linux" and python_version == "3.11"
           pip:
-            platform: manylinux2014_x86_64
+            platform: manylinux_2_34_x86_64
             implementation: cp
             python_version: 3.11
             abi: cp311
         - id: linux-py312
           marker: sys_platform == "linux" and python_version == "3.12"
           pip:
-            platform: manylinux2014_x86_64
+            platform: manylinux_2_34_x86_64
             implementation: cp
             python_version: 3.12
             abi: cp312
         - id: linux-py313
           marker: sys_platform == "linux" and python_version == "3.13"
           pip:
-            platform: manylinux2014_x86_64
+            platform: manylinux_2_34_x86_64
             implementation: cp
             python_version: 3.13
             abi: cp313
         - id: linux-py314
           marker: sys_platform == "linux" and python_version == "3.14"
           pip:
-            platform: manylinux2014_x86_64
+            platform: manylinux_2_34_x86_64
             implementation: cp
             python_version: 3.14
             abi: cp314
@@ -3555,28 +3602,28 @@ policies:
         - id: macos-py311
           marker: sys_platform == "darwin" and python_version == "3.11"
           pip:
-            platform: macosx_11_0_x86_64
+            platform: macosx_13_0_universal2
             implementation: cp
             python_version: 3.11
             abi: cp311
         - id: macos-py312
           marker: sys_platform == "darwin" and python_version == "3.12"
           pip:
-            platform: macosx_11_0_x86_64
+            platform: macosx_13_0_universal2
             implementation: cp
             python_version: 3.12
             abi: cp312
         - id: macos-py313
           marker: sys_platform == "darwin" and python_version == "3.13"
           pip:
-            platform: macosx_11_0_x86_64
+            platform: macosx_13_0_universal2
             implementation: cp
             python_version: 3.13
             abi: cp313
         - id: macos-py314
           marker: sys_platform == "darwin" and python_version == "3.14"
           pip:
-            platform: macosx_11_0_x86_64
+            platform: macosx_13_0_universal2
             implementation: cp
             python_version: 3.14
             abi: cp314
@@ -3598,28 +3645,28 @@ policies:
         - id: linux-py311
           marker: sys_platform == "linux" and python_version == "3.11"
           pip:
-            platform: manylinux2014_x86_64
+            platform: manylinux_2_34_x86_64
             implementation: cp
             python_version: 3.11
             abi: cp311
         - id: linux-py312
           marker: sys_platform == "linux" and python_version == "3.12"
           pip:
-            platform: manylinux2014_x86_64
+            platform: manylinux_2_34_x86_64
             implementation: cp
             python_version: 3.12
             abi: cp312
         - id: linux-py313
           marker: sys_platform == "linux" and python_version == "3.13"
           pip:
-            platform: manylinux2014_x86_64
+            platform: manylinux_2_34_x86_64
             implementation: cp
             python_version: 3.13
             abi: cp313
         - id: linux-py314
           marker: sys_platform == "linux" and python_version == "3.14"
           pip:
-            platform: manylinux2014_x86_64
+            platform: manylinux_2_34_x86_64
             implementation: cp
             python_version: 3.14
             abi: cp314
@@ -3654,31 +3701,37 @@ policies:
         - id: macos-py311
           marker: sys_platform == "darwin" and python_version == "3.11"
           pip:
-            platform: macosx_11_0_x86_64
+            platform: macosx_13_0_universal2
             implementation: cp
             python_version: 3.11
             abi: cp311
         - id: macos-py312
           marker: sys_platform == "darwin" and python_version == "3.12"
           pip:
-            platform: macosx_11_0_x86_64
+            platform: macosx_13_0_universal2
             implementation: cp
             python_version: 3.12
             abi: cp312
         - id: macos-py313
           marker: sys_platform == "darwin" and python_version == "3.13"
           pip:
-            platform: macosx_11_0_x86_64
+            platform: macosx_13_0_universal2
             implementation: cp
             python_version: 3.13
             abi: cp313
         - id: macos-py314
           marker: sys_platform == "darwin" and python_version == "3.14"
           pip:
-            platform: macosx_11_0_x86_64
+            platform: macosx_13_0_universal2
             implementation: cp
             python_version: 3.14
             abi: cp314
+      license_source_overrides: &id013
+      - id: flet
+        kind: archive_url
+        url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
+        member_globs:
+        - flet-{version}/LICENSE
       selector_roles: dependency
       dependency_globs: []
       dependency_files: []
@@ -3692,33 +3745,36 @@ policies:
       enabled: true
       custom: false
       surfaces: *id012
+      license_source_overrides: *id013
       selector_roles: dependency
     assets:
     - devcovenant/licenses
     - devcovenant/licenses/THIRD_PARTY_LICENSES.md
     - devcovenant/runtime-requirements.lock
+    - flet-{version}/LICENSE
+    - https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
     - licenses/THIRD_PARTY_LICENSES.md
     - webcam_micro/licenses
     - webcam_micro/licenses/THIRD_PARTY_LICENSES.md
     - webcam_micro/runtime-requirements.lock
     origin: builtin
     script_exists: true
-    hash: b012a868fe76dd0d84f7d8cf3335f475860e1f7658950e3f5ea107ce00b772ce
+    hash: df936cde2d9c8e916dc1b2f5ced4dba1755e7dd43a1e189bc8ba96d45adec644
     script_path: builtin/dependency_management.py
     runtime_state:
       surfaces:
         package_runtime:
-          input_fingerprint: d4cdf990397b7a578a8adae74c0a2bc04cfef614dd6bbfdb13ed6ed762cb2065
+          input_fingerprint: 0eefb74625e3bda5f416ca546c93250811973e875dfb566d5c22d170be731474
           output_fingerprints:
-            lock_file: cf64bf2e1c0f1d1a9bdc60236324b25908944cb86399431857400b4a047cf6b4
-            third_party_file: 8db73404c0bceab7d18134b8df417867d840ddbe1f69fb53888bb1e978b51e72
-            licenses_dir: 8c1ccfabb3030502c202cb4fb2a4f26c1b51b502cbcd850c50dd26c3b13c00ba
+            lock_file: 52596dddc9845f439a19054fbfee380ea3d3e8e2bef10963da93fb6ac1d1e52d
+            third_party_file: f2020d6ca1e6131217b1a86c06a9207f76160781dc177c747090405ee883bb94
+            licenses_dir: 19b2959754fc069018ed57ea380826678519bfcc035df145a812847eb78b6218
         root_workspace:
-          input_fingerprint: d39e5493e24a79f9aebef242ec1bf06212b083fb3ad32704c492094c693d82b4
+          input_fingerprint: bb8d07788437ffbbb7588ee4da80f78b65b9bbe3c5bcd80721cc6f3f14cd3550
           output_fingerprints:
-            lock_file: 396535f55f07766442127de16fbc3c0b714d91c075f75ba9d34ade9a31c12a39
-            third_party_file: 8df637e9a7cec7712b99aab2d9a1c80423ab2d398fcb16619175ef0e9c6a27c6
-            licenses_dir: 95d6e4758da4a1ec68113f204c21d87822e3828bce9676dd8f09411bb59c92fc
+            lock_file: 79d5b502ea252061a3840699739e5c91c244fb0f4dc2eaf4b4be371efb37f9f5
+            third_party_file: e69c9f16e84e832d43b55fbb35dde85bdc05649dd070cebb59ef3e7fbfc5453f
+            licenses_dir: 8747600459d2d1438108ae5051ebb6651ed27bbe6724847dc9196d0847b62995
   docstring-and-comment-coverage:
     enabled: true
     custom: false
@@ -4051,26 +4107,26 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      include_suffixes: &id013
+      include_suffixes: &id014
       - .py
-      exclude_prefixes: &id014
+      exclude_prefixes: &id015
       - build
       - dist
       - node_modules
       - devcovenant
       include_prefixes: []
-      include_globs: &id015
+      include_globs: &id016
       - '*.py'
       exclude_suffixes: []
-      exclude_globs: &id016
+      exclude_globs: &id017
       - build/**
       - dist/**
       - node_modules/**
       - devcovenant/**
-      force_include_globs: &id017
+      force_include_globs: &id018
       - devcovenant/custom/**/*.py
       - tests/devcovenant/custom/**/*.py
-      selector_roles: &id018
+      selector_roles: &id019
       - include
       - exclude
       - force_include
@@ -4088,12 +4144,12 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      include_suffixes: *id013
-      exclude_prefixes: *id014
-      include_globs: *id015
-      exclude_globs: *id016
-      force_include_globs: *id017
-      selector_roles: *id018
+      include_suffixes: *id014
+      exclude_prefixes: *id015
+      include_globs: *id016
+      exclude_globs: *id017
+      force_include_globs: *id018
+      selector_roles: *id019
     assets:
     - build/**
     - devcovenant/**
@@ -4218,12 +4274,14 @@ policies:
       - AGENTS.md
       - SPEC.md
       - PLAN.md
+      - webcam_micro/README.md
       doc_quality_files:
       - README.md
       - CONTRIBUTING.md
       - AGENTS.md
       - SPEC.md
       - PLAN.md
+      - webcam_micro/README.md
       required_headings:
       - Overview
       require_toc: 'false'
@@ -4676,6 +4734,7 @@ policies:
           - AGENTS.md
           - SPEC.md
           - PLAN.md
+          - webcam_micro/README.md
           behavior: append
           replaced_inherited_values:
           - ()
@@ -4686,6 +4745,7 @@ policies:
           - AGENTS.md
           - SPEC.md
           - PLAN.md
+          - webcam_micro/README.md
           behavior: append
           replaced_inherited_values:
           - ()
@@ -4696,6 +4756,7 @@ policies:
           - AGENTS.md
           - SPEC.md
           - PLAN.md
+          - webcam_micro/README.md
       doc_quality_files:
         descriptor:
           values:
@@ -4710,6 +4771,7 @@ policies:
           - AGENTS.md
           - SPEC.md
           - PLAN.md
+          - webcam_micro/README.md
           behavior: append
           replaced_inherited_values:
           - ()
@@ -4720,6 +4782,7 @@ policies:
           - AGENTS.md
           - SPEC.md
           - PLAN.md
+          - webcam_micro/README.md
           behavior: append
           replaced_inherited_values:
           - ()
@@ -4730,6 +4793,7 @@ policies:
           - AGENTS.md
           - SPEC.md
           - PLAN.md
+          - webcam_micro/README.md
       required_headings:
         descriptor:
           values:
@@ -5163,20 +5227,20 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      selector_roles: &id019
+      selector_roles: &id020
       - user_facing
       - user_visible
       - doc_quality
       include_prefixes: []
-      exclude_prefixes: &id020
+      exclude_prefixes: &id021
       - devcovenant
       - tests/devcovenant
       user_facing_prefixes: []
-      user_facing_exclude_prefixes: &id021
+      user_facing_exclude_prefixes: &id022
       - tests
       - devcovenant
       - tests/devcovenant
-      user_facing_suffixes: &id022
+      user_facing_suffixes: &id023
       - .py
       - .js
       - .ts
@@ -5194,10 +5258,10 @@ policies:
       - .yaml
       - .json
       - .toml
-      user_facing_files: &id023
+      user_facing_files: &id024
       - .pre-commit-config.yaml
       - pyproject.toml
-      user_facing_globs: &id024
+      user_facing_globs: &id025
       - .github/workflows/*.yml
       - .github/workflows/*.yaml
       - '*.py'
@@ -5217,7 +5281,7 @@ policies:
       - '*.yaml'
       - '*.json'
       - '*.toml'
-      user_facing_keywords: &id025
+      user_facing_keywords: &id026
       - api
       - endpoint
       - endpoints
@@ -5249,19 +5313,21 @@ policies:
       - forms
       - workflow
       - workflows
-      user_visible_files: &id026
+      user_visible_files: &id027
       - README.md
       - CONTRIBUTING.md
       - AGENTS.md
       - SPEC.md
       - PLAN.md
-      doc_quality_files: &id027
+      - webcam_micro/README.md
+      doc_quality_files: &id028
       - README.md
       - CONTRIBUTING.md
       - AGENTS.md
       - SPEC.md
       - PLAN.md
-      required_headings: &id028
+      - webcam_micro/README.md
+      required_headings: &id029
       - Overview
       require_toc: false
       min_section_count: 3
@@ -5269,7 +5335,7 @@ policies:
       doc_routes: []
       require_mentions: true
       mention_min_length: 3
-      mention_stopwords: &id029
+      mention_stopwords: &id030
       - devcovenant
       - tools
       - common
@@ -5292,11 +5358,11 @@ policies:
       include_suffixes: []
       include_globs: []
       exclude_suffixes: []
-      exclude_globs: &id030
+      exclude_globs: &id031
       - devcovenant/**
       - tests/devcovenant/**
       force_include_globs: []
-      user_facing_exclude_globs: &id031
+      user_facing_exclude_globs: &id032
       - .vscode/**
       - .idea/**
       - .venv/**
@@ -5330,9 +5396,9 @@ policies:
       include_dirs: []
       exclude_files: []
       exclude_dirs: []
-      user_facing_exclude_files: &id032
+      user_facing_exclude_files: &id033
       - devcovenant/config.yaml
-      user_facing_exclude_dirs: &id033
+      user_facing_exclude_dirs: &id034
       - tests/**
       force_include_files: []
       force_include_dirs: []
@@ -5344,26 +5410,26 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      selector_roles: *id019
-      exclude_prefixes: *id020
-      user_facing_exclude_prefixes: *id021
-      user_facing_suffixes: *id022
-      user_facing_files: *id023
-      user_facing_globs: *id024
-      user_facing_keywords: *id025
-      user_visible_files: *id026
-      doc_quality_files: *id027
-      required_headings: *id028
+      selector_roles: *id020
+      exclude_prefixes: *id021
+      user_facing_exclude_prefixes: *id022
+      user_facing_suffixes: *id023
+      user_facing_files: *id024
+      user_facing_globs: *id025
+      user_facing_keywords: *id026
+      user_visible_files: *id027
+      doc_quality_files: *id028
+      required_headings: *id029
       require_toc: false
       min_section_count: 3
       min_word_count: 120
       require_mentions: true
       mention_min_length: 3
-      mention_stopwords: *id029
-      exclude_globs: *id030
-      user_facing_exclude_globs: *id031
-      user_facing_exclude_files: *id032
-      user_facing_exclude_dirs: *id033
+      mention_stopwords: *id030
+      exclude_globs: *id031
+      user_facing_exclude_globs: *id032
+      user_facing_exclude_files: *id033
+      user_facing_exclude_dirs: *id034
     assets:
     - '*.egg-info/**'
     - '*.json'
@@ -5402,6 +5468,7 @@ policies:
     - tests/**
     - tests/devcovenant
     - tests/devcovenant/**
+    - webcam_micro/README.md
     origin: builtin
     script_exists: true
     hash: 525488413b4df93f0e002918312ec64f393426a68df266cb04b67175703fbfc0
@@ -5441,6 +5508,7 @@ policies:
       - CHANGELOG.md
       - SPEC.md
       - PLAN.md
+      - webcam_micro/README.md
       allowed_files: []
       allowed_suffixes: []
       required_files: []
@@ -5462,6 +5530,7 @@ policies:
       - CHANGELOG.md
       - SPEC.md
       - PLAN.md
+      - webcam_micro/README.md
       selector_roles:
       - include
       - allowed
@@ -5566,6 +5635,7 @@ policies:
           - CHANGELOG.md
           - SPEC.md
           - PLAN.md
+          - webcam_micro/README.md
           behavior: append
           replaced_inherited_values:
           - ()
@@ -5577,6 +5647,7 @@ policies:
           - CHANGELOG.md
           - SPEC.md
           - PLAN.md
+          - webcam_micro/README.md
           behavior: append
           replaced_inherited_values:
           - ()
@@ -5599,6 +5670,7 @@ policies:
           - CHANGELOG.md
           - SPEC.md
           - PLAN.md
+          - webcam_micro/README.md
       allowed_files:
         descriptor:
           values:
@@ -5654,6 +5726,7 @@ policies:
           - CHANGELOG.md
           - SPEC.md
           - PLAN.md
+          - webcam_micro/README.md
           behavior: append
           replaced_inherited_values:
           - ()
@@ -5665,6 +5738,7 @@ policies:
           - CHANGELOG.md
           - SPEC.md
           - PLAN.md
+          - webcam_micro/README.md
           behavior: append
           replaced_inherited_values:
           - ()
@@ -5687,6 +5761,7 @@ policies:
           - CHANGELOG.md
           - SPEC.md
           - PLAN.md
+          - webcam_micro/README.md
       selector_roles:
         descriptor:
           values:
@@ -5799,9 +5874,9 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      include_suffixes: &id034
+      include_suffixes: &id035
       - .md
-      allowed_globs: &id035
+      allowed_globs: &id036
       - devcovenant/README.md
       - devcovenant/core/README.md
       - devcovenant/custom/README.md
@@ -5819,10 +5894,11 @@ policies:
       - CHANGELOG.md
       - SPEC.md
       - PLAN.md
+      - webcam_micro/README.md
       allowed_files: []
       allowed_suffixes: []
       required_files: []
-      required_globs: &id036
+      required_globs: &id037
       - devcovenant/README.md
       - devcovenant/core/README.md
       - devcovenant/custom/README.md
@@ -5840,11 +5916,12 @@ policies:
       - CHANGELOG.md
       - SPEC.md
       - PLAN.md
-      selector_roles: &id037
+      - webcam_micro/README.md
+      selector_roles: &id038
       - include
       - allowed
       - required
-      include_globs: &id038
+      include_globs: &id039
       - '*.md'
       include_files: []
       include_dirs: []
@@ -5858,11 +5935,11 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      include_suffixes: *id034
-      allowed_globs: *id035
-      required_globs: *id036
-      selector_roles: *id037
-      include_globs: *id038
+      include_suffixes: *id035
+      allowed_globs: *id036
+      required_globs: *id037
+      selector_roles: *id038
+      include_globs: *id039
     assets:
     - '*.md'
     - .md
@@ -5883,6 +5960,7 @@ policies:
     - devcovenant/docs/*.md
     - devcovenant/logs/README.md
     - devcovenant/registry/README.md
+    - webcam_micro/README.md
     origin: builtin
     script_exists: true
     hash: 10de4653363d27f60c8365151caea940c192a3b58e0136a7152456ec38db1245
@@ -6635,7 +6713,7 @@ policies:
       custom: false
       max_length: 79
       allow_long_url_lines: true
-      url_prefixes: &id039
+      url_prefixes: &id040
       - https://
       - http://
       - ftp://
@@ -6656,7 +6734,7 @@ policies:
       allow_long_lines: true
       long_lines_contain: []
       long_lines_between: []
-      include_suffixes: &id040
+      include_suffixes: &id041
       - .py
       - .md
       - .rst
@@ -6666,12 +6744,12 @@ policies:
       - .json
       - .toml
       - .cff
-      exclude_prefixes: &id041
+      exclude_prefixes: &id042
       - build
       - dist
       - node_modules
       - devcovenant
-      exclude_globs: &id042
+      exclude_globs: &id043
       - .vscode/**
       - .idea/**
       - .venv/**
@@ -6699,7 +6777,7 @@ policies:
       - webcam_micro/licenses/*.txt
       - devcovenant/**
       include_prefixes: []
-      include_globs: &id043
+      include_globs: &id044
       - '*.py'
       - '*.md'
       - '*.rst'
@@ -6710,14 +6788,14 @@ policies:
       - '*.toml'
       - '*.cff'
       exclude_suffixes: []
-      force_include_globs: &id044
+      force_include_globs: &id045
       - devcovenant/custom/**
       - tests/devcovenant/custom/**
-      selector_roles: &id045
+      selector_roles: &id046
       - include
       - exclude
       - force_include
-      url_globs: &id046
+      url_globs: &id047
       - https:/**
       - http:/**
       - ftp:/**
@@ -6753,15 +6831,15 @@ policies:
       custom: false
       max_length: 79
       allow_long_url_lines: true
-      url_prefixes: *id039
+      url_prefixes: *id040
       allow_long_lines: true
-      include_suffixes: *id040
-      exclude_prefixes: *id041
-      exclude_globs: *id042
-      include_globs: *id043
-      force_include_globs: *id044
-      selector_roles: *id045
-      url_globs: *id046
+      include_suffixes: *id041
+      exclude_prefixes: *id042
+      exclude_globs: *id043
+      include_globs: *id044
+      force_include_globs: *id045
+      selector_roles: *id046
+      url_globs: *id047
     assets:
     - '**/*.egg-info/**'
     - '*.egg-info/**'
@@ -7109,19 +7187,19 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      expected_paths: &id047
+      expected_paths: &id048
       - .venv
-      expected_interpreters: &id048
+      expected_interpreters: &id049
       - .venv/bin/python
       - .venv/Scripts/python.exe
       cleanup_protected_paths: []
-      required_commands: &id049
+      required_commands: &id050
       - pre-commit
       - pytest
-      manual_commands: &id050
+      manual_commands: &id051
       - '{current_python} -m venv .venv'
       - '{managed_python} -m pip install -r requirements.lock'
-      managed_commands: &id051
+      managed_commands: &id052
       - start=>{current_python} -m venv .venv
       - start=>{managed_python} -m pip install -r requirements.lock
     runtime_config_overrides: {}
@@ -7132,11 +7210,11 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      expected_paths: *id047
-      expected_interpreters: *id048
-      required_commands: *id049
-      manual_commands: *id050
-      managed_commands: *id051
+      expected_paths: *id048
+      expected_interpreters: *id049
+      required_commands: *id050
+      manual_commands: *id051
+      managed_commands: *id052
     assets:
     - .venv/Scripts/python.exe
     - .venv/bin/python
@@ -7625,45 +7703,45 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      include_suffixes: &id052
+      include_suffixes: &id053
       - .py
       include_prefixes: []
-      exclude_prefixes: &id053
+      exclude_prefixes: &id054
       - build
       - dist
       - node_modules
       - tests
       - devcovenant
-      exclude_globs: &id054
+      exclude_globs: &id055
       - build/**
       - dist/**
       - node_modules/**
       - tests/**
       - devcovenant/**
-      watch_dirs: &id055
+      watch_dirs: &id056
       - tests
-      tests_watch_dirs: &id056
+      tests_watch_dirs: &id057
       - tests
-      mirror_roots: &id057
+      mirror_roots: &id058
       - devcovenant/custom=>tests/devcovenant/custom
-      mirror_test_name_templates: &id058
+      mirror_test_name_templates: &id059
       - python=>test_{stem}.py
       - python=>{stem}_test.py
-      test_style_requirements: &id059
+      test_style_requirements: &id060
       - python=>python_unittest
-      include_globs: &id060
+      include_globs: &id061
       - '*.py'
       exclude_suffixes: []
-      force_include_globs: &id061
+      force_include_globs: &id062
       - devcovenant/custom/**/*.py
       watch_files: []
-      placeholder_test_methods: &id062
+      placeholder_test_methods: &id063
       - test_placeholder
-      placeholder_text_markers: &id063
+      placeholder_text_markers: &id064
       - placeholder-marker-alpha
       - placeholder-marker-beta
       - placeholder-marker-gamma
-      selector_roles: &id064
+      selector_roles: &id065
       - include
       - exclude
       - watch
@@ -7686,19 +7764,19 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      include_suffixes: *id052
-      exclude_prefixes: *id053
-      exclude_globs: *id054
-      watch_dirs: *id055
-      tests_watch_dirs: *id056
-      mirror_roots: *id057
-      mirror_test_name_templates: *id058
-      test_style_requirements: *id059
-      include_globs: *id060
-      force_include_globs: *id061
-      placeholder_test_methods: *id062
-      placeholder_text_markers: *id063
-      selector_roles: *id064
+      include_suffixes: *id053
+      exclude_prefixes: *id054
+      exclude_globs: *id055
+      watch_dirs: *id056
+      tests_watch_dirs: *id057
+      mirror_roots: *id058
+      mirror_test_name_templates: *id059
+      test_style_requirements: *id060
+      include_globs: *id061
+      force_include_globs: *id062
+      placeholder_test_methods: *id063
+      placeholder_text_markers: *id064
+      selector_roles: *id065
     assets:
     - build/**
     - devcovenant/**
@@ -8061,26 +8139,26 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      exclude_prefixes: &id065
+      exclude_prefixes: &id066
       - build
       - dist
       - node_modules
       - devcovenant
-      include_suffixes: &id066
+      include_suffixes: &id067
       - .py
       include_prefixes: []
-      include_globs: &id067
+      include_globs: &id068
       - '*.py'
       exclude_suffixes: []
-      exclude_globs: &id068
+      exclude_globs: &id069
       - build/**
       - dist/**
       - node_modules/**
       - devcovenant/**
-      force_include_globs: &id069
+      force_include_globs: &id070
       - devcovenant/custom/**/*.py
       - tests/devcovenant/custom/**/*.py
-      selector_roles: &id070
+      selector_roles: &id071
       - exclude
       - include
       - force_include
@@ -8098,12 +8176,12 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      exclude_prefixes: *id065
-      include_suffixes: *id066
-      include_globs: *id067
-      exclude_globs: *id068
-      force_include_globs: *id069
-      selector_roles: *id070
+      exclude_prefixes: *id066
+      include_suffixes: *id067
+      include_globs: *id068
+      exclude_globs: *id069
+      force_include_globs: *id070
+      selector_roles: *id071
     assets:
     - build/**
     - devcovenant/**
@@ -8575,7 +8653,7 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      selector_roles: &id071
+      selector_roles: &id072
       - include
       - exclude
       - force_include
@@ -8594,7 +8672,7 @@ policies:
       exclude_dirs: []
       force_include_files: []
       force_include_dirs: []
-      sink_call_targets: &id072
+      sink_call_targets: &id073
       - python=>print
       - python=>builtins.print
       sink_attr_targets: []
@@ -8610,8 +8688,8 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      selector_roles: *id071
-      sink_call_targets: *id072
+      selector_roles: *id072
+      sink_call_targets: *id073
     assets: []
     origin: builtin
     script_exists: true
@@ -9103,27 +9181,27 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      selector_roles: &id073
+      selector_roles: &id074
       - include
       - exclude
       - force_include
-      include_suffixes: &id074
+      include_suffixes: &id075
       - .py
       include_prefixes: []
-      include_globs: &id075
+      include_globs: &id076
       - '*.py'
       exclude_suffixes: []
-      exclude_prefixes: &id076
+      exclude_prefixes: &id077
       - build
       - dist
       - node_modules
       - devcovenant
-      exclude_globs: &id077
+      exclude_globs: &id078
       - build/**
       - dist/**
       - node_modules/**
       - devcovenant/**
-      force_include_globs: &id078
+      force_include_globs: &id079
       - devcovenant/custom/**/*.py
       - tests/devcovenant/custom/**/*.py
       include_files: []
@@ -9136,9 +9214,9 @@ policies:
       forbid_raise_exception: true
       forbid_broad_exception_handlers: true
       forbid_silent_exception_pass: true
-      broad_exception_waiver_markers: &id079
+      broad_exception_waiver_markers: &id080
       - DEVCOV_ALLOW_BROAD_ONCE
-      broad_exception_waiver_between: &id080
+      broad_exception_waiver_between: &id081
       - DEVCOV_BROAD_BEGIN=>DEVCOV_BROAD_END
     runtime_config_overrides: {}
     runtime_effective_options:
@@ -9148,18 +9226,18 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      selector_roles: *id073
-      include_suffixes: *id074
-      include_globs: *id075
-      exclude_prefixes: *id076
-      exclude_globs: *id077
-      force_include_globs: *id078
+      selector_roles: *id074
+      include_suffixes: *id075
+      include_globs: *id076
+      exclude_prefixes: *id077
+      exclude_globs: *id078
+      force_include_globs: *id079
       forbid_bare_except: true
       forbid_raise_exception: true
       forbid_broad_exception_handlers: true
       forbid_silent_exception_pass: true
-      broad_exception_waiver_markers: *id079
-      broad_exception_waiver_between: *id080
+      broad_exception_waiver_markers: *id080
+      broad_exception_waiver_between: *id081
     assets:
     - build/**
     - devcovenant/**
@@ -9494,7 +9572,7 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      include_suffixes: &id081
+      include_suffixes: &id082
       - .py
       - .pyi
       - .pyw
@@ -9510,11 +9588,11 @@ policies:
       - .swift
       - .php
       - .rb
-      selector_roles: &id082
+      selector_roles: &id083
       - include
       - exclude
       - force_include
-      include_globs: &id083
+      include_globs: &id084
       - '*.py'
       - '*.pyi'
       - '*.pyw'
@@ -9553,9 +9631,9 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      include_suffixes: *id081
-      selector_roles: *id082
-      include_globs: *id083
+      include_suffixes: *id082
+      selector_roles: *id083
+      include_globs: *id084
     assets: []
     origin: builtin
     script_exists: true
@@ -9826,7 +9904,7 @@ policies:
       exclude_prefixes: []
       exclude_globs: []
       force_include_globs: []
-      selector_roles: &id084
+      selector_roles: &id085
       - include
       - exclude
       - force_include
@@ -9844,7 +9922,7 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      selector_roles: *id084
+      selector_roles: *id085
     assets: []
     origin: builtin
     script_exists: true
@@ -10184,22 +10262,22 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      exclude_globs: &id085
+      exclude_globs: &id086
       - tests/**
       - '**/tests/**'
       - devcovenant/**
-      include_suffixes: &id086
+      include_suffixes: &id087
       - .py
       include_prefixes: []
-      include_globs: &id087
+      include_globs: &id088
       - '*.py'
       exclude_suffixes: []
-      exclude_prefixes: &id088
+      exclude_prefixes: &id089
       - devcovenant
-      force_include_globs: &id089
+      force_include_globs: &id090
       - devcovenant/custom/**/*.py
       - tests/devcovenant/custom/**/*.py
-      selector_roles: &id090
+      selector_roles: &id091
       - exclude
       - include
       - force_include
@@ -10217,12 +10295,12 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      exclude_globs: *id085
-      include_suffixes: *id086
-      include_globs: *id087
-      exclude_prefixes: *id088
-      force_include_globs: *id089
-      selector_roles: *id090
+      exclude_globs: *id086
+      include_suffixes: *id087
+      include_globs: *id088
+      exclude_prefixes: *id089
+      force_include_globs: *id090
+      selector_roles: *id091
     assets:
     - '**/tests/**'
     - devcovenant/**
@@ -10773,48 +10851,48 @@ policies:
       enabled: true
       custom: false
       enforce_symbol_fidelity: true
-      symbol_kinds: &id091
+      symbol_kinds: &id092
       - function
       - class
       symbol_name_min_length: 3
       symbol_assertion_window: 2
       fixture_marker_pattern: \bDEVCOV_FIXTURE_OK:\s*(?P<reason>\S.*)
-      assertion_signal_patterns: &id092
+      assertion_signal_patterns: &id093
       - '*=>\bassert\b'
       - python=>\bassert\b
       - python=>\bself\.assert[A-Za-z_]*\s*\(
-      tautology_patterns: &id093
+      tautology_patterns: &id094
       - '*=>^\s*assert\s*\(\s*true\s*\)\s*;?\s*$'
       - '*=>^\s*assert\s+true\s*;?\s*$'
       - rust=>^\s*assert!\s*\(\s*true\s*\)\s*;?\s*$
       - python=>^\s*assert\s+True\s*$
       - python=>^\s*self\.assertTrue\s*\(\s*True\s*\)\s*$
-      include_suffixes: &id094
+      include_suffixes: &id095
       - .py
       include_prefixes: []
-      exclude_prefixes: &id095
+      exclude_prefixes: &id096
       - build
       - dist
       - node_modules
       - tests
       - devcovenant
-      exclude_globs: &id096
+      exclude_globs: &id097
       - build/**
       - dist/**
       - node_modules/**
       - tests/**
       - devcovenant/**
-      watch_dirs: &id097
+      watch_dirs: &id098
       - tests
-      tests_watch_dirs: &id098
+      tests_watch_dirs: &id099
       - tests
-      include_globs: &id099
+      include_globs: &id100
       - '*.py'
       exclude_suffixes: []
-      force_include_globs: &id100
+      force_include_globs: &id101
       - devcovenant/custom/**/*.py
       watch_files: []
-      selector_roles: &id101
+      selector_roles: &id102
       - include
       - exclude
       - watch
@@ -10838,20 +10916,20 @@ policies:
       enabled: true
       custom: false
       enforce_symbol_fidelity: true
-      symbol_kinds: *id091
+      symbol_kinds: *id092
       symbol_name_min_length: 3
       symbol_assertion_window: 2
       fixture_marker_pattern: \bDEVCOV_FIXTURE_OK:\s*(?P<reason>\S.*)
-      assertion_signal_patterns: *id092
-      tautology_patterns: *id093
-      include_suffixes: *id094
-      exclude_prefixes: *id095
-      exclude_globs: *id096
-      watch_dirs: *id097
-      tests_watch_dirs: *id098
-      include_globs: *id099
-      force_include_globs: *id100
-      selector_roles: *id101
+      assertion_signal_patterns: *id093
+      tautology_patterns: *id094
+      include_suffixes: *id095
+      exclude_prefixes: *id096
+      exclude_globs: *id097
+      watch_dirs: *id098
+      tests_watch_dirs: *id099
+      include_globs: *id100
+      force_include_globs: *id101
+      selector_roles: *id102
     assets:
     - build/**
     - devcovenant/**
@@ -11672,17 +11750,17 @@ policies:
       enabled: true
       custom: false
       version_file: webcam_micro/VERSION
-      target_roles: &id102
+      target_roles: &id103
       - docs
       - changelog
       - package_manifest
-      role_extractors: &id103
+      role_extractors: &id104
       - docs=>project_version_line
       - changelog=>changelog_header_version
       - package_manifest=>manifest_project_version
-      role_legality_schemes: &id104
+      role_legality_schemes: &id105
       - package_manifest=>pep440
-      target_role_files: &id105
+      target_role_files: &id106
       - docs=>README.md
       - docs=>AGENTS.md
       - docs=>CONTRIBUTING.md
@@ -11694,7 +11772,7 @@ policies:
       target_role_dirs: []
       changelog_file: CHANGELOG.md
       changelog_header_prefix: '## Version'
-      selector_roles: &id106
+      selector_roles: &id107
       - target
       target_globs: []
       target_files: []
@@ -11708,13 +11786,13 @@ policies:
       enabled: true
       custom: false
       version_file: webcam_micro/VERSION
-      target_roles: *id102
-      role_extractors: *id103
-      role_legality_schemes: *id104
-      target_role_files: *id105
+      target_roles: *id103
+      role_extractors: *id104
+      role_legality_schemes: *id105
+      target_role_files: *id106
       changelog_file: CHANGELOG.md
       changelog_header_prefix: '## Version'
-      selector_roles: *id106
+      selector_roles: *id107
     assets:
     - CHANGELOG.md
     - changelog=>CHANGELOG.md
@@ -14552,6 +14630,22 @@ profiles:
               name: webcam-micro-provenance
               path: artifacts/provenance/*.json
     policy_overlays:
+      package-doc-sync:
+        sync_pairs:
+        - README.md=>webcam_micro/README.md
+        omit_block_pairs:
+        - <!-- REPO-ONLY:BEGIN -->=><!-- REPO-ONLY:END -->
+        rewrite_repo_relative_links: true
+      documentation-growth-tracking:
+        user_visible_files:
+        - webcam_micro/README.md
+        doc_quality_files:
+        - webcam_micro/README.md
+      last-updated:
+        allowed_globs:
+        - webcam_micro/README.md
+        required_globs:
+        - webcam_micro/README.md
       line-length-limit:
         exclude_globs:
         - webcam_micro/licenses/*.txt
@@ -14561,6 +14655,12 @@ profiles:
         scheme: pep440
         version_file: webcam_micro/VERSION
       dependency-management:
+        license_source_overrides:
+        - id: flet
+          kind: archive_url
+          url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
+          member_globs:
+          - flet-{version}/LICENSE
         surfaces:
         - id: root_workspace
           direct_dependency_files:
@@ -14574,10 +14674,180 @@ profiles:
           - requirements.in
           - devcovenant/runtime-requirements.lock
           - webcam_micro/runtime-requirements.lock
+          hash_targets:
+          - id: linux-py311
+            marker: sys_platform == "linux" and python_version == "3.11"
+            pip:
+              platform: manylinux_2_34_x86_64
+              implementation: cp
+              python_version: '3.11'
+              abi: cp311
+          - id: linux-py312
+            marker: sys_platform == "linux" and python_version == "3.12"
+            pip:
+              platform: manylinux_2_34_x86_64
+              implementation: cp
+              python_version: '3.12'
+              abi: cp312
+          - id: linux-py313
+            marker: sys_platform == "linux" and python_version == "3.13"
+            pip:
+              platform: manylinux_2_34_x86_64
+              implementation: cp
+              python_version: '3.13'
+              abi: cp313
+          - id: linux-py314
+            marker: sys_platform == "linux" and python_version == "3.14"
+            pip:
+              platform: manylinux_2_34_x86_64
+              implementation: cp
+              python_version: '3.14'
+              abi: cp314
+          - id: windows-py311
+            marker: sys_platform == "win32" and python_version == "3.11"
+            pip:
+              platform: win_amd64
+              implementation: cp
+              python_version: '3.11'
+              abi: cp311
+          - id: windows-py312
+            marker: sys_platform == "win32" and python_version == "3.12"
+            pip:
+              platform: win_amd64
+              implementation: cp
+              python_version: '3.12'
+              abi: cp312
+          - id: windows-py313
+            marker: sys_platform == "win32" and python_version == "3.13"
+            pip:
+              platform: win_amd64
+              implementation: cp
+              python_version: '3.13'
+              abi: cp313
+          - id: windows-py314
+            marker: sys_platform == "win32" and python_version == "3.14"
+            pip:
+              platform: win_amd64
+              implementation: cp
+              python_version: '3.14'
+              abi: cp314
+          - id: macos-py311
+            marker: sys_platform == "darwin" and python_version == "3.11"
+            pip:
+              platform: macosx_13_0_universal2
+              implementation: cp
+              python_version: '3.11'
+              abi: cp311
+          - id: macos-py312
+            marker: sys_platform == "darwin" and python_version == "3.12"
+            pip:
+              platform: macosx_13_0_universal2
+              implementation: cp
+              python_version: '3.12'
+              abi: cp312
+          - id: macos-py313
+            marker: sys_platform == "darwin" and python_version == "3.13"
+            pip:
+              platform: macosx_13_0_universal2
+              implementation: cp
+              python_version: '3.13'
+              abi: cp313
+          - id: macos-py314
+            marker: sys_platform == "darwin" and python_version == "3.14"
+            pip:
+              platform: macosx_13_0_universal2
+              implementation: cp
+              python_version: '3.14'
+              abi: cp314
         - id: package_runtime
           lock_file: webcam_micro/runtime-requirements.lock
           third_party_file: webcam_micro/licenses/THIRD_PARTY_LICENSES.md
           licenses_dir: webcam_micro/licenses
+          hash_targets:
+          - id: linux-py311
+            marker: sys_platform == "linux" and python_version == "3.11"
+            pip:
+              platform: manylinux_2_34_x86_64
+              implementation: cp
+              python_version: '3.11'
+              abi: cp311
+          - id: linux-py312
+            marker: sys_platform == "linux" and python_version == "3.12"
+            pip:
+              platform: manylinux_2_34_x86_64
+              implementation: cp
+              python_version: '3.12'
+              abi: cp312
+          - id: linux-py313
+            marker: sys_platform == "linux" and python_version == "3.13"
+            pip:
+              platform: manylinux_2_34_x86_64
+              implementation: cp
+              python_version: '3.13'
+              abi: cp313
+          - id: linux-py314
+            marker: sys_platform == "linux" and python_version == "3.14"
+            pip:
+              platform: manylinux_2_34_x86_64
+              implementation: cp
+              python_version: '3.14'
+              abi: cp314
+          - id: windows-py311
+            marker: sys_platform == "win32" and python_version == "3.11"
+            pip:
+              platform: win_amd64
+              implementation: cp
+              python_version: '3.11'
+              abi: cp311
+          - id: windows-py312
+            marker: sys_platform == "win32" and python_version == "3.12"
+            pip:
+              platform: win_amd64
+              implementation: cp
+              python_version: '3.12'
+              abi: cp312
+          - id: windows-py313
+            marker: sys_platform == "win32" and python_version == "3.13"
+            pip:
+              platform: win_amd64
+              implementation: cp
+              python_version: '3.13'
+              abi: cp313
+          - id: windows-py314
+            marker: sys_platform == "win32" and python_version == "3.14"
+            pip:
+              platform: win_amd64
+              implementation: cp
+              python_version: '3.14'
+              abi: cp314
+          - id: macos-py311
+            marker: sys_platform == "darwin" and python_version == "3.11"
+            pip:
+              platform: macosx_13_0_universal2
+              implementation: cp
+              python_version: '3.11'
+              abi: cp311
+          - id: macos-py312
+            marker: sys_platform == "darwin" and python_version == "3.12"
+            pip:
+              platform: macosx_13_0_universal2
+              implementation: cp
+              python_version: '3.12'
+              abi: cp312
+          - id: macos-py313
+            marker: sys_platform == "darwin" and python_version == "3.13"
+            pip:
+              platform: macosx_13_0_universal2
+              implementation: cp
+              python_version: '3.13'
+              abi: cp313
+          - id: macos-py314
+            marker: sys_platform == "darwin" and python_version == "3.14"
+            pip:
+              platform: macosx_13_0_universal2
+              implementation: cp
+              python_version: '3.14'
+              abi: cp314
     source: custom
     path: devcovenant/custom/profiles/userproject
     assets_available:

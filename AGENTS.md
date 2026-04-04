@@ -649,28 +649,28 @@ surfaces:
   - id: linux-py311
     marker: sys_platform == "linux" and python_version == "3.11"
     pip:
-      platform: manylinux2014_x86_64
+      platform: manylinux_2_34_x86_64
       implementation: cp
       python_version: '3.11'
       abi: cp311
   - id: linux-py312
     marker: sys_platform == "linux" and python_version == "3.12"
     pip:
-      platform: manylinux2014_x86_64
+      platform: manylinux_2_34_x86_64
       implementation: cp
       python_version: '3.12'
       abi: cp312
   - id: linux-py313
     marker: sys_platform == "linux" and python_version == "3.13"
     pip:
-      platform: manylinux2014_x86_64
+      platform: manylinux_2_34_x86_64
       implementation: cp
       python_version: '3.13'
       abi: cp313
   - id: linux-py314
     marker: sys_platform == "linux" and python_version == "3.14"
     pip:
-      platform: manylinux2014_x86_64
+      platform: manylinux_2_34_x86_64
       implementation: cp
       python_version: '3.14'
       abi: cp314
@@ -705,28 +705,28 @@ surfaces:
   - id: macos-py311
     marker: sys_platform == "darwin" and python_version == "3.11"
     pip:
-      platform: macosx_11_0_x86_64
+      platform: macosx_13_0_universal2
       implementation: cp
       python_version: '3.11'
       abi: cp311
   - id: macos-py312
     marker: sys_platform == "darwin" and python_version == "3.12"
     pip:
-      platform: macosx_11_0_x86_64
+      platform: macosx_13_0_universal2
       implementation: cp
       python_version: '3.12'
       abi: cp312
   - id: macos-py313
     marker: sys_platform == "darwin" and python_version == "3.13"
     pip:
-      platform: macosx_11_0_x86_64
+      platform: macosx_13_0_universal2
       implementation: cp
       python_version: '3.13'
       abi: cp313
   - id: macos-py314
     marker: sys_platform == "darwin" and python_version == "3.14"
     pip:
-      platform: macosx_11_0_x86_64
+      platform: macosx_13_0_universal2
       implementation: cp
       python_version: '3.14'
       abi: cp314
@@ -748,28 +748,28 @@ surfaces:
   - id: linux-py311
     marker: sys_platform == "linux" and python_version == "3.11"
     pip:
-      platform: manylinux2014_x86_64
+      platform: manylinux_2_34_x86_64
       implementation: cp
       python_version: '3.11'
       abi: cp311
   - id: linux-py312
     marker: sys_platform == "linux" and python_version == "3.12"
     pip:
-      platform: manylinux2014_x86_64
+      platform: manylinux_2_34_x86_64
       implementation: cp
       python_version: '3.12'
       abi: cp312
   - id: linux-py313
     marker: sys_platform == "linux" and python_version == "3.13"
     pip:
-      platform: manylinux2014_x86_64
+      platform: manylinux_2_34_x86_64
       implementation: cp
       python_version: '3.13'
       abi: cp313
   - id: linux-py314
     marker: sys_platform == "linux" and python_version == "3.14"
     pip:
-      platform: manylinux2014_x86_64
+      platform: manylinux_2_34_x86_64
       implementation: cp
       python_version: '3.14'
       abi: cp314
@@ -804,31 +804,37 @@ surfaces:
   - id: macos-py311
     marker: sys_platform == "darwin" and python_version == "3.11"
     pip:
-      platform: macosx_11_0_x86_64
+      platform: macosx_13_0_universal2
       implementation: cp
       python_version: '3.11'
       abi: cp311
   - id: macos-py312
     marker: sys_platform == "darwin" and python_version == "3.12"
     pip:
-      platform: macosx_11_0_x86_64
+      platform: macosx_13_0_universal2
       implementation: cp
       python_version: '3.12'
       abi: cp312
   - id: macos-py313
     marker: sys_platform == "darwin" and python_version == "3.13"
     pip:
-      platform: macosx_11_0_x86_64
+      platform: macosx_13_0_universal2
       implementation: cp
       python_version: '3.13'
       abi: cp313
   - id: macos-py314
     marker: sys_platform == "darwin" and python_version == "3.14"
     pip:
-      platform: macosx_11_0_x86_64
+      platform: macosx_13_0_universal2
       implementation: cp
       python_version: '3.14'
       abi: cp314
+license_source_overrides:
+- id: flet
+  kind: archive_url
+  url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
+  member_globs:
+  - flet-{version}/LICENSE
 selector_roles: dependency
 dependency_globs: []
 dependency_files: []
@@ -856,6 +862,10 @@ runtime actions manually. Remediation messaging may differ when autofix is
 enabled versus disabled. When one Python surface enables
 `generate_hashes`, DevCovenant resolves the full configured target closure
 from `hash_targets` and writes an all-target hash lock or fails explicitly.
+When a direct dependency does not bundle upstream license files in installed
+metadata, repositories may declare `license_source_overrides` keyed by
+normalized package name. Builtin overrides currently support `archive_url`
+sources with templated `url` and `member_globs` fields.
 Hash mode does not patch a host-local compile result or depend on
 GitHub-specific dependency logic. Artifact refresh remains
 deterministic/idempotent.
@@ -1011,12 +1021,14 @@ user_visible_files:
 - AGENTS.md
 - SPEC.md
 - PLAN.md
+- webcam_micro/README.md
 doc_quality_files:
 - README.md
 - CONTRIBUTING.md
 - AGENTS.md
 - SPEC.md
 - PLAN.md
+- webcam_micro/README.md
 required_headings:
 - Overview
 require_toc: 'false'
@@ -1136,6 +1148,7 @@ allowed_globs:
 - CHANGELOG.md
 - SPEC.md
 - PLAN.md
+- webcam_micro/README.md
 allowed_files: []
 allowed_suffixes: []
 required_files: []
@@ -1157,6 +1170,7 @@ required_globs:
 - CHANGELOG.md
 - SPEC.md
 - PLAN.md
+- webcam_micro/README.md
 selector_roles:
 - include
 - allowed

@@ -1,4 +1,4 @@
-"""Stage 4 tests for the application entrypoint and package contract."""
+"""Headless tests for the application entrypoint and package contract."""
 
 from __future__ import annotations
 
@@ -10,29 +10,32 @@ from webcam_micro.app import LaunchPlan, build_launch_plan, main
 
 
 class ApplicationEntryPointTest(unittest.TestCase):
-    """Verify the Stage 4 launcher wiring and package metadata."""
+    """Verify the launcher wiring and package metadata."""
 
     def test_smoke_mode_returns_success(self) -> None:
         """Assert the headless smoke path exits successfully."""
 
         self.assertEqual(0, main(["--smoke-test"]))
 
-    def test_launch_plan_describes_stage_four_baseline(self) -> None:
-        """Assert the launch plan documents the controls-aware baseline."""
+    def test_launch_plan_describes_current_qt_baseline(self) -> None:
+        """Assert the launch plan documents the Qt shell baseline."""
 
         plan = build_launch_plan()
 
         self.assertEqual("webcam-micro", plan.app_name)
         self.assertEqual("webcam_micro", plan.package_name)
         self.assertEqual("webcam-micro", plan.entrypoint_name)
-        self.assertEqual("ttkbootstrap", plan.gui_baseline)
-        self.assertIn("newest-frame", plan.backend_strategy)
+        self.assertEqual("PySide6 Qt Widgets", plan.gui_baseline)
+        self.assertIn("Qt Widgets owns", plan.backend_strategy)
+        self.assertIn("Qt Multimedia now owns", plan.backend_strategy)
         self.assertIn("AVFoundation", plan.backend_strategy)
         self.assertIn("rubicon", plan.backend_strategy)
-        self.assertIn("FFmpeg", plan.first_device_backend_target)
+        self.assertIn("Qt Multimedia", plan.first_device_backend_target)
+        self.assertIn("native desktop menu bar", plan.shell_contract)
         self.assertIn("toolbar", plan.shell_contract)
-        self.assertIn("separate controls window", plan.shell_contract)
-        self.assertIn("typed camera controls", plan.shell_contract)
+        self.assertIn("controls dock", plan.shell_contract)
+        self.assertIn("fit/fill/crop", plan.shell_contract)
+        self.assertIn("fullscreen", plan.shell_contract)
 
     def test_launch_plan_symbol_stays_explicit(self) -> None:
         """Assert the launch-plan dataclass stays public."""
@@ -51,15 +54,16 @@ class ApplicationEntryPointTest(unittest.TestCase):
         )
 
         self.assertEqual("0.0.1", payload["project"]["version"])
+        self.assertEqual(
+            {
+                "file": "webcam_micro/README.md",
+                "content-type": "text/markdown",
+            },
+            payload["project"]["readme"],
+        )
         self.assertEqual(">=3.11", payload["project"]["requires-python"])
         self.assertIn(
-            "imageio-ffmpeg>=0.6,<0.7",
-            payload["project"]["dependencies"],
-        )
-        self.assertIn("pillow>=10,<13", payload["project"]["dependencies"])
-        self.assertIn(
-            "ttkbootstrap>=1.20,<2",
-            payload["project"]["dependencies"],
+            "PySide6>=6.11,<6.12", payload["project"]["dependencies"]
         )
         self.assertIn(
             "rubicon-objc>=0.5,<0.6; sys_platform == 'darwin'",
@@ -71,7 +75,7 @@ class ApplicationEntryPointTest(unittest.TestCase):
         )
 
     def test_app_owned_artifacts_live_under_webcam_micro(self) -> None:
-        """Assert Stage 1 uses one app-owned directory."""
+        """Assert import assets and package docs use distinct owned paths."""
 
         repo_root = Path(__file__).resolve().parents[1]
 
@@ -82,4 +86,20 @@ class ApplicationEntryPointTest(unittest.TestCase):
         self.assertTrue(
             (repo_root / "webcam_micro" / "licenses" / "README.md").exists()
         )
+        self.assertTrue((repo_root / "webcam_micro" / "README.md").exists())
         self.assertFalse((repo_root / "webcam-micro").exists())
+
+    def test_package_readme_stays_user_facing_only(self) -> None:
+        """Assert the package README omits repo-only content."""
+
+        repo_root = Path(__file__).resolve().parents[1]
+        root_readme = (repo_root / "README.md").read_text(encoding="utf-8")
+        package_readme = (repo_root / "webcam_micro" / "README.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("<!-- REPO-ONLY:BEGIN -->", root_readme)
+        self.assertIn("## What Works Today", package_readme)
+        self.assertNotIn("## Development Quick Start", package_readme)
+        self.assertNotIn("## Workflow", package_readme)
+        self.assertNotIn("<!-- REPO-ONLY:BEGIN -->", package_readme)

@@ -1,4 +1,4 @@
-"""Application entrypoints for the Stage 4 controls-aware shell."""
+"""Application entrypoints for the current Qt Widgets shell baseline."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from webcam_micro.ui import MissingGuiDependencyError, launch_main_window
 
 @dataclass(frozen=True)
 class LaunchPlan:
-    """Describe the chosen Stage 4 launch baseline."""
+    """Describe the chosen launch baseline."""
 
     app_name: str
     package_name: str
@@ -25,7 +25,7 @@ class LaunchPlan:
 
 
 def build_launch_plan() -> LaunchPlan:
-    """Return the current Stage 4 application decision."""
+    """Return the current application decision."""
 
     backend_plan = build_backend_plan()
     return LaunchPlan(
@@ -36,26 +36,27 @@ def build_launch_plan() -> LaunchPlan:
         backend_strategy=BACKEND_STRATEGY,
         first_device_backend_target=backend_plan.first_device_backend_target,
         shell_contract=(
-            "Preview-first main window with menus, toolbar, status bar, "
-            "a separate controls window, and typed camera controls."
+            "Preview-first Qt Widgets main window with a native desktop menu "
+            "bar, toolbar, controls dock, live fit/fill/crop framing, and "
+            "native window fullscreen support."
         ),
     )
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    """Build the Stage 4 command-line parser."""
+    """Build the current command-line parser."""
 
     parser = argparse.ArgumentParser(prog="webcam-micro")
     parser.add_argument(
         "--smoke-test",
         action="store_true",
-        help="exercise the Stage 4 entrypoint without launching the GUI",
+        help="exercise the entrypoint without launching the GUI",
     )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the Stage 4 application entrypoint."""
+    """Run the current application entrypoint."""
 
     parsed = _build_parser().parse_args(argv)
     if parsed.smoke_test:

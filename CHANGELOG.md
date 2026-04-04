@@ -61,6 +61,176 @@ Example:
 ## Version 0.0.1
 
 - 2026-04-04:
+  Change: Restored the Qt fullscreen workflow with a compact command surface
+    that supports expanded and collapsed states plus safe Escape or button
+    exit back to the windowed workspace.
+  Why: Replaced the staged fullscreen placeholder so the native-menu Qt shell
+    behaves like a microscope workstation instead of a maximized window with
+    missing fullscreen controls.
+  Impact: Added real fullscreen shell parity on the Qt baseline, aligned
+    native menu roles more cleanly with desktop behavior, and updated the
+    headless shell contract/docs to describe the new fullscreen surface.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  tests/test_ui.py
+  webcam_micro/ui.py
+
+- 2026-04-04:
+  Change: Replaced the active Flet shell foundation with a Qt Widgets
+    `QMainWindow` shell and updated the repo-owned dependency targets to
+    resolve the Qt runtime across the governed hash matrix.
+  Why: Required native desktop menu bars and a governed shell baseline that
+    matches macOS, Windows, and Linux desktop expectations without leaving
+    stale wheel-platform assumptions in the dependency policy surface.
+  Impact: Delivered a native-menu Qt preview and controls foundation and
+    aligned the repo-owned dependency targets so future workstation slices can
+    build on the Qt baseline under DevCovenant.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  SPEC.md
+  devcovenant/custom/profiles/userproject/userproject.yaml
+  pyproject.toml
+  tests/test_app.py
+  tests/test_ui.py
+  webcam_micro/__init__.py
+  webcam_micro/app.py
+  webcam_micro/ui.py
+
+- 2026-04-04:
+  Change: Amended the Qt migration plan to lean the backend around Qt-owned
+    media and shell functionality instead of duplicating native behavior.
+  Why: Clarified that the `PySide6` migration should keep repo logic focused
+    on microscope-specific policy and workflow rather than rebuilding
+    `QCamera`-class capabilities in parallel.
+  Impact: Aligned the next slices toward a thinner app-facing backend layer
+    and a more direct Qt-native preview, capture, recording, and menu model.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+
+- 2026-04-04:
+  Change: Revised `PLAN.md` to supersede the active Flet migration with a
+    `PySide6` and Qt Widgets desktop migration plan.
+  Why: Verified that the current Flet shell cannot satisfy the native
+    desktop menu-bar requirement across macOS, Windows, and Linux.
+  Impact: Reoriented the next implementation slices around a Qt Widgets
+    foundation and native menu-bar parity instead of continuing the Flet
+    branch.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+
+- 2026-04-04:
+  Change: Updated the package-facing `webcam_micro/README.md` mirror,
+    upgraded the vendored dependency-management runtime, and generated fresh
+    root and package license inventories for the Flet-based stack.
+  Why: Resolved the paused docs slice's wrong package README target and
+    cleared the `flet` license-refresh failure after the builtin policy fix
+    landed upstream.
+  Impact: Enabled governed refresh to sync package metadata from
+    `webcam_micro/README.md` and materialize the `flet` license texts instead
+    of failing during `gate --mid`.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  licenses/anyio-4.13.0.txt
+  licenses/build-1.4.2.txt
+  licenses/certifi-2026.2.25.txt
+  licenses/cfgv-3.5.0.txt
+  licenses/click-8.3.2.txt
+  licenses/distlib-0.4.0.txt
+  licenses/filelock-3.25.2.txt
+  licenses/flet-0.84.0.txt
+  licenses/h11-0.16.0.txt
+  licenses/httpcore-1.0.9.txt
+  licenses/httpx-0.28.1.txt
+  licenses/identify-2.6.18.txt
+  licenses/idna-3.11.txt
+  licenses/imageio-ffmpeg-0.6.0.txt
+  licenses/iniconfig-2.3.0.txt
+  licenses/msgpack-1.1.2.txt
+  licenses/nodeenv-1.10.0.txt
+  licenses/oauthlib-3.3.1.txt
+  licenses/packaging-26.0.txt
+  licenses/pillow-12.2.0.txt
+  licenses/pip-26.0.1.txt
+  licenses/pip-tools-7.5.3.txt
+  licenses/platformdirs-4.9.4.txt
+  licenses/pluggy-1.6.0.txt
+  licenses/pre_commit-4.5.1.txt
+  licenses/PyYAML-6.0.3.txt
+  licenses/Pygments-2.20.0.txt
+  licenses/pyproject_hooks-1.2.0.txt
+  licenses/pytest-9.0.2.txt
+  licenses/python-discovery-1.2.1.txt
+  licenses/repath-0.9.0.txt
+  licenses/rubicon-objc-0.5.3.txt
+  licenses/semver-3.0.4.txt
+  licenses/setuptools-82.0.1.txt
+  licenses/six-1.17.0.txt
+  licenses/THIRD_PARTY_LICENSES.md
+  licenses/virtualenv-21.2.0.txt
+  licenses/wheel-0.46.3.txt
+  pyproject.toml
+  tests/test_app.py
+  tests/test_bootstrap.py
+  webcam_micro/README.md
+  webcam_micro/licenses/flet-0.84.0.txt
+  webcam_micro/licenses/imageio-ffmpeg-0.6.0.txt
+  webcam_micro/licenses/pillow-12.2.0.txt
+  webcam_micro/licenses/rubicon-objc-0.5.3.txt
+  webcam_micro/licenses/THIRD_PARTY_LICENSES.md
+
+- 2026-04-04:
+  Change: Replaced the Tk shell baseline with the first Flet rewrite slice
+    and refreshed the governed dependency surfaces for the new GUI runtime.
+  Why: Aligned the prototype, PLAN.md, and SPEC.md with the two-slice Flet
+    migration and removed stale shell vocabulary from the current contract.
+  Impact: Preserved live preview, framing, fullscreen, and typed camera
+    controls on the Flet baseline so the second rewrite slice can finish
+    shell parity and later feature work.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  SPEC.md
+  devcovenant/registry/registry.yaml
+  licenses/THIRD_PARTY_LICENSES.md
+  licenses/ttkbootstrap-1.20.2.txt
+  pyproject.toml
+  requirements.lock
+  tests/test_app.py
+  tests/test_ui.py
+  webcam_micro/__init__.py
+  webcam_micro/app.py
+  webcam_micro/licenses/THIRD_PARTY_LICENSES.md
+  webcam_micro/licenses/ttkbootstrap-1.20.2.txt
+  webcam_micro/runtime-requirements.lock
+  webcam_micro/ui.py
+
+- 2026-04-04:
+  Change: Implemented live fit/fill/crop preview framing and a detached
+    fullscreen toolbar workflow for the Stage 5 shell.
+  Why: Aligned the preview workspace with PLAN item 5 and the microscope
+    fullscreen and framing contract already documented in SPEC.md.
+  Impact: Added live framing switches, safe fullscreen exit controls, and
+    tested detached-toolbar behavior without pulling capture work ahead of
+    Item 6.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  tests/test_app.py
+  tests/test_ui.py
+  webcam_micro/app.py
+  webcam_micro/ui.py
+
+- 2026-04-04:
   Change: Removed stray duplicate ` 2` directories left under `devcovenant`
     after earlier repo updates.
   Why: Cleaned duplicate-named directory debris before it could confuse

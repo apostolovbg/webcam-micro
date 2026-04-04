@@ -103,6 +103,9 @@ The shortest accurate model is:
 3. `deploy` is activation.
    It runs the full refresh path and writes managed docs, generated files,
    registry outputs, and other DevCovenant-managed outputs.
+   Repo-owned custom policies and copied custom profiles stay in place during
+   that lifecycle work; the install/deploy/upgrade flow should not prune
+   `devcovenant/custom/**` content that belongs to the governed repository.
 
 `install.config_reviewed` exists only to make that checkpoint explicit.
 It means a human reviewed the starting config and is ready to activate it.
@@ -191,6 +194,9 @@ Run it only after the active gate session is closed.
 Reconciles the installed DevCovenant package from source and then runs
 `refresh`.
 Use it when DevCovenant is already present and you want the newer runtime.
+Like `install` and `deploy`, upgrade should preserve repo-owned custom
+policies and copied custom profiles instead of treating them as package
+leakage.
 
 ### undeploy
 Removes managed outputs while keeping the installed core and config.

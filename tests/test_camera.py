@@ -22,7 +22,10 @@ from webcam_micro.camera import (
     NullCameraControlBackend,
     NullCameraSession,
     PreviewFrame,
+    QtCameraBackend,
+    QtCameraSession,
     build_backend_plan,
+    pack_preview_rgb_rows,
 )
 
 
@@ -30,13 +33,13 @@ class CameraContractTest(unittest.TestCase):
     """Verify the preview-backend contract and documented backend plan."""
 
     def test_backend_plan_names_the_active_preview_target(self) -> None:
-        """Assert the backend plan captures the Stage 4 preview target."""
+        """Assert the backend plan captures the Qt preview target."""
 
         plan = build_backend_plan()
 
         self.assertIsInstance(plan, BackendPlan)
-        self.assertEqual("FfmpegCameraBackend", plan.active_backend)
-        self.assertIn("FFmpeg", plan.first_device_backend_target)
+        self.assertEqual("QtCameraBackend", plan.active_backend)
+        self.assertIn("Qt Multimedia", plan.first_device_backend_target)
         self.assertTrue(any("newest frame" in note for note in plan.notes))
         self.assertTrue(any("AVFoundation" in note for note in plan.notes))
 
@@ -66,6 +69,8 @@ class CameraContractTest(unittest.TestCase):
             "MissingCameraDependencyError",
             MissingCameraDependencyError.__name__,
         )
+        self.assertEqual("QtCameraBackend", QtCameraBackend.__name__)
+        self.assertEqual("QtCameraSession", QtCameraSession.__name__)
         self.assertEqual("FfmpegCameraBackend", FfmpegCameraBackend.__name__)
         self.assertEqual("FfmpegCameraSession", FfmpegCameraSession.__name__)
         self.assertEqual("NullCameraBackend", NullCameraBackend.__name__)
@@ -193,3 +198,35 @@ class CameraContractTest(unittest.TestCase):
         self.assertEqual(240, frame.height)
         self.assertEqual(b"rgb", frame.rgb_bytes)
         self.assertEqual(4, frame.frame_number)
+
+    def test_pack_preview_rgb_rows_removes_row_padding(self) -> None:
+        """Assert padded RGB rows compact into one packed preview payload."""
+
+        self.assertEqual(
+            bytes(range(12)),
+            pack_preview_rgb_rows(
+                bytes(
+                    [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        90,
+                        91,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        92,
+                        93,
+                    ]
+                ),
+                width=2,
+                height=2,
+                bytes_per_line=8,
+            ),
+        )

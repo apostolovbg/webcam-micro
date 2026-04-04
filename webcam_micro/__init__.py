@@ -2,11 +2,12 @@
 
 APP_NAME = "webcam-micro"
 PACKAGE_NAME = "webcam_micro"
-GUI_BASELINE = "ttkbootstrap"
+GUI_BASELINE = "PySide6 Qt Widgets"
 BACKEND_STRATEGY = (
-    "Adapter-based camera layer with an FFmpeg-backed discovery/preview "
-    "backend tuned to prefer newest-frame preview over stale buffered frames, "
-    "plus a rubicon-backed AVFoundation control bridge on macOS for real "
-    "camera settings."
+    "Qt Widgets owns the native desktop shell while Qt Multimedia now owns "
+    "camera discovery, capture sessions, and live preview; the repo layer "
+    "keeps microscope-specific framing, outputs, defaults, diagnostics, and "
+    "a rubicon-backed AVFoundation control bridge on macOS for real camera "
+    "settings."
 )
 SHELL_TITLE = "webcam-micro workspace"

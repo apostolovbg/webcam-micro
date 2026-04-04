@@ -29,14 +29,6 @@ _UPGRADE_RUNTIME_PRESERVE_FILES = (
     Path("devcovenant/config.yaml"),
     Path("devcovenant/registry/registry.yaml"),
 )
-_UPGRADE_REPO_ONLY_CUSTOM_PRUNE_DIRS = (
-    Path("devcovenant/custom/policies/devcov_raw_string_escapes"),
-    Path("devcovenant/custom/policies/managed_doc_assets"),
-    Path("devcovenant/custom/policies/readme_sync"),
-    Path("devcovenant/custom/policies/package_artifact_mirror"),
-    Path("devcovenant/custom/profiles/devcovrepo"),
-    Path("devcovenant/custom/profiles/userproject"),
-)
 
 
 def _read_version(path: Path) -> str:
@@ -187,22 +179,6 @@ def _replace_core_package_for_upgrade(repo_root: Path) -> None:
         _restore_upgrade_runtime_state(repo_root, temp_root)
 
 
-def _prune_repo_only_custom_payload(repo_root: Path) -> list[Path]:
-    """Remove known development-repository-only custom payload leaked into
-    user repositories."""
-    removed: list[Path] = []
-    for rel_path in _UPGRADE_REPO_ONLY_CUSTOM_PRUNE_DIRS:
-        target_path = repo_root / rel_path
-        if not target_path.exists():
-            continue
-        if target_path.is_dir():
-            shutil.rmtree(target_path)
-        else:
-            target_path.unlink()
-        removed.append(rel_path)
-    return removed
-
-
 def upgrade_repo(repo_root: Path) -> int:
     """Upgrade DevCovenant core and run full refresh."""
     from devcovenant.core.execution import (
@@ -210,7 +186,6 @@ def upgrade_repo(repo_root: Path) -> int:
         print_step,
     )
     from devcovenant.core.refresh_runtime import refresh_repo
-    from devcovenant.core.repository_paths import display_path
 
     phase_timings: list[dict[str, object]] = []
     source_version_path = Path(__file__).resolve().parent / "VERSION"
@@ -253,24 +228,7 @@ def upgrade_repo(repo_root: Path) -> int:
         }
     )
 
-    prune_started = time.perf_counter()
-    pruned_paths = _prune_repo_only_custom_payload(repo_root)
-    if pruned_paths:
-        formatted = ", ".join(
-            display_path(path, repo_root=repo_root) for path in pruned_paths
-        )
-        print_step(
-            f"Pruned development-repository-only custom payload: {formatted}",
-            "ℹ️",
-        )
     target_version_path.write_text(f"{source_version}\n", encoding="utf-8")
-    phase_timings.append(
-        {
-            "phase": "prune_repo_only_payload",
-            "duration_seconds": round(time.perf_counter() - prune_started, 6),
-            "changed": bool(pruned_paths),
-        }
-    )
     if source_key > target_key:
         print_step("Core package replaced with newer version", "✅")
     elif source_key == target_key:

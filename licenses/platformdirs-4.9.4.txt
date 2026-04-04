@@ -1,7 +1,9 @@
 # platformdirs 4.9.4
 
-This file aggregates the upstream license texts bundled with the
-installed distribution for `platformdirs==4.9.4`.
+This file aggregates the upstream license texts resolved for
+`platformdirs==4.9.4`.
+
+Resolved from: installed distribution metadata
 
 Included upstream files:
 - LICENSE

@@ -1,7 +1,9 @@
 # semver 3.0.4
 
-This file aggregates the upstream license texts bundled with the
-installed distribution for `semver==3.0.4`.
+This file aggregates the upstream license texts resolved for
+`semver==3.0.4`.
+
+Resolved from: installed distribution metadata
 
 Included upstream files:
 - LICENSE.txt

@@ -83,6 +83,14 @@ class LockHandlerResult:
     message: str
 
 
+@dataclass(frozen=True)
+class SurfaceResolutionInputs:
+    """Direct dependency lines plus inherited managed lock providers."""
+
+    dependency_lines: List[str]
+    inherited_lock_files: List[str]
+
+
 def _compute_file_hash(path: Path) -> str:
     """Return a stable hash digest for a file."""
 
@@ -755,6 +763,9 @@ def _refresh_python_surface_lock(
     repo_root: Path,
     *,
     surface: dependency_management.DependencySurface,
+    all_surfaces: Sequence[dependency_management.DependencySurface] | None = (
+        None
+    ),
 ) -> LockHandlerResult:
     """Refresh one declared Python dependency surface."""
 
@@ -777,11 +788,18 @@ def _refresh_python_surface_lock(
         if lock_path.exists()
         else LockFilePieces([])
     )
+    inherited_provider_locks = [
+        _normalize_repo_relative_path_token(other.lock_file)
+        for other in (all_surfaces or [])
+        if other.surface_id != surface.surface_id
+        and _normalize_repo_relative_path_token(other.lock_file)
+    ]
     if surface.hash_targets:
         compiled = _compile_target_surface_lock(
             repo_root,
             surface_id=surface.surface_id,
             dependency_files=surface.direct_dependency_files,
+            provider_lock_files=inherited_provider_locks,
             hash_targets=surface.hash_targets,
             source_display_name=input_display_name,
             generate_hashes=surface.generate_hashes,
@@ -947,23 +965,47 @@ def _surface_dependency_strings(
 ) -> List[str]:
     """Collect dependency strings from one surface's direct inputs."""
 
+    return _surface_resolution_inputs(
+        repo_root,
+        dependency_files=dependency_files,
+    ).dependency_lines
+
+
+def _surface_resolution_inputs(
+    repo_root: Path,
+    *,
+    dependency_files: Sequence[str],
+    provider_lock_files: Sequence[str] = (),
+) -> SurfaceResolutionInputs:
+    """Collect surface inputs while preserving inherited lock providers."""
+
     dependency_lines: List[str] = []
+    inherited_lock_files: List[str] = []
     seen_paths: set[Path] = set()
+    provider_lock_tokens = {
+        _normalize_repo_relative_path_token(entry)
+        for entry in provider_lock_files
+        if _normalize_repo_relative_path_token(entry)
+    }
     for raw_path in dependency_files:
         path_token = _normalize_repo_relative_path_token(raw_path)
         if not path_token:
             continue
         manifest_path = repo_root / path_token
-        dependency_lines.extend(
-            _collect_dependency_strings_from_manifest(
-                repo_root,
-                manifest_path,
-                seen_paths=seen_paths,
-            )
+        _collect_surface_resolution_inputs_from_manifest(
+            repo_root,
+            manifest_path,
+            seen_paths=seen_paths,
+            provider_lock_tokens=provider_lock_tokens,
+            dependency_lines=dependency_lines,
+            inherited_lock_files=inherited_lock_files,
         )
-    return _normalize_python_lock_semantics_for_mode(
-        dependency_lines,
-        generate_hashes=False,
+    return SurfaceResolutionInputs(
+        dependency_lines=_normalize_python_lock_semantics_for_mode(
+            dependency_lines,
+            generate_hashes=False,
+        ),
+        inherited_lock_files=list(dict.fromkeys(inherited_lock_files)),
     )
 
 
@@ -1002,6 +1044,62 @@ def _collect_dependency_strings_from_manifest(
             )
         )
     return collected
+
+
+def _collect_surface_resolution_inputs_from_manifest(
+    repo_root: Path,
+    manifest_path: Path,
+    *,
+    seen_paths: set[Path],
+    provider_lock_tokens: set[str],
+    dependency_lines: List[str],
+    inherited_lock_files: List[str],
+) -> None:
+    """Collect direct dependency lines while preserving owned lock inputs."""
+
+    manifest_token = _repo_relative_path_token(repo_root, manifest_path)
+    if manifest_token and manifest_token in provider_lock_tokens:
+        inherited_lock_files.append(manifest_token)
+        return
+    resolved_path = manifest_path.resolve()
+    if resolved_path in seen_paths:
+        return
+    seen_paths.add(resolved_path)
+    if not manifest_path.exists():
+        raise RuntimeError(
+            "dependency-management input is missing: "
+            f"{manifest_path.relative_to(repo_root)}"
+        )
+    entries = dependency_management._direct_dependency_strings_from_file(
+        manifest_path
+    )
+    for entry in entries:
+        include_target = _extract_requirements_include_target(str(entry))
+        if include_target is None:
+            dependency_lines.append(str(entry).strip())
+            continue
+        include_path = (manifest_path.parent / include_target).resolve()
+        include_token = _repo_relative_path_token(repo_root, include_path)
+        if include_token and include_token in provider_lock_tokens:
+            inherited_lock_files.append(include_token)
+            continue
+        _collect_surface_resolution_inputs_from_manifest(
+            repo_root,
+            include_path,
+            seen_paths=seen_paths,
+            provider_lock_tokens=provider_lock_tokens,
+            dependency_lines=dependency_lines,
+            inherited_lock_files=inherited_lock_files,
+        )
+
+
+def _repo_relative_path_token(repo_root: Path, path: Path) -> str:
+    """Return one normalized repo-relative token when a path stays in-repo."""
+
+    try:
+        return path.resolve().relative_to(repo_root.resolve()).as_posix()
+    except ValueError:
+        return ""
 
 
 def _extract_requirements_include_target(raw_line: str) -> str | None:
@@ -1620,10 +1718,26 @@ def _merge_target_reports(
 ) -> List[str]:
     """Build one deterministic requirements body from target reports."""
 
+    grouped = _group_target_reports(
+        targets=targets,
+        report_entries=report_entries,
+    )
+    return _render_grouped_target_reports(
+        targets=targets,
+        grouped=grouped,
+        source_display_name=source_display_name,
+        generate_hashes=generate_hashes,
+    )
+
+
+def _group_target_reports(
+    *,
+    targets: Sequence[dependency_management.DependencySurfaceTarget],
+    report_entries: Mapping[str, Sequence[Mapping[str, object]]],
+) -> Dict[str, Dict[str, Dict[str, object]]]:
+    """Return grouped package/version entries merged across targets."""
+
     grouped: Dict[str, Dict[str, Dict[str, object]]] = {}
-    ordered_target_ids = [target.target_id for target in targets]
-    target_markers = {target.target_id: target.marker for target in targets}
-    all_target_ids = set(ordered_target_ids)
     for target in targets:
         installs = report_entries.get(target.target_id, [])
         for item in installs:
@@ -1652,21 +1766,179 @@ def _merge_target_reports(
                     f"for `{name}=={version}` in target "
                     f"`{target.target_id}`."
                 )
-            normalized_name = (
-                dependency_management._normalize_distribution_name(name)
+            _merge_grouped_target_entry(
+                grouped,
+                display_name=name,
+                version=version,
+                hashes=hashes,
+                target_ids={target.target_id},
             )
-            version_map = grouped.setdefault(normalized_name, {})
-            entry = version_map.setdefault(
-                version,
-                {
-                    "display_name": name,
-                    "hashes": set(),
-                    "targets": set(),
-                },
-            )
-            entry["hashes"].update(hashes)
-            entry["targets"].add(target.target_id)
+    return grouped
 
+
+def _group_inherited_lock_files(
+    repo_root: Path,
+    *,
+    lock_files: Sequence[str],
+    targets: Sequence[dependency_management.DependencySurfaceTarget],
+    generate_hashes: bool,
+) -> Dict[str, Dict[str, Dict[str, object]]]:
+    """Return grouped entries parsed from inherited managed lock files."""
+
+    grouped: Dict[str, Dict[str, Dict[str, object]]] = {}
+    if not lock_files:
+        return grouped
+    target_environments = {
+        target.target_id: _target_marker_environment(target)
+        for target in targets
+    }
+    for raw_lock_file in lock_files:
+        lock_token = _normalize_repo_relative_path_token(raw_lock_file)
+        if not lock_token:
+            continue
+        lock_path = repo_root / lock_token
+        if not lock_path.exists():
+            raise RuntimeError(
+                "dependency-management inherited lock input is missing: "
+                f"{lock_token}"
+            )
+        for requirement_line, hashes in _parse_locked_requirements(lock_path):
+            try:
+                requirement = Requirement(requirement_line)
+            except InvalidRequirement as error:
+                raise RuntimeError(
+                    "dependency-management inherited lock file contains an "
+                    f"invalid requirement line: `{requirement_line}`."
+                ) from error
+            match = dependency_management._PYTHON_LOCK_PIN_RE.match(
+                requirement_line
+            )
+            if match is None:
+                raise RuntimeError(
+                    "dependency-management inherited lock file must contain "
+                    f"exact pins, but found `{requirement_line}`."
+                )
+            target_ids = {
+                target_id
+                for target_id, target_environment in (
+                    target_environments.items()
+                )
+                if _requirement_is_active_for_target(
+                    requirement,
+                    target_environment=target_environment,
+                )
+            }
+            if not target_ids:
+                continue
+            if generate_hashes and not hashes:
+                raise RuntimeError(
+                    "dependency-management inherited hash-locked surface "
+                    f"`{lock_token}` is missing hashes for "
+                    f"`{requirement_line}`."
+                )
+            _merge_grouped_target_entry(
+                grouped,
+                display_name=str(match.group("name")),
+                version=str(match.group("version")),
+                hashes=hashes,
+                target_ids=target_ids,
+            )
+    return grouped
+
+
+def _parse_locked_requirements(
+    lock_path: Path,
+) -> List[Tuple[str, List[str]]]:
+    """Return pinned requirement lines and hashes from one flat lock file."""
+
+    parsed: List[Tuple[str, List[str]]] = []
+    lines = lock_path.read_text(encoding="utf-8").splitlines()
+    index = 0
+    while index < len(lines):
+        raw_line = lines[index]
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("#") or raw_line[:1].isspace():
+            index += 1
+            continue
+        requirement_line = stripped.rstrip("\\").strip()
+        hashes: List[str] = []
+        index += 1
+        while index < len(lines):
+            continuation = lines[index]
+            continuation_stripped = continuation.strip()
+            if not continuation_stripped:
+                index += 1
+                break
+            if not continuation[:1].isspace():
+                break
+            if continuation_stripped.startswith("--hash=sha256:"):
+                digest = (
+                    continuation_stripped.removeprefix("--hash=sha256:")
+                    .rstrip("\\")
+                    .strip()
+                )
+                if digest:
+                    hashes.append(digest)
+            index += 1
+        parsed.append((requirement_line, hashes))
+    return parsed
+
+
+def _merge_grouped_target_entry(
+    grouped: Dict[str, Dict[str, Dict[str, object]]],
+    *,
+    display_name: str,
+    version: str,
+    hashes: Iterable[str],
+    target_ids: set[str],
+) -> None:
+    """Merge one grouped package entry and reject overlapping versions."""
+
+    normalized_name = dependency_management._normalize_distribution_name(
+        display_name
+    )
+    version_map = grouped.setdefault(normalized_name, {})
+    for existing_version, existing_entry in version_map.items():
+        if existing_version == version:
+            continue
+        overlapping_targets = set(existing_entry["targets"]) & set(target_ids)
+        if overlapping_targets:
+            listed_targets = ", ".join(sorted(overlapping_targets))
+            raise RuntimeError(
+                "dependency-management inherited surfaces produced "
+                f"conflicting versions for `{display_name}` in targets "
+                f"`{listed_targets}`: `{existing_version}` vs `{version}`."
+            )
+    entry = version_map.setdefault(
+        version,
+        {
+            "display_name": display_name,
+            "hashes": set(),
+            "targets": set(),
+        },
+    )
+    entry["hashes"].update(
+        {
+            str(entry_hash).strip()
+            for entry_hash in hashes
+            if str(entry_hash).strip()
+        }
+    )
+    entry["targets"].update(target_ids)
+
+
+def _render_grouped_target_reports(
+    *,
+    targets: Sequence[dependency_management.DependencySurfaceTarget],
+    grouped: Dict[str, Dict[str, Dict[str, object]]],
+    source_display_name: str,
+    generate_hashes: bool,
+) -> List[str]:
+    """Render grouped package/version entries into one lock body."""
+
+    ordered_target_ids = [target.target_id for target in targets]
+    target_markers = {target.target_id: target.marker for target in targets}
+    all_target_ids = set(ordered_target_ids)
     lines: List[str] = [
         "# This file is autogenerated by DevCovenant dependency-management.",
         "",
@@ -1711,6 +1983,7 @@ def _compile_target_surface_lock(
     *,
     surface_id: str,
     dependency_files: Sequence[str],
+    provider_lock_files: Sequence[str],
     hash_targets: Sequence[dependency_management.DependencySurfaceTarget],
     source_display_name: str,
     generate_hashes: bool,
@@ -1718,25 +1991,33 @@ def _compile_target_surface_lock(
     """Resolve one deterministic lock body across configured targets."""
 
     del surface_id
-    dependency_lines = _surface_dependency_strings(
+    resolution_inputs = _surface_resolution_inputs(
         repo_root,
         dependency_files=dependency_files,
+        provider_lock_files=provider_lock_files,
     )
-    if not dependency_lines:
+    dependency_lines = resolution_inputs.dependency_lines
+    inherited_grouped = _group_inherited_lock_files(
+        repo_root,
+        lock_files=resolution_inputs.inherited_lock_files,
+        targets=hash_targets,
+        generate_hashes=generate_hashes,
+    )
+    if not dependency_lines and not inherited_grouped:
         return LockFilePieces([])
     reports: Dict[str, Sequence[Mapping[str, object]]] = {}
     max_workers = min(
         len(hash_targets),
         max(1, _TARGET_RESOLUTION_MAX_WORKERS),
     )
-    if max_workers <= 1:
+    if dependency_lines and max_workers <= 1:
         for target in hash_targets:
             reports[target.target_id] = _resolve_complete_target_report(
                 repo_root,
                 dependency_lines=dependency_lines,
                 target=target,
             )
-    else:
+    elif dependency_lines:
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=max_workers
         ) as executor:
@@ -1754,10 +2035,24 @@ def _compile_target_surface_lock(
             ]
             for target, future in submitted:
                 reports[target.target_id] = future.result()
+    grouped = dict(inherited_grouped)
+    resolved_grouped = _group_target_reports(
+        targets=hash_targets,
+        report_entries=reports,
+    )
+    for version_map in resolved_grouped.values():
+        for version, entry in version_map.items():
+            _merge_grouped_target_entry(
+                grouped,
+                display_name=str(entry["display_name"]),
+                version=str(version),
+                hashes=entry["hashes"],
+                target_ids=set(entry["targets"]),
+            )
     return LockFilePieces(
-        _merge_target_reports(
+        _render_grouped_target_reports(
             targets=hash_targets,
-            report_entries=reports,
+            grouped=grouped,
             source_display_name=source_display_name,
             generate_hashes=generate_hashes,
         )
@@ -2093,12 +2388,21 @@ def _resolve_dependency_metadata(repo_root: Path) -> Dict[str, object]:
         context,
         custom_policy=custom_policy,
     )
+    options = bundle.decode_options()
     surfaces = dependency_management.resolve_dependency_surfaces(
         repo_root=repo_root,
-        raw_surfaces=bundle.decode_options().get("surfaces", []),
+        raw_surfaces=options.get("surfaces", []),
         include_inactive=True,
     )
-    return {"surfaces": surfaces}
+    license_source_overrides = (
+        dependency_management.resolve_license_source_overrides(
+            options.get("license_source_overrides", [])
+        )
+    )
+    return {
+        "surfaces": surfaces,
+        "license_source_overrides": license_source_overrides,
+    }
 
 
 def refresh_all(
@@ -2115,6 +2419,7 @@ def refresh_all(
         if isinstance(surface, dependency_management.DependencySurface)
         and surface.active
     ]
+    license_source_overrides = metadata.get("license_source_overrides", {})
     surfaces = _order_surfaces_for_refresh(surfaces)
     registry = PolicyRegistry(policy_registry_path(repo_root), repo_root)
     stored_runtime_state = registry.get_policy_runtime_state(POLICY_ID)
@@ -2173,6 +2478,7 @@ def refresh_all(
         result = _refresh_python_surface_lock(
             repo_root,
             surface=surface,
+            all_surfaces=surfaces,
         )
         results.append(result)
         if result.changed:
@@ -2219,6 +2525,7 @@ def refresh_all(
                 resolved_lock_file=surface.lock_file,
                 direct_dependency_files=surface.direct_dependency_files,
                 manage_licenses_readme=surface.manage_licenses_readme,
+                license_source_overrides=license_source_overrides,
             )
         )
         updated_surface_states[surface.surface_id] = (

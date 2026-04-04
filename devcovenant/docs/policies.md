@@ -275,6 +275,17 @@ Each surface owns:
 - one `licenses_dir`
 - optional hash-lock targets
 
+When a direct dependency does not bundle upstream license files in installed
+distribution metadata, repositories may declare
+`license_source_overrides`.
+Override entries are keyed by normalized package name through their `id`
+field and are consulted only after installed metadata yields no license
+texts.
+The builtin override kind is `archive_url`, which resolves one templated
+`url` and matching `member_globs` to collect license files from a tagged
+source archive.
+Templates may use `{package_name}`, `{normalized_name}`, and `{version}`.
+
 That means the policy can own more than one dependency surface at once.
 For example:
 1. `root_workspace`
@@ -297,6 +308,17 @@ Instead it resolves the full configured target closure from that surface's
 or fails explicitly.
 That keeps hash mode target-aware instead of GitHub-specific or
 host-platform-specific.
+When one managed surface consumes another managed surface's lock file,
+DevCovenant still emits one flat lock for the consuming surface, but it
+treats the inherited lock as an already-resolved provider surface instead of
+re-solving that provider's entire package set inside the consuming surface's
+target closure.
+That lets `root_workspace`, `devcovenant_runtime`, and `package_runtime`
+compose cleanly without forcing all three surfaces through one synthetic
+union-resolution pass.
+If inherited managed surfaces pin conflicting versions for the same target,
+refresh fails explicitly because one flat composed lock cannot represent that
+conflict safely.
 
 The shipped defaults are:
 1. `root_workspace`: hash mode
@@ -314,6 +336,10 @@ For the seeded Python stack, `root_workspace` starts from
 `devcovenant/runtime-requirements.lock`.
 `dependency-management refresh-all` then writes the resolved
 `requirements.lock` and the matching license artifacts for that surface.
+If a repository also composes its own `package_runtime` into the root
+workspace, the emitted `requirements.lock` still stays flat, but the
+root-surface resolver treats that inherited package lock as an owned
+provider surface instead of re-solving the package surface from scratch.
 Resolved locks are policy-owned outputs, not starter profile assets.
 For the builtin Python surfaces, the default target matrix covers supported
 CPython 3.10 through 3.14 on Linux, Windows, and macOS.

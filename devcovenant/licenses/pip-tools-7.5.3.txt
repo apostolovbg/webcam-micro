@@ -1,7 +1,9 @@
 # pip-tools 7.5.3
 
-This file aggregates the upstream license texts bundled with the
-installed distribution for `pip-tools==7.5.3`.
+This file aggregates the upstream license texts resolved for
+`pip-tools==7.5.3`.
+
+Resolved from: installed distribution metadata
 
 Included upstream files:
 - LICENSE

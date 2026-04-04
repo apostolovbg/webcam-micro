@@ -230,6 +230,14 @@ Surface overlays merge by `id`, so the normal pattern is:
 1. inherit the default surface ids
 2. override only the subkeys a repository needs to change
 
+The same rule applies to
+`dependency-management.license_source_overrides`.
+Keep fallback license-source declarations in that structured list instead of
+inventing repo-local scripts when a dependency omits bundled dist-info
+license files.
+Those override entries also merge by `id`, where the `id` is the normalized
+package name.
+
 ### engine
 This section controls general CLI behavior such as:
 - failure threshold

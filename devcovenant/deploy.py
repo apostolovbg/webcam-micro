@@ -19,11 +19,7 @@ import yaml
 import devcovenant.core.cli_support as cli_args_module
 import devcovenant.core.repository_paths as yaml_cache_service
 
-NORMAL_REPO_PRUNE_PATHS = (
-    Path("devcovenant/custom/policies"),
-    Path("tests/devcovenant/core"),
-    Path("devcovenant/custom/profiles/userproject"),
-)
+NORMAL_REPO_PRUNE_PATHS = (Path("tests/devcovenant/core"),)
 
 
 def _read_yaml(path: Path) -> dict[str, object]:

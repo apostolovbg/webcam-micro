@@ -290,6 +290,12 @@ In the default Python stack, `root_workspace` starts from `requirements.in`.
 That input inherits the shipped `devcovenant/runtime-requirements.lock`, and
 `dependency-management` then writes the real `requirements.lock` during
 `deploy`/`refresh`.
+When a repository also enables `package_runtime`, the normal composed shape is
+still three managed surfaces: `root_workspace`, `devcovenant_runtime`, and
+`package_runtime`.
+The root workspace stays flat, while dependency-management treats the
+inherited runtime locks as already-resolved provider surfaces instead of
+re-solving all three surfaces as one synthetic target closure.
 The builtin Python surfaces resolve against the supported CPython 3.11 through
 3.14 matrix on Linux, Windows, and macOS so workspace locks do not depend on
 the machine that happened to run refresh.

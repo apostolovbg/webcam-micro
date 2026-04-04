@@ -147,6 +147,9 @@ What those steps mean:
 
 4. `deploy` writes the managed docs, generated files, and other DevCovenant
    outputs, including dependency artifacts owned by the active surfaces.
+   Repo-owned custom policies and copied custom profiles stay in place during
+   that lifecycle work; the install/deploy/upgrade flow should not prune
+   `devcovenant/custom/**` content that belongs to the governed repository.
 
 5. Prepare the environment declared by the active profile stack before the
    first gate cycle.

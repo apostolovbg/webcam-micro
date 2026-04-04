@@ -60,6 +60,9 @@ The same applies to policy-resolved metadata such as
 surface declarations, the tracked registry records the new resolved lock
 paths, dependency selectors, artifact targets, and hash-target settings that
 later drive lock refresh behavior.
+The same dependency-management registry section also records resolved
+`license_source_overrides`, so registry diffs are expected when a repository
+adds or changes an explicit fallback source for dependency license texts.
 The same rule applies to `version-sync`: the tracked registry records the
 resolved version source file, role extractors, and role targets that define
 which docs, changelog files, and package manifests must stay synchronized.
@@ -100,6 +103,10 @@ surface moves, when a repository-specific custom profile overrides
 `root_workspace`, when a repository adds its own `package_runtime`, or when
 DevCovenant's bundled `devcovenant_runtime` surface changes its bootstrap lock
 behavior.
+The same runtime state also records per-surface fingerprints for composed
+dependency surfaces, so a source fix that changes how `root_workspace`
+inherits `devcovenant_runtime` or `package_runtime` is expected to refresh
+tracked registry state even when the flat lock output itself does not change.
 Tracked fingerprints must stay checkout-stable.
 They should be derived from repo-relative identity plus content, not from
 absolute machine-local checkout paths.

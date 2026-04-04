@@ -6,6 +6,7 @@ import contextlib
 import glob
 import math
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -155,15 +156,18 @@ def build_backend_plan() -> BackendPlan:
     """Return the documented backend baseline for the prototype."""
 
     return BackendPlan(
-        active_backend="FfmpegCameraBackend",
-        first_device_backend_target="FFmpeg-backed discovery and live preview",
+        active_backend="QtCameraBackend",
+        first_device_backend_target=(
+            "Qt Multimedia-backed discovery and live preview"
+        ),
         notes=(
-            "Stage 2 discovers cameras through platform-aware FFmpeg "
-            "enumeration.",
-            "Preview readers keep only the newest frame to avoid lag from "
-            "stale buffered frames.",
-            "Stage 4 adds a typed control surface and uses AVFoundation for "
-            "macOS camera-control access when available.",
+            "Stage 7 moves camera discovery and live preview onto Qt "
+            "Multimedia camera devices and capture sessions.",
+            "Preview readers keep only the newest frame surfaced through a "
+            "QVideoSink so the workspace renderer does not lag behind live "
+            "video.",
+            "The typed control surface still uses AVFoundation for macOS "
+            "camera-control access when available.",
         ),
     )
 
@@ -277,14 +281,14 @@ class MissingCameraDependencyError(RuntimeError):
     """Raised when the runtime camera backend dependency is unavailable."""
 
 
-def _load_imageio_ffmpeg():
-    """Import the FFmpeg helper lazily so smoke tests stay lightweight."""
+def _load_qt_camera_modules():
+    """Import Qt Multimedia lazily so smoke tests stay lightweight."""
 
     try:
-        import imageio_ffmpeg
+        from PySide6 import QtGui, QtMultimedia
     except ModuleNotFoundError:
-        return None
-    return imageio_ffmpeg
+        return None, None
+    return QtGui, QtMultimedia
 
 
 def _load_avfoundation_modules():
@@ -312,15 +316,143 @@ def _call_or_value(value: object) -> object:
 
 
 def _ffmpeg_executable() -> str:
-    """Return the managed FFmpeg binary path."""
+    """Return a fallback FFmpeg binary path from the current machine."""
 
-    imageio_ffmpeg = _load_imageio_ffmpeg()
-    if imageio_ffmpeg is None:
+    ffmpeg_executable = shutil.which("ffmpeg")
+    if ffmpeg_executable is None:
+        raise MissingCameraDependencyError(
+            "Install ffmpeg and make sure it is on PATH before opening the "
+            "fallback FFmpeg backend."
+        )
+    return ffmpeg_executable
+
+
+def _qt_camera_identifier_text(identifier: bytes) -> str | None:
+    """Return a stable text identifier for one Qt camera-device id."""
+
+    if not identifier:
+        return None
+    try:
+        decoded = identifier.decode("utf-8").strip("\x00")
+    except UnicodeDecodeError:
+        decoded = ""
+    if decoded:
+        return decoded
+    return identifier.hex()
+
+
+def _qt_camera_stable_id(device: object, *, fallback_index: int) -> str:
+    """Return one stable descriptor id for a Qt camera device."""
+
+    raw_identifier = bytes(device.id())
+    identifier = _qt_camera_identifier_text(raw_identifier)
+    if identifier:
+        return f"qt-camera::{identifier}"
+    return f"qt-camera::{fallback_index}"
+
+
+def _qt_camera_label(
+    *,
+    display_name: str,
+    identifier: str | None,
+    default_identifier: str | None,
+) -> str:
+    """Return the user-visible label for one Qt camera device."""
+
+    if identifier is not None and identifier == default_identifier:
+        return f"{display_name} (Default)"
+    return display_name
+
+
+def _discover_qt_cameras() -> tuple[CameraDescriptor, ...]:
+    """Discover cameras through Qt Multimedia video-input devices."""
+
+    _qt_gui, qt_multimedia = _load_qt_camera_modules()
+    if qt_multimedia is None:
         raise MissingCameraDependencyError(
             "Install the package runtime dependencies before opening a "
             "camera session."
         )
-    return imageio_ffmpeg.get_ffmpeg_exe()
+    default_device = qt_multimedia.QMediaDevices.defaultVideoInput()
+    default_identifier = _qt_camera_identifier_text(bytes(default_device.id()))
+    counts: dict[str, int] = {}
+    descriptors: list[CameraDescriptor] = []
+    for index, device in enumerate(qt_multimedia.QMediaDevices.videoInputs()):
+        display_name = device.description() or f"Camera {index + 1}"
+        occurrence_index = counts.get(display_name, 0)
+        counts[display_name] = occurrence_index + 1
+        identifier = _qt_camera_identifier_text(bytes(device.id()))
+        stable_id = _qt_camera_stable_id(device, fallback_index=index)
+        descriptors.append(
+            CameraDescriptor(
+                stable_id=stable_id,
+                display_name=_qt_camera_label(
+                    display_name=display_name,
+                    identifier=identifier,
+                    default_identifier=default_identifier,
+                ),
+                backend_name="qt_multimedia",
+                device_selector=stable_id,
+                native_identifier=identifier,
+                display_occurrence_index=occurrence_index,
+            )
+        )
+    return tuple(descriptors)
+
+
+def pack_preview_rgb_rows(
+    raw_bytes: bytes | bytearray | memoryview,
+    *,
+    width: int,
+    height: int,
+    bytes_per_line: int,
+) -> bytes:
+    """Pack padded RGB rows into one tightly packed preview payload."""
+
+    row_width = width * 3
+    trimmed = bytes(raw_bytes)[: bytes_per_line * height]
+    if bytes_per_line == row_width:
+        return trimmed[: row_width * height]
+    return b"".join(
+        trimmed[
+            row_index * bytes_per_line : row_index * bytes_per_line + row_width
+        ]
+        for row_index in range(height)
+    )
+
+
+def _rotation_angle_degrees(rotation_angle: object) -> int:
+    """Return the numeric degrees stored in one Qt rotation enum/value."""
+
+    raw_value = getattr(rotation_angle, "value", rotation_angle)
+    try:
+        return int(raw_value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _qimage_to_preview_frame(
+    image: Any,
+    *,
+    qt_gui: Any,
+    frame_number: int,
+) -> PreviewFrame:
+    """Convert one Qt image into the shared packed RGB preview payload."""
+
+    rgb_image = image.convertToFormat(qt_gui.QImage.Format.Format_RGB888)
+    width = int(rgb_image.width())
+    height = int(rgb_image.height())
+    return PreviewFrame(
+        width=width,
+        height=height,
+        rgb_bytes=pack_preview_rgb_rows(
+            rgb_image.bits(),
+            width=width,
+            height=height,
+            bytes_per_line=int(rgb_image.bytesPerLine()),
+        ),
+        frame_number=frame_number,
+    )
 
 
 def _run_discovery_command(command: list[str]) -> str:
@@ -901,6 +1033,94 @@ class AvFoundationCameraControlBackend:
         )
 
 
+class QtCameraSession:
+    """Capture preview frames from one Qt Multimedia camera session."""
+
+    def __init__(
+        self,
+        descriptor: CameraDescriptor,
+        camera_device: Any,
+        *,
+        qt_gui: Any,
+        qt_multimedia: Any,
+    ) -> None:
+        """Start one Qt camera, capture session, and preview sink."""
+
+        self.descriptor = descriptor
+        self._qt_gui = qt_gui
+        self._qt_multimedia = qt_multimedia
+        self._camera = qt_multimedia.QCamera(camera_device)
+        self._capture_session = qt_multimedia.QMediaCaptureSession()
+        self._video_sink = qt_multimedia.QVideoSink()
+        self._capture_session.setCamera(self._camera)
+        self._capture_session.setVideoSink(self._video_sink)
+        self._latest_frame: PreviewFrame | None = None
+        self._failure_reason: str | None = None
+        self._frame_number = -1
+        self._closed = False
+
+        self._video_sink.videoFrameChanged.connect(self._handle_video_frame)
+        self._camera.errorOccurred.connect(self._handle_camera_error)
+        self._camera.start()
+
+    def _handle_camera_error(self, _error: object, message: str) -> None:
+        """Record the most recent camera error message for the session."""
+
+        if message:
+            self._failure_reason = message
+            return
+        self._failure_reason = "Qt Multimedia preview failed."
+
+    def _handle_video_frame(self, frame: Any) -> None:
+        """Convert the newest Qt video frame into one packed RGB preview."""
+
+        if self._closed or not frame.isValid():
+            return
+        image = frame.toImage()
+        if image.isNull():
+            return
+        if frame.mirrored():
+            image = image.mirrored(True, False)
+        rotation_degrees = _rotation_angle_degrees(frame.rotationAngle())
+        if rotation_degrees:
+            transform = self._qt_gui.QTransform()
+            transform.rotate(rotation_degrees)
+            image = image.transformed(transform)
+        self._frame_number += 1
+        self._latest_frame = _qimage_to_preview_frame(
+            image,
+            qt_gui=self._qt_gui,
+            frame_number=self._frame_number,
+        )
+        self._failure_reason = None
+
+    def close(self) -> None:
+        """Stop the Qt camera and disconnect the preview sink cleanly."""
+
+        if self._closed:
+            return
+        self._closed = True
+        with contextlib.suppress(Exception):
+            self._video_sink.videoFrameChanged.disconnect(
+                self._handle_video_frame
+            )
+        with contextlib.suppress(Exception):
+            self._camera.errorOccurred.disconnect(self._handle_camera_error)
+        with contextlib.suppress(Exception):
+            self._camera.stop()
+
+    def get_latest_frame(self) -> PreviewFrame | None:
+        """Return the newest available Qt preview frame."""
+
+        return self._latest_frame
+
+    @property
+    def failure_reason(self) -> str | None:
+        """Return the most recent recoverable Qt session failure."""
+
+        return self._failure_reason
+
+
 class FfmpegCameraSession:
     """Capture preview frames from one FFmpeg camera session."""
 
@@ -1042,6 +1262,104 @@ class FfmpegCameraSession:
         with contextlib.suppress(Exception):
             if self._process.stderr is not None:
                 self._process.stderr.close()
+
+
+class QtCameraBackend:
+    """Discover cameras and open live preview sessions with Qt Multimedia."""
+
+    backend_name = "qt_multimedia"
+
+    def __init__(self) -> None:
+        """Validate the Qt runtime backend and initialize controls."""
+
+        self._qt_gui, self._qt_multimedia = _load_qt_camera_modules()
+        if self._qt_gui is None or self._qt_multimedia is None:
+            raise MissingCameraDependencyError(
+                "Install the package runtime dependencies before opening a "
+                "camera session."
+            )
+        if sys.platform == "darwin":
+            control_backend = AvFoundationCameraControlBackend()
+            if control_backend.available:
+                self._control_backend: CameraControlBackend = control_backend
+            else:
+                self._control_backend = NullCameraControlBackend()
+        else:
+            self._control_backend = NullCameraControlBackend()
+
+    def _camera_device_for_descriptor(
+        self, descriptor: CameraDescriptor
+    ) -> Any | None:
+        """Return the Qt camera device matching one shared descriptor."""
+
+        assert self._qt_multimedia is not None
+        for index, device in enumerate(
+            self._qt_multimedia.QMediaDevices.videoInputs()
+        ):
+            if (
+                _qt_camera_stable_id(device, fallback_index=index)
+                == descriptor.stable_id
+            ):
+                return device
+            identifier = _qt_camera_identifier_text(bytes(device.id()))
+            if (
+                descriptor.native_identifier is not None
+                and identifier == descriptor.native_identifier
+            ):
+                return device
+        return None
+
+    def discover_cameras(self) -> tuple[CameraDescriptor, ...]:
+        """Return the cameras Qt Multimedia can currently enumerate."""
+
+        return _discover_qt_cameras()
+
+    def open_session(self, descriptor: CameraDescriptor) -> QtCameraSession:
+        """Open one Qt camera session for the provided descriptor."""
+
+        camera_device = self._camera_device_for_descriptor(descriptor)
+        if camera_device is None:
+            raise RuntimeError(
+                "The selected camera could not be found in the current Qt "
+                "device list."
+            )
+        assert self._qt_gui is not None
+        assert self._qt_multimedia is not None
+        return QtCameraSession(
+            descriptor=descriptor,
+            camera_device=camera_device,
+            qt_gui=self._qt_gui,
+            qt_multimedia=self._qt_multimedia,
+        )
+
+    def list_controls(
+        self, descriptor: CameraDescriptor
+    ) -> tuple[CameraControl, ...]:
+        """Return the control surface for the selected camera."""
+
+        return self._control_backend.list_controls(descriptor)
+
+    def set_control_value(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+        value: object,
+    ) -> None:
+        """Apply one control value through the composed control backend."""
+
+        self._control_backend.set_control_value(descriptor, control_id, value)
+
+    def trigger_control_action(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+    ) -> None:
+        """Trigger one action control through the composed backend."""
+
+        self._control_backend.trigger_control_action(
+            descriptor,
+            control_id,
+        )
 
 
 class FfmpegCameraBackend:

@@ -1,7 +1,9 @@
 # filelock 3.25.2
 
-This file aggregates the upstream license texts bundled with the
-installed distribution for `filelock==3.25.2`.
+This file aggregates the upstream license texts resolved for
+`filelock==3.25.2`.
+
+Resolved from: installed distribution metadata
 
 Included upstream files:
 - LICENSE

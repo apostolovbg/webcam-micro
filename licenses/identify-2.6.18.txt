@@ -1,7 +1,9 @@
 # identify 2.6.18
 
-This file aggregates the upstream license texts bundled with the
-installed distribution for `identify==2.6.18`.
+This file aggregates the upstream license texts resolved for
+`identify==2.6.18`.
+
+Resolved from: installed distribution metadata
 
 Included upstream files:
 - LICENSE

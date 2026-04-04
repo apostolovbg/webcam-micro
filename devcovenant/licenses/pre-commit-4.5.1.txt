@@ -1,7 +1,9 @@
 # pre-commit 4.5.1
 
-This file aggregates the upstream license texts bundled with the
-installed distribution for `pre-commit==4.5.1`.
+This file aggregates the upstream license texts resolved for
+`pre-commit==4.5.1`.
+
+Resolved from: installed distribution metadata
 
 Included upstream files:
 - LICENSE

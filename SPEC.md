@@ -6,7 +6,7 @@
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
-**Last Updated:** 2026-04-03
+**Last Updated:** 2026-04-04
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -50,10 +50,10 @@ and required workflow law in `AGENTS.md`.
 
 - Current scope: the current release line covers all platforms from the
   start, source-run development workflows, PyPI distribution as a proper
-  Python package, live preview, fullscreen mode, a separate controls window,
-  configurable crop and framing behavior, still capture, video recording,
-  persistent folders, shortcuts, presets, defaults, and microscope-specific
-  workflow support such as calibration and overlays.
+  Python package, live preview, fullscreen mode, a dedicated controls
+  surface, configurable crop and framing behavior, still capture, video
+  recording, persistent folders, shortcuts, presets, defaults, and
+  microscope-specific workflow support such as calibration and overlays.
 
 - Success signal: the product is clearly working when a user can run it from
   source or install it from PyPI, open a supported camera, see a preview,
@@ -121,10 +121,11 @@ useful than a generic webcam app with accidental microscope applicability.
   emulated as native camera capabilities.
 
 ## Users and Actors
-- Primary user or actor: a microscope user working with a webcam or microscope
-  camera on a desktop machine. This user needs a preview-first GUI, sensible
-  microscope framing, easy image and video capture, a separate controls
-  window, persistent defaults, and shortcuts that reduce repetitive setup.
+- Primary user or actor: a microscope user working with a webcam or
+  microscope camera on a desktop machine. This user needs a preview-first
+  GUI, sensible microscope framing, easy image and video capture, a dedicated
+  controls surface, persistent defaults, and shortcuts that reduce
+  repetitive setup.
 
 - Secondary user or actor: a power user or laboratory-style operator who
   switches between cameras, source modes, presets, and capture workflows. This
@@ -144,8 +145,8 @@ useful than a generic webcam app with accidental microscope applicability.
 
    - Main path: the application discovers cameras, opens the selected device,
      applies saved or built-in defaults where valid, opens the live preview,
-     restores the preferred framing mode, and allows the user to open the
-     separate controls window.
+     restores the preferred framing mode, and allows the user to show or hide
+     the dedicated controls surface.
 
    - Result: the user gets a usable live microscope preview with the expected
      framing and accessible camera controls.
@@ -166,10 +167,10 @@ useful than a generic webcam app with accidental microscope applicability.
    - Trigger: the user enters fullscreen mode from the toolbar, menu, or
      shortcut.
 
-   - Main path: the preview expands to the full screen, the normal toolbar
-     transitions into a detached movable toolbar, the user may collapse it to
-     the minimal fullscreen control surface, and the application preserves a
-     clear path back to windowed mode.
+   - Main path: the preview expands to the full screen, the windowed command
+     surfaces transition into a compact fullscreen command surface, the user
+     may collapse it to the minimal fullscreen surface, and the application
+     preserves a clear path back to windowed mode.
 
    - Result: the user gets an immersive microscope view while retaining access
      to essential actions and safe fullscreen exit controls.
@@ -181,39 +182,40 @@ useful than a generic webcam app with accidental microscope applicability.
 - The product must be runnable both as an installed package and directly from
   source during development and testing.
 
-- The main application window must contain a menu bar, a top toolbar, a
-  central preview area, and a dynamic status bar at the bottom.
+- The main application window must contain a primary command surface, a
+  central preview area, a toggleable dedicated controls surface, and a
+  dynamic status bar.
 
-- The product must provide a separate controls window that can be opened and
-  closed independently of the main window so that camera controls do not
-  permanently consume preview space.
+- The product must provide a dedicated controls surface that can be shown and
+  hidden from the main workspace so that camera controls do not permanently
+  consume preview space.
 
-- The product must provide a standard desktop menu structure covering File,
-  Edit, View, Camera, Capture, Tools, and Help functional areas.
+- The product must provide a standard desktop command structure covering
+  File, Edit, View, Camera, Capture, Tools, and Help functional areas.
 
-- The windowed main toolbar must expose the primary working actions, including
-  at minimum controls-window toggle, still capture, record toggle,
-  fullscreen/windowed toggle, preferences access, and camera or preset related
-  actions.
+- The windowed command surfaces must expose the primary working actions,
+  including at minimum controls-surface toggle, still capture, record toggle,
+  fullscreen/windowed toggle, preferences access, and camera or preset
+  related actions.
 
 - The rightmost visible end of the main toolbar must display:
   `© Apostol Apostolov`
 
 - The product must provide a dedicated fullscreen mode in which the preview
-  occupies the full screen and the normal toolbar is replaced by a detached
-  movable toolbar with a handle.
+  occupies the full screen and the windowed command surfaces are replaced by
+  a compact fullscreen command surface.
 
-- The detached fullscreen toolbar must support expanded and collapsed states.
+- The fullscreen command surface must support expanded and collapsed states.
 
-- In expanded fullscreen-toolbar state, the toolbar must include the normal
-  fullscreen action set, the fullscreen/windowed toggle, the collapse/expand
-  control, and the toolbar handle.
+- In expanded fullscreen-command state, the surface must include the normal
+  fullscreen action set, the fullscreen/windowed toggle, and the
+  collapse/expand control.
 
-- In collapsed fullscreen-toolbar state, the toolbar must reduce to the
+- In collapsed fullscreen-command state, the surface must reduce to the
   collapse/expand control and the fullscreen/windowed toggle only.
 
 - The fullscreen/windowed toggle and collapse/expand control must remain
-  visible in both expanded and collapsed fullscreen-toolbar states.
+  visible in both expanded and collapsed fullscreen-command states.
 
 - The product must provide live preview layout modes appropriate for
   microscope work, including fit-to-screen, fill-screen, and crop-based
@@ -312,9 +314,9 @@ useful than a generic webcam app with accidental microscope applicability.
   must persist user-selected output folders across launches.
 
 - The product must provide user-configurable keyboard shortcuts for primary
-  actions including still capture, record toggle, controls-window toggle,
-  fullscreen/windowed toggle, fullscreen-toolbar collapse/expand, preferences
-  access, and framing-mode changes.
+  actions including still capture, record toggle, controls-surface toggle,
+  fullscreen/windowed toggle, fullscreen-surface collapse/expand,
+  preferences access, and framing-mode changes.
 
 - Shortcut conflicts must be detected and prevented.
 
@@ -326,7 +328,8 @@ useful than a generic webcam app with accidental microscope applicability.
 - The application must persist user preferences across launches, including at
   minimum selected camera where appropriate, source mode preferences, preview
   framing mode, capture framing mode, image folder, video folder, shortcuts,
-  main-window geometry, controls-window geometry, fullscreen-toolbar state,
+  main-window geometry, controls-surface visibility,
+  fullscreen-surface state,
   and per-camera defaults or presets.
 
 - The product must provide a user-accessible diagnostics surface or log view
@@ -365,13 +368,13 @@ useful than a generic webcam app with accidental microscope applicability.
 - Important entities: active camera identity, camera capability set, source
   mode, preview framing mode, capture framing mode, per-camera settings,
   built-in defaults, user presets, image outputs, video outputs, keyboard
-  shortcut map, window geometry, controls-window state, and fullscreen-toolbar
-  state.
+  shortcut map, window geometry, controls-surface visibility, and
+  fullscreen-surface state.
 
 - Important state transitions: the application moves between no-camera and
-  active-camera states, windowed and fullscreen states, expanded and collapsed
-  fullscreen-toolbar states, idle and recording states, and unsaved/runtime
-  state versus persisted preference state.
+  active-camera states, windowed and fullscreen states, expanded and
+  collapsed fullscreen-command states, idle and recording states, and
+  unsaved/runtime state versus persisted preference state.
 
 - Persistence rules: per-camera settings, output folders, shortcuts, framing
   defaults, selected modes, and window/layout state must be stored
@@ -384,9 +387,9 @@ useful than a generic webcam app with accidental microscope applicability.
   failure occurred.
 
 ## Interfaces and Dependencies
-- External interfaces: desktop GUI, application menus, toolbar actions,
-  keyboard shortcuts, image and video output files, platform camera backends,
-  the PyPI package distribution, and the application entrypoint exposed as
+- External interfaces: desktop GUI, application command surfaces, keyboard
+  shortcuts, image and video output files, platform camera backends, the
+  PyPI package distribution, and the application entrypoint exposed as
   `webcam-micro`.
 
 - Internal interfaces: UI layer, camera-discovery layer, camera-control
@@ -397,9 +400,11 @@ useful than a generic webcam app with accidental microscope applicability.
 - Dependencies: Python runtime, a cross-platform Python GUI toolkit, platform
   camera APIs or compatible backend integrations, image/video encoding support,
   and platform integration mechanisms appropriate to the active platform. The
-  initial GUI shell baseline is `ttkbootstrap` on top of Tk, and the first
-  concrete device-backend target is FFmpeg-backed discovery and low-latency
-  preview behind a backend adapter layer.
+  current GUI shell baseline is `PySide6` with Qt Widgets, and the current
+  device-backend target is Qt Multimedia-backed camera discovery and
+  low-latency preview behind a thinner backend adapter layer that keeps
+  microscope-specific policy and native control bridges without rebuilding a
+  parallel preview stack.
 
 - Compatibility expectations: the PyPI package is intended to work on all
   platforms; source-run development must be supported; platform backend
@@ -425,20 +430,20 @@ useful than a generic webcam app with accidental microscope applicability.
   on any platform, open a camera session, and use the main preview workflow
   without needing a terminal for runtime interaction.
 
-- A user can open the controls window, adjust the controls that the active
+- A user can open the controls surface, adjust the controls that the active
   camera exposes, switch between fit/fill/crop framing behavior, capture a
   still image, start and stop a video recording, and find the outputs in the
   configured folders.
 
-- A user on any platform can enter fullscreen mode, use the detached toolbar
-  in expanded and collapsed states, exit fullscreen safely, relaunch the
-  application later, and observe persisted defaults, folders, presets, and
-  shortcut behavior consistent with the saved configuration.
+- A user on any platform can enter fullscreen mode, use the fullscreen
+  command surface in expanded and collapsed states, exit fullscreen safely,
+  relaunch the application later, and observe persisted defaults, folders,
+  presets, and shortcut behavior consistent with the saved configuration.
 
 ## Open Questions
 - What should the exact default keyboard-shortcut map be for first release,
   including still capture, record toggle, framing-mode change, and
-  fullscreen-toolbar collapse/expand actions?
+  fullscreen-surface collapse/expand actions?
 
 - Should the first release support optional uncropped capture alongside the
   default “capture follows configured preview/output framing” behavior, or

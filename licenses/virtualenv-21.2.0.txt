@@ -1,7 +1,9 @@
 # virtualenv 21.2.0
 
-This file aggregates the upstream license texts bundled with the
-installed distribution for `virtualenv==21.2.0`.
+This file aggregates the upstream license texts resolved for
+`virtualenv==21.2.0`.
+
+Resolved from: installed distribution metadata
 
 Included upstream files:
 - LICENSE

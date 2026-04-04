@@ -1,9 +1,14 @@
 """DevCovenant policy: keep dependency artifacts synchronized."""
 
 import fnmatch
+import functools
 import importlib.metadata as importlib_metadata
+import io
 import re
+import tarfile
 import tomllib
+import urllib.request
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Sequence
@@ -70,6 +75,24 @@ class DependencySurface:
     generate_hashes: bool
     required_paths: List[str]
     hash_targets: List[DependencySurfaceTarget]
+
+
+@dataclass(frozen=True)
+class DependencyLicenseSourceOverride:
+    """One fallback source used when installed metadata lacks licenses."""
+
+    package_name: str
+    kind: str
+    url: str
+    member_globs: List[str]
+
+
+@dataclass(frozen=True)
+class DependencyLicenseSourceBundle:
+    """Resolved upstream license texts and their provenance."""
+
+    origin_description: str
+    sources: List[tuple[str, str]]
 
 
 def _normalize_list(value: object) -> list[str]:
@@ -665,6 +688,72 @@ def resolve_dependency_roles(raw: object) -> list[str]:
     return _normalize_dependency_roles(raw)
 
 
+def resolve_license_source_overrides(
+    raw: object,
+) -> dict[str, DependencyLicenseSourceOverride]:
+    """Return normalized fallback license sources keyed by package name."""
+
+    if raw in (None, "", []):
+        return {}
+    if not isinstance(raw, list):
+        raise ValueError(
+            "dependency-management `license_source_overrides` must be a "
+            "list of mappings."
+        )
+    overrides: dict[str, DependencyLicenseSourceOverride] = {}
+    for raw_entry in raw:
+        if not isinstance(raw_entry, Mapping):
+            raise ValueError(
+                "dependency-management `license_source_overrides` entries "
+                "must be mappings."
+            )
+        raw_id = str(raw_entry.get("id", "")).strip()
+        if not raw_id:
+            raise ValueError(
+                "dependency-management "
+                "`license_source_overrides[].id` is required."
+            )
+        package_name = _normalize_distribution_name(raw_id)
+        if not package_name:
+            raise ValueError(
+                "dependency-management "
+                "`license_source_overrides[].id` must name a package."
+            )
+        if package_name in overrides:
+            raise ValueError(
+                "dependency-management `license_source_overrides` contains "
+                f"duplicate id `{package_name}`."
+            )
+        kind = str(raw_entry.get("kind", "")).strip().lower()
+        if kind != "archive_url":
+            raise ValueError(
+                "dependency-management "
+                "`license_source_overrides[].kind` must be "
+                "`archive_url`."
+            )
+        url = str(raw_entry.get("url", "")).strip()
+        if not url:
+            raise ValueError(
+                "dependency-management "
+                "`license_source_overrides[].url` is required."
+            )
+        member_globs = _normalize_surface_globs(
+            raw_entry.get("member_globs", [])
+        )
+        if not member_globs:
+            raise ValueError(
+                "dependency-management "
+                "`license_source_overrides[].member_globs` is required."
+            )
+        overrides[package_name] = DependencyLicenseSourceOverride(
+            package_name=package_name,
+            kind=kind,
+            url=url,
+            member_globs=member_globs,
+        )
+    return overrides
+
+
 def parse_role_selector_entries(
     *,
     entries: list[str],
@@ -1027,7 +1116,7 @@ def _find_distribution(name: str):
     raise importlib_metadata.PackageNotFoundError(name)
 
 
-def _distribution_license_sources(dist) -> list[tuple[str, str]]:
+def _installed_distribution_license_sources(dist) -> list[tuple[str, str]]:
     """Return bundled upstream license texts for one installed distribution."""
     files = dist.files or []
     collected: list[tuple[str, str]] = []
@@ -1045,29 +1134,202 @@ def _distribution_license_sources(dist) -> list[tuple[str, str]]:
         if not located.exists() or not located.is_file():
             continue
         collected.append((name, located.read_text(encoding="utf-8")))
-    if not collected:
-        package_name = dist.metadata.get(
-            "Name", dist.metadata.get("Summary", "")
-        )
-        raise RuntimeError(
-            "No upstream license files were found in the installed "
-            f"distribution metadata for `{package_name or dist}`."
-        )
     return collected
+
+
+def _render_license_source_template(
+    template: str,
+    *,
+    package_name: str,
+    normalized_name: str,
+    version: str,
+) -> str:
+    """Render package/version placeholders inside license-source metadata."""
+
+    try:
+        return str(template).format(
+            package_name=package_name,
+            normalized_name=normalized_name,
+            version=version,
+        )
+    except KeyError as error:
+        missing_key = str(error).strip("'")
+        raise ValueError(
+            "dependency-management license-source templates may use only "
+            "`{package_name}`, `{normalized_name}`, and `{version}`; "
+            f"`{missing_key}` is unsupported."
+        ) from error
+    except ValueError as error:
+        raise ValueError(
+            "dependency-management license-source templates must use valid "
+            f"`str.format` syntax: {error}"
+        ) from error
+
+
+@functools.lru_cache(maxsize=32)
+def _read_url_bytes(url: str) -> bytes:
+    """Return cached bytes fetched from one remote license-source URL."""
+
+    with urllib.request.urlopen(url) as response:  # nosec B310
+        return response.read()
+
+
+def _archive_license_sources_from_bytes(
+    raw_bytes: bytes,
+    *,
+    member_globs: Sequence[str],
+    source_label: str,
+) -> list[tuple[str, str]]:
+    """Extract matching UTF-8 license texts from one archive payload."""
+
+    collected: list[tuple[str, str]] = []
+    buffer = io.BytesIO(raw_bytes)
+    if zipfile.is_zipfile(buffer):
+        buffer.seek(0)
+        with zipfile.ZipFile(buffer) as archive:
+            for member in sorted(
+                archive.infolist(),
+                key=lambda item: item.filename.lower(),
+            ):
+                member_name = str(member.filename)
+                if member.is_dir() or not any(
+                    fnmatch.fnmatch(member_name, pattern)
+                    for pattern in member_globs
+                ):
+                    continue
+                try:
+                    source_text = archive.read(member).decode("utf-8")
+                except UnicodeDecodeError as error:
+                    raise RuntimeError(
+                        "Archive license source "
+                        f"`{source_label}` contains non-UTF-8 member "
+                        f"`{member_name}`."
+                    ) from error
+                collected.append((member_name, source_text))
+        return collected
+
+    buffer.seek(0)
+    try:
+        with tarfile.open(fileobj=buffer, mode="r:*") as archive:
+            for member in sorted(
+                archive.getmembers(),
+                key=lambda item: item.name.lower(),
+            ):
+                member_name = str(member.name)
+                if not member.isfile() or not any(
+                    fnmatch.fnmatch(member_name, pattern)
+                    for pattern in member_globs
+                ):
+                    continue
+                extracted = archive.extractfile(member)
+                if extracted is None:
+                    continue
+                try:
+                    source_text = extracted.read().decode("utf-8")
+                except UnicodeDecodeError as error:
+                    raise RuntimeError(
+                        "Archive license source "
+                        f"`{source_label}` contains non-UTF-8 member "
+                        f"`{member_name}`."
+                    ) from error
+                collected.append((member_name, source_text))
+    except tarfile.TarError as error:
+        raise RuntimeError(
+            "dependency-management archive license source "
+            f"`{source_label}` must be a supported tar or zip archive."
+        ) from error
+    return collected
+
+
+def _archive_license_source_bundle(
+    *,
+    package_name: str,
+    normalized_name: str,
+    version: str,
+    override: DependencyLicenseSourceOverride,
+) -> DependencyLicenseSourceBundle:
+    """Resolve one archive-backed fallback license-source bundle."""
+
+    resolved_url = _render_license_source_template(
+        override.url,
+        package_name=package_name,
+        normalized_name=normalized_name,
+        version=version,
+    )
+    resolved_member_globs = [
+        _render_license_source_template(
+            member_glob,
+            package_name=package_name,
+            normalized_name=normalized_name,
+            version=version,
+        )
+        for member_glob in override.member_globs
+    ]
+    collected = _archive_license_sources_from_bytes(
+        _read_url_bytes(resolved_url),
+        member_globs=resolved_member_globs,
+        source_label=resolved_url,
+    )
+    if not collected:
+        raise RuntimeError(
+            "dependency-management archive license source "
+            f"`{resolved_url}` matched no members for `{package_name}`."
+        )
+    return DependencyLicenseSourceBundle(
+        origin_description=f"source archive `{resolved_url}`",
+        sources=collected,
+    )
+
+
+def _resolve_dependency_license_bundle(
+    *,
+    package_name: str,
+    version: str,
+    dist,
+    license_source_overrides: (
+        Mapping[str, DependencyLicenseSourceOverride] | None
+    ) = None,
+) -> DependencyLicenseSourceBundle:
+    """Resolve upstream license texts from installed metadata or fallback."""
+
+    installed_sources = _installed_distribution_license_sources(dist)
+    if installed_sources:
+        return DependencyLicenseSourceBundle(
+            origin_description="installed distribution metadata",
+            sources=installed_sources,
+        )
+    normalized_name = _normalize_distribution_name(package_name)
+    override = (license_source_overrides or {}).get(normalized_name)
+    if override is not None:
+        return _archive_license_source_bundle(
+            package_name=package_name,
+            normalized_name=normalized_name,
+            version=version,
+            override=override,
+        )
+    raise RuntimeError(
+        "No upstream license files were found in the installed "
+        f"distribution metadata for `{package_name}`, and no "
+        "`license_source_overrides` entry is configured for "
+        f"`{normalized_name}`."
+    )
 
 
 def _render_dependency_license_text(
     *,
     package_name: str,
     version: str,
+    origin_description: str,
     sources: list[tuple[str, str]],
 ) -> str:
     """Render one local aggregate license text for a direct dependency."""
     lines = [
         f"# {package_name} {version}",
         "",
-        "This file aggregates the upstream license texts bundled with the",
-        f"installed distribution for `{package_name}=={version}`.",
+        "This file aggregates the upstream license texts resolved for",
+        f"`{package_name}=={version}`.",
+        "",
+        f"Resolved from: {origin_description}",
         "",
         "Included upstream files:",
     ]
@@ -1227,6 +1489,9 @@ def _sync_dependency_license_files(
     licenses_dir: str,
     inventory: list[dict[str, str]],
     existing_inventory_paths: set[str],
+    license_source_overrides: (
+        Mapping[str, DependencyLicenseSourceOverride] | None
+    ) = None,
 ) -> list[Path]:
     """Materialize current dependency license texts and prune stale ones."""
     modified: list[Path] = []
@@ -1240,11 +1505,17 @@ def _sync_dependency_license_files(
         version = str(entry["version"])
         target_path = licenses_dir_path / str(entry["relative_path"])
         dist = _find_distribution(package_name)
-        sources = _distribution_license_sources(dist)
+        bundle = _resolve_dependency_license_bundle(
+            package_name=package_name,
+            version=version,
+            dist=dist,
+            license_source_overrides=license_source_overrides,
+        )
         rendered = _render_dependency_license_text(
             package_name=package_name,
             version=version,
-            sources=sources,
+            origin_description=bundle.origin_description,
+            sources=bundle.sources,
         )
         if not target_path.exists() or (
             target_path.read_text(encoding="utf-8") != rendered
@@ -1302,6 +1573,9 @@ def _licenses_dir_is_in_sync(
     inventory: list[dict[str, str]],
     existing_inventory_paths: set[str],
     manage_licenses_readme: bool,
+    license_source_overrides: (
+        Mapping[str, DependencyLicenseSourceOverride] | None
+    ) = None,
 ) -> bool:
     """Return True when generated license artifacts already match runtime."""
     normalized_licenses_dir = _normalized_rel(licenses_dir).strip("/")
@@ -1316,11 +1590,17 @@ def _licenses_dir_is_in_sync(
         if not target_path.exists():
             return False
         dist = _find_distribution(package_name)
-        sources = _distribution_license_sources(dist)
+        bundle = _resolve_dependency_license_bundle(
+            package_name=package_name,
+            version=version,
+            dist=dist,
+            license_source_overrides=license_source_overrides,
+        )
         rendered = _render_dependency_license_text(
             package_name=package_name,
             version=version,
-            sources=sources,
+            origin_description=bundle.origin_description,
+            sources=bundle.sources,
         )
         if target_path.read_text(encoding="utf-8") != rendered:
             return False
@@ -1361,6 +1641,9 @@ def _license_artifacts_need_refresh(
     resolved_lock_file: str = "requirements.lock",
     direct_dependency_files: Iterable[str] | None = None,
     manage_licenses_readme: bool = True,
+    license_source_overrides: (
+        Mapping[str, DependencyLicenseSourceOverride] | None
+    ) = None,
 ) -> tuple[bool, bool]:
     """Return whether the report or licenses directory is out of sync."""
     third_party_path, licenses_dir_path = _resolve_artifact_targets(
@@ -1406,6 +1689,7 @@ def _license_artifacts_need_refresh(
         inventory=inventory,
         existing_inventory_paths=existing_inventory_paths,
         manage_licenses_readme=manage_licenses_readme,
+        license_source_overrides=license_source_overrides,
     )
     return report_needs_refresh, licenses_dir_needs_refresh
 
@@ -1420,6 +1704,9 @@ def refresh_license_artifacts(
     resolved_lock_file: str = "requirements.lock",
     direct_dependency_files: Iterable[str] | None = None,
     manage_licenses_readme: bool = True,
+    license_source_overrides: (
+        Mapping[str, DependencyLicenseSourceOverride] | None
+    ) = None,
 ) -> List[Path]:
     """Refresh configured report file and licenses marker files."""
 
@@ -1470,6 +1757,7 @@ def refresh_license_artifacts(
             licenses_dir=licenses_dir,
             inventory=inventory,
             existing_inventory_paths=existing_inventory_paths,
+            license_source_overrides=license_source_overrides,
         )
     )
 
@@ -1513,6 +1801,9 @@ def _surface_violations(
     resolved_lock_file: str = "requirements.lock",
     direct_dependency_files: Iterable[str] | None = None,
     manage_licenses_readme: bool = True,
+    license_source_overrides: (
+        Mapping[str, DependencyLicenseSourceOverride] | None
+    ) = None,
 ) -> list[Violation]:
     """Return dependency-artifact drift violations for one artifact surface."""
 
@@ -1583,6 +1874,7 @@ def _surface_violations(
             resolved_lock_file=resolved_lock_file,
             direct_dependency_files=direct_dependency_files,
             manage_licenses_readme=manage_licenses_readme,
+            license_source_overrides=license_source_overrides,
         )
     )
 
@@ -1710,6 +2002,9 @@ class DependencyManagementCheck(PolicyCheck):
             return []
 
         try:
+            license_source_overrides = resolve_license_source_overrides(
+                self.get_option("license_source_overrides", [])
+            )
             surfaces = resolve_dependency_surfaces(
                 repo_root=context.repo_root,
                 raw_surfaces=self.get_option("surfaces", []),
@@ -1756,6 +2051,7 @@ class DependencyManagementCheck(PolicyCheck):
                     resolved_lock_file=surface.lock_file,
                     direct_dependency_files=surface.direct_dependency_files,
                     manage_licenses_readme=surface.manage_licenses_readme,
+                    license_source_overrides=license_source_overrides,
                 )
             )
         return violations

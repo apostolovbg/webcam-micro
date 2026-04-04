@@ -98,6 +98,22 @@ ci_and_test:
             name: webcam-micro-provenance
             path: artifacts/provenance/*.json
 policy_overlays:
+  package-doc-sync:
+    sync_pairs:
+      - README.md=>webcam_micro/README.md
+    omit_block_pairs:
+      - "<!-- REPO-ONLY:BEGIN -->=><!-- REPO-ONLY:END -->"
+    rewrite_repo_relative_links: true
+  documentation-growth-tracking:
+    user_visible_files:
+      - webcam_micro/README.md
+    doc_quality_files:
+      - webcam_micro/README.md
+  last-updated:
+    allowed_globs:
+      - webcam_micro/README.md
+    required_globs:
+      - webcam_micro/README.md
   line-length-limit:
     exclude_globs:
       - webcam_micro/licenses/*.txt
@@ -107,6 +123,13 @@ policy_overlays:
     scheme: pep440
     version_file: webcam_micro/VERSION
   dependency-management:
+    license_source_overrides:
+      - id: flet
+        kind: archive_url
+        url: >-
+          https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
+        member_globs:
+          - flet-{version}/LICENSE
     surfaces:
       - id: root_workspace
         direct_dependency_files:
@@ -120,7 +143,177 @@ policy_overlays:
           - requirements.in
           - devcovenant/runtime-requirements.lock
           - webcam_micro/runtime-requirements.lock
+        hash_targets:
+          - id: linux-py311
+            marker: sys_platform == "linux" and python_version == "3.11"
+            pip:
+              platform: manylinux_2_34_x86_64
+              implementation: cp
+              python_version: '3.11'
+              abi: cp311
+          - id: linux-py312
+            marker: sys_platform == "linux" and python_version == "3.12"
+            pip:
+              platform: manylinux_2_34_x86_64
+              implementation: cp
+              python_version: '3.12'
+              abi: cp312
+          - id: linux-py313
+            marker: sys_platform == "linux" and python_version == "3.13"
+            pip:
+              platform: manylinux_2_34_x86_64
+              implementation: cp
+              python_version: '3.13'
+              abi: cp313
+          - id: linux-py314
+            marker: sys_platform == "linux" and python_version == "3.14"
+            pip:
+              platform: manylinux_2_34_x86_64
+              implementation: cp
+              python_version: '3.14'
+              abi: cp314
+          - id: windows-py311
+            marker: sys_platform == "win32" and python_version == "3.11"
+            pip:
+              platform: win_amd64
+              implementation: cp
+              python_version: '3.11'
+              abi: cp311
+          - id: windows-py312
+            marker: sys_platform == "win32" and python_version == "3.12"
+            pip:
+              platform: win_amd64
+              implementation: cp
+              python_version: '3.12'
+              abi: cp312
+          - id: windows-py313
+            marker: sys_platform == "win32" and python_version == "3.13"
+            pip:
+              platform: win_amd64
+              implementation: cp
+              python_version: '3.13'
+              abi: cp313
+          - id: windows-py314
+            marker: sys_platform == "win32" and python_version == "3.14"
+            pip:
+              platform: win_amd64
+              implementation: cp
+              python_version: '3.14'
+              abi: cp314
+          - id: macos-py311
+            marker: sys_platform == "darwin" and python_version == "3.11"
+            pip:
+              platform: macosx_13_0_universal2
+              implementation: cp
+              python_version: '3.11'
+              abi: cp311
+          - id: macos-py312
+            marker: sys_platform == "darwin" and python_version == "3.12"
+            pip:
+              platform: macosx_13_0_universal2
+              implementation: cp
+              python_version: '3.12'
+              abi: cp312
+          - id: macos-py313
+            marker: sys_platform == "darwin" and python_version == "3.13"
+            pip:
+              platform: macosx_13_0_universal2
+              implementation: cp
+              python_version: '3.13'
+              abi: cp313
+          - id: macos-py314
+            marker: sys_platform == "darwin" and python_version == "3.14"
+            pip:
+              platform: macosx_13_0_universal2
+              implementation: cp
+              python_version: '3.14'
+              abi: cp314
       - id: package_runtime
         lock_file: webcam_micro/runtime-requirements.lock
         third_party_file: webcam_micro/licenses/THIRD_PARTY_LICENSES.md
         licenses_dir: webcam_micro/licenses
+        hash_targets:
+          - id: linux-py311
+            marker: sys_platform == "linux" and python_version == "3.11"
+            pip:
+              platform: manylinux_2_34_x86_64
+              implementation: cp
+              python_version: '3.11'
+              abi: cp311
+          - id: linux-py312
+            marker: sys_platform == "linux" and python_version == "3.12"
+            pip:
+              platform: manylinux_2_34_x86_64
+              implementation: cp
+              python_version: '3.12'
+              abi: cp312
+          - id: linux-py313
+            marker: sys_platform == "linux" and python_version == "3.13"
+            pip:
+              platform: manylinux_2_34_x86_64
+              implementation: cp
+              python_version: '3.13'
+              abi: cp313
+          - id: linux-py314
+            marker: sys_platform == "linux" and python_version == "3.14"
+            pip:
+              platform: manylinux_2_34_x86_64
+              implementation: cp
+              python_version: '3.14'
+              abi: cp314
+          - id: windows-py311
+            marker: sys_platform == "win32" and python_version == "3.11"
+            pip:
+              platform: win_amd64
+              implementation: cp
+              python_version: '3.11'
+              abi: cp311
+          - id: windows-py312
+            marker: sys_platform == "win32" and python_version == "3.12"
+            pip:
+              platform: win_amd64
+              implementation: cp
+              python_version: '3.12'
+              abi: cp312
+          - id: windows-py313
+            marker: sys_platform == "win32" and python_version == "3.13"
+            pip:
+              platform: win_amd64
+              implementation: cp
+              python_version: '3.13'
+              abi: cp313
+          - id: windows-py314
+            marker: sys_platform == "win32" and python_version == "3.14"
+            pip:
+              platform: win_amd64
+              implementation: cp
+              python_version: '3.14'
+              abi: cp314
+          - id: macos-py311
+            marker: sys_platform == "darwin" and python_version == "3.11"
+            pip:
+              platform: macosx_13_0_universal2
+              implementation: cp
+              python_version: '3.11'
+              abi: cp311
+          - id: macos-py312
+            marker: sys_platform == "darwin" and python_version == "3.12"
+            pip:
+              platform: macosx_13_0_universal2
+              implementation: cp
+              python_version: '3.12'
+              abi: cp312
+          - id: macos-py313
+            marker: sys_platform == "darwin" and python_version == "3.13"
+            pip:
+              platform: macosx_13_0_universal2
+              implementation: cp
+              python_version: '3.13'
+              abi: cp313
+          - id: macos-py314
+            marker: sys_platform == "darwin" and python_version == "3.14"
+            pip:
+              platform: macosx_13_0_universal2
+              implementation: cp
+              python_version: '3.14'
+              abi: cp314

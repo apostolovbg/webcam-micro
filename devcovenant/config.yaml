@@ -755,6 +755,12 @@ autogen_metadata_overlays:
     - test
     - tested
   dependency-management:
+    license_source_overrides:
+    - id: flet
+      kind: archive_url
+      url: https://github.com/flet-dev/flet/archive/refs/tags/v{version}.tar.gz
+      member_globs:
+      - flet-{version}/LICENSE
     surfaces:
     - id: devcovenant_runtime
       lock_file: devcovenant/runtime-requirements.lock
@@ -873,28 +879,28 @@ autogen_metadata_overlays:
       - id: linux-py311
         marker: sys_platform == "linux" and python_version == "3.11"
         pip:
-          platform: manylinux2014_x86_64
+          platform: manylinux_2_34_x86_64
           implementation: cp
           python_version: '3.11'
           abi: cp311
       - id: linux-py312
         marker: sys_platform == "linux" and python_version == "3.12"
         pip:
-          platform: manylinux2014_x86_64
+          platform: manylinux_2_34_x86_64
           implementation: cp
           python_version: '3.12'
           abi: cp312
       - id: linux-py313
         marker: sys_platform == "linux" and python_version == "3.13"
         pip:
-          platform: manylinux2014_x86_64
+          platform: manylinux_2_34_x86_64
           implementation: cp
           python_version: '3.13'
           abi: cp313
       - id: linux-py314
         marker: sys_platform == "linux" and python_version == "3.14"
         pip:
-          platform: manylinux2014_x86_64
+          platform: manylinux_2_34_x86_64
           implementation: cp
           python_version: '3.14'
           abi: cp314
@@ -929,28 +935,28 @@ autogen_metadata_overlays:
       - id: macos-py311
         marker: sys_platform == "darwin" and python_version == "3.11"
         pip:
-          platform: macosx_11_0_x86_64
+          platform: macosx_13_0_universal2
           implementation: cp
           python_version: '3.11'
           abi: cp311
       - id: macos-py312
         marker: sys_platform == "darwin" and python_version == "3.12"
         pip:
-          platform: macosx_11_0_x86_64
+          platform: macosx_13_0_universal2
           implementation: cp
           python_version: '3.12'
           abi: cp312
       - id: macos-py313
         marker: sys_platform == "darwin" and python_version == "3.13"
         pip:
-          platform: macosx_11_0_x86_64
+          platform: macosx_13_0_universal2
           implementation: cp
           python_version: '3.13'
           abi: cp313
       - id: macos-py314
         marker: sys_platform == "darwin" and python_version == "3.14"
         pip:
-          platform: macosx_11_0_x86_64
+          platform: macosx_13_0_universal2
           implementation: cp
           python_version: '3.14'
           abi: cp314
@@ -972,28 +978,28 @@ autogen_metadata_overlays:
       - id: linux-py311
         marker: sys_platform == "linux" and python_version == "3.11"
         pip:
-          platform: manylinux2014_x86_64
+          platform: manylinux_2_34_x86_64
           implementation: cp
           python_version: '3.11'
           abi: cp311
       - id: linux-py312
         marker: sys_platform == "linux" and python_version == "3.12"
         pip:
-          platform: manylinux2014_x86_64
+          platform: manylinux_2_34_x86_64
           implementation: cp
           python_version: '3.12'
           abi: cp312
       - id: linux-py313
         marker: sys_platform == "linux" and python_version == "3.13"
         pip:
-          platform: manylinux2014_x86_64
+          platform: manylinux_2_34_x86_64
           implementation: cp
           python_version: '3.13'
           abi: cp313
       - id: linux-py314
         marker: sys_platform == "linux" and python_version == "3.14"
         pip:
-          platform: manylinux2014_x86_64
+          platform: manylinux_2_34_x86_64
           implementation: cp
           python_version: '3.14'
           abi: cp314
@@ -1028,28 +1034,28 @@ autogen_metadata_overlays:
       - id: macos-py311
         marker: sys_platform == "darwin" and python_version == "3.11"
         pip:
-          platform: macosx_11_0_x86_64
+          platform: macosx_13_0_universal2
           implementation: cp
           python_version: '3.11'
           abi: cp311
       - id: macos-py312
         marker: sys_platform == "darwin" and python_version == "3.12"
         pip:
-          platform: macosx_11_0_x86_64
+          platform: macosx_13_0_universal2
           implementation: cp
           python_version: '3.12'
           abi: cp312
       - id: macos-py313
         marker: sys_platform == "darwin" and python_version == "3.13"
         pip:
-          platform: macosx_11_0_x86_64
+          platform: macosx_13_0_universal2
           implementation: cp
           python_version: '3.13'
           abi: cp313
       - id: macos-py314
         marker: sys_platform == "darwin" and python_version == "3.14"
         pip:
-          platform: macosx_11_0_x86_64
+          platform: macosx_13_0_universal2
           implementation: cp
           python_version: '3.14'
           abi: cp314
@@ -1068,6 +1074,7 @@ autogen_metadata_overlays:
     - AGENTS.md
     - SPEC.md
     - PLAN.md
+    - webcam_micro/README.md
     exclude_prefixes:
     - devcovenant
     - tests/devcovenant
@@ -1109,6 +1116,7 @@ autogen_metadata_overlays:
     - AGENTS.md
     - SPEC.md
     - PLAN.md
+    - webcam_micro/README.md
   last-updated:
     allowed_globs:
     - README.md
@@ -1117,6 +1125,7 @@ autogen_metadata_overlays:
     - CHANGELOG.md
     - SPEC.md
     - PLAN.md
+    - webcam_micro/README.md
     include_globs:
     - '*.md'
     include_suffixes:
@@ -1128,6 +1137,7 @@ autogen_metadata_overlays:
     - CHANGELOG.md
     - SPEC.md
     - PLAN.md
+    - webcam_micro/README.md
   line-length-limit:
     allow_long_lines: 'true'
     allow_long_url_lines: 'true'
@@ -1267,6 +1277,12 @@ autogen_metadata_overlays:
     - '*.py'
     include_suffixes:
     - .py
+  package-doc-sync:
+    omit_block_pairs:
+    - <!-- REPO-ONLY:BEGIN -->=><!-- REPO-ONLY:END -->
+    rewrite_repo_relative_links: 'true'
+    sync_pairs:
+    - README.md=>webcam_micro/README.md
   security-scanner:
     exclude_globs:
     - tests/**
