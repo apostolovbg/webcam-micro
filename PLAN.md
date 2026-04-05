@@ -52,7 +52,7 @@ in `SPEC.md` and history in `CHANGELOG.md`.
   forward here.
 
 ## Roadmap
-1. [todo] Rebuild the controls surface around stable control families and
+1. [done] Rebuild the controls surface around stable control families and
    type-aware widgets.
    Goal:
    - surface camera controls guvcview-style
@@ -68,7 +68,7 @@ in `SPEC.md` and history in `CHANGELOG.md`.
    - control groups are stable, readable, and match the active backend's
      capabilities
 
-2. [todo] Make the controls surface dockable, detachable, and
+2. [done] Make the controls surface dockable, detachable, and
    preview-friendly.
    Goal:
    - let the pane move without consuming preview space
@@ -82,7 +82,7 @@ in `SPEC.md` and history in `CHANGELOG.md`.
    - users can dock, detach, hide, and restore the control pane without
      losing the preview-first layout
 
-3. [todo] Separate high-frequency shell actions from capture settings.
+3. [done] Separate high-frequency shell actions from capture settings.
    Goal:
    - keep toolbar and status bar lean
    Work:

@@ -40,9 +40,14 @@ def build_launch_plan() -> LaunchPlan:
             "bar, toolbar, controls dock, live fit/fill/crop framing, "
             "native still-save and recording actions, session preferences, "
             "diagnostics with a failure log and exit checks, native "
-            "window fullscreen support, a stable per-user runtime "
-            "interpreter bootstrap, and a camera permission prompt on first "
-            "open when the platform requires it."
+            "window fullscreen support, a dockable, detachable controls "
+            "pane that can hide, dock, float, and restore while keeping the "
+            "preview central, a one-column default layout with a wider "
+            "two-column variant on roomy layouts, image and video output "
+            "folders that live in Preferences, a compact structured status "
+            "bar, a stable per-user runtime interpreter bootstrap, and a "
+            "camera permission prompt on first open when the platform "
+            "requires it."
         ),
     )
 

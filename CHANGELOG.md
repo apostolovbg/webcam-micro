@@ -61,6 +61,60 @@ Example:
 ## Version 0.1.0b1
 
 - 2026-04-05:
+  Change: Removed the narrative workspace notes from the main shell and
+    updated the capture-settings wording to live in Preferences.
+  Why: Aligned the preview-first shell with the item 3 separation
+    between high-frequency actions and capture configuration.
+  Impact: Updated the launch contract, README copy, and tests so the
+    shell stays compact while image and video output folders remain
+    configured in Preferences.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  tests/test_app.py
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/app.py
+  webcam_micro/ui.py
+
+- 2026-04-05:
+  Change: Updated the controls dock so it can hide, dock, float, and
+    restore while keeping the preview central and the layout responsive.
+  Why: Aligned the microscope workstation pane with the item 2
+    dockable controls contract and preserved the preview-first workspace
+    when the surface floats.
+  Impact: Refined the status reporting, restore action, one-column and
+    two-column layout, docs, tests, and plan status for the dockable
+    controls pane.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  tests/test_app.py
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/app.py
+  webcam_micro/ui.py
+
+- 2026-04-05:
+  Change: Updated the controls surface so stable families and type-aware
+    widgets now group the Qt shell controls.
+  Why: Aligned the live dock with the microscope-workstation control
+    contract and hid unsupported families cleanly.
+  Impact: Updated the dock and preferences to group controls into
+    Exposure, Focus, White Balance, Light/Flicker, Color/Image Quality,
+    Zoom, Source Info, Actions, and Other Controls, and the docs and
+    tests reflect the new layout.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/ui.py
+
+- 2026-04-05:
   Change: Updated the package version to `0.1.0b1` across the source
     version file, package manifest, managed docs, and version-sensitive
     test coverage.

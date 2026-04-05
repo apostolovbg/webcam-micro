@@ -101,22 +101,79 @@ CONTROL_SURFACE_SECTION_BY_CONTROL_ID = {
     "restore_auto_exposure": "Actions",
     "zoom_factor": "Zoom",
 }
-CONTROL_SURFACE_SECTION_BY_KIND = {
-    "action": "Actions",
-    "boolean": "Toggles",
-    "enum": "Selections",
-    "numeric": "Adjustments",
-    "read_only": "Source Info",
-}
 CONTROL_SURFACE_SECTION_ORDER = (
     "Exposure",
+    "Focus",
+    "White Balance",
+    "Light/Flicker",
+    "Color/Image Quality",
     "Zoom",
     "Source Info",
     "Actions",
-    "Adjustments",
-    "Toggles",
-    "Selections",
     "Other Controls",
+)
+CONTROL_SURFACE_TWO_COLUMN_MIN_WIDTH = 800
+CONTROL_SURFACE_SECTION_KEYWORDS = (
+    (
+        "Exposure",
+        (
+            "exposure",
+            "shutter",
+            "iris",
+            "aperture",
+            "gain",
+            "backlight compensation",
+        ),
+    ),
+    ("Focus", ("focus",)),
+    (
+        "White Balance",
+        (
+            "white balance",
+            "white_balance",
+            "awb",
+            "color temperature",
+            "temperature",
+        ),
+    ),
+    (
+        "Light/Flicker",
+        (
+            "flicker",
+            "power line frequency",
+            "power_line_frequency",
+            "anti banding",
+            "ac flicker",
+            "ac_flicker",
+        ),
+    ),
+    (
+        "Color/Image Quality",
+        (
+            "brightness",
+            "contrast",
+            "saturation",
+            "hue",
+            "gamma",
+            "sharpness",
+            "color profile",
+            "color_profile",
+        ),
+    ),
+    ("Zoom", ("zoom",)),
+    (
+        "Source Info",
+        (
+            "active format",
+            "active_format",
+            "source mode",
+            "source",
+            "frame size",
+            "frame rate",
+            "pixel format",
+            "video format",
+        ),
+    ),
 )
 STILL_FILE_FILTER = "PNG Image (*.png);;JPEG Image (*.jpg *.jpeg)"
 
@@ -152,13 +209,18 @@ def build_shell_spec() -> ShellSpec:
             "the workspace keeps microscope-specific framing in the preview.",
             "A native desktop menu bar and toolbar keep the primary command "
             "surface close to the preview workspace, camera controls live "
-            "in a toggleable dock, still capture saves quietly to the "
-            "configured folder, and camera controls are grouped into "
-            "Exposure, Zoom, Source Info, and Actions sections while "
-            "backend-only details stay out of the main surface. A tighter "
+            "in a toggleable, detachable dock that can dock, float, hide, "
+            "and restore without stealing preview space, the dock defaults "
+            "to one column and widens to two columns on roomy layouts, "
+            "still capture saves quietly to the configured folder, and "
+            "camera controls are grouped into stable Exposure, Focus, "
+            "White Balance, Light/Flicker, Color/Image Quality, Zoom, "
+            "Source Info, Actions, and Other Controls sections while "
+            "unsupported families stay out of the main surface. A tighter "
             "preview cadence keeps the newest frame close to live motion "
             "while native dialogs handle preferences, diagnostics, "
-            "recording start or stop flows, and named presets.",
+            "recording start or stop flows, named presets, and a compact "
+            "structured status bar.",
         ),
         command_sections=(
             "Menu Bar",
@@ -279,6 +341,7 @@ def build_controls_surface_lines(
     preview_state: str,
     preview_framing_mode: str,
     capture_framing_mode: str,
+    controls_surface_state: str,
     control_count: int,
 ) -> tuple[str, ...]:
     """Return the visible summary lines for the controls surface."""
@@ -289,8 +352,22 @@ def build_controls_surface_lines(
         f"Preview: {preview_state}",
         f"Preview framing: {preview_framing_mode}",
         f"Capture framing: {capture_framing_mode}",
+        f"Controls dock: {controls_surface_state}",
         f"Controls surfaced: {control_count}",
     )
+
+
+def _controls_surface_column_count(
+    available_width: int,
+    section_count: int,
+) -> int:
+    """Return the number of columns the controls dock should use."""
+
+    if section_count <= 1:
+        return 1
+    if available_width < CONTROL_SURFACE_TWO_COLUMN_MIN_WIDTH:
+        return 1
+    return 2
 
 
 def format_recording_duration(milliseconds: int) -> str:
@@ -700,10 +777,17 @@ def _control_surface_section_name(control: CameraControl) -> str | None:
     section = CONTROL_SURFACE_SECTION_BY_CONTROL_ID.get(control.control_id)
     if section is not None:
         return section
-    return CONTROL_SURFACE_SECTION_BY_KIND.get(
-        control.kind,
-        "Other Controls",
-    )
+    search_text = " ".join(
+        part.lower()
+        for part in (control.control_id, control.label, control.details)
+        if part
+    ).replace("_", " ")
+    for section_name, keywords in CONTROL_SURFACE_SECTION_KEYWORDS:
+        if any(keyword in search_text for keyword in keywords):
+            return section_name
+    if control.kind == "action":
+        return "Actions"
+    return "Other Controls"
 
 
 def _group_controls_for_surface(
@@ -963,6 +1047,7 @@ class PreviewApplication:
             self._settings.value(SETTINGS_CONTROLS_VISIBLE_KEY),
             default=True,
         )
+        self._controls_layout_columns = 1
         self._preview_state = "idle"
         self._preview_framing_mode = self._settings_mode_value(
             SETTINGS_PREVIEW_FRAMING_KEY,
@@ -1011,7 +1096,6 @@ class PreviewApplication:
         self._preview_title_label = None
         self._preview_image_label = None
         self._preview_message_label = None
-        self._workspace_notes = None
         self._status_label = None
         self._camera_combo = None
         self._controls_dock = None
@@ -1123,12 +1207,6 @@ class PreviewApplication:
         self._preview_stack.addWidget(self._preview_image_label)
         central_layout.addWidget(self._preview_stack, 1)
 
-        self._workspace_notes = QtWidgets.QLabel(
-            " ".join(self._spec.hero_body)
-        )
-        self._workspace_notes.setWordWrap(True)
-        central_layout.addWidget(self._workspace_notes)
-
         self._window.setCentralWidget(central_widget)
         self._window.statusBar()
 
@@ -1156,10 +1234,33 @@ class PreviewApplication:
             self._spec.controls_surface_title,
             self._window,
         )
+        self._controls_dock.setFeatures(
+            QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetClosable
+            | QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetFloatable
+            | QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetMovable
+        )
         self._controls_dock.setAllowedAreas(
             QtCore.Qt.DockWidgetArea.LeftDockWidgetArea
             | QtCore.Qt.DockWidgetArea.RightDockWidgetArea
         )
+        self._controls_dock.topLevelChanged.connect(
+            self._handle_controls_dock_top_level_changed
+        )
+
+        class ResizeAwareControlsWidget(QtWidgets.QWidget):
+            """Notify the controller whenever the dock width changes."""
+
+            def __init__(self, on_resize) -> None:
+                """Store one callback for dock-width reflow."""
+
+                super().__init__()
+                self._on_resize = on_resize
+
+            def resizeEvent(self, event) -> None:  # pragma: no cover - Qt
+                """Reflow the dock when the visible width changes."""
+
+                super().resizeEvent(event)
+                self._on_resize()
 
         dock_widget = QtWidgets.QWidget()
         dock_layout = QtWidgets.QVBoxLayout(dock_widget)
@@ -1180,12 +1281,14 @@ class PreviewApplication:
 
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
-        self._controls_body_widget = QtWidgets.QWidget()
-        self._controls_body_layout = QtWidgets.QVBoxLayout(
+        self._controls_body_widget = ResizeAwareControlsWidget(
+            self._sync_controls_surface_layout
+        )
+        self._controls_body_layout = QtWidgets.QHBoxLayout(
             self._controls_body_widget
         )
         self._controls_body_layout.setContentsMargins(0, 0, 0, 0)
-        self._controls_body_layout.setSpacing(12)
+        self._controls_body_layout.setSpacing(16)
         scroll_area.setWidget(self._controls_body_widget)
         dock_layout.addWidget(scroll_area, 1)
 
@@ -1197,6 +1300,7 @@ class PreviewApplication:
             QtCore.Qt.DockWidgetArea.RightDockWidgetArea,
             self._controls_dock,
         )
+        self._rebuild_controls_widgets()
 
     def _build_actions(self) -> None:
         """Create the shared actions used by menus and the toolbar."""
@@ -1207,6 +1311,14 @@ class PreviewApplication:
         self._toggle_controls_action.setText("Controls")
         self._toggle_controls_action.triggered.connect(
             self._toggle_controls_dock
+        )
+
+        self._restore_controls_action = QtGui.QAction(
+            "Restore Controls Dock",
+            self._window,
+        )
+        self._restore_controls_action.triggered.connect(
+            self._restore_controls_dock
         )
 
         self._refresh_action = QtGui.QAction("Refresh", self._window)
@@ -1316,6 +1428,7 @@ class PreviewApplication:
 
         view_menu = menu_bar.addMenu("View")
         view_menu.addAction(self._toggle_controls_action)
+        view_menu.addAction(self._restore_controls_action)
         view_menu.addSeparator()
         view_menu.addAction(self._fit_action)
         view_menu.addAction(self._fill_action)
@@ -1441,7 +1554,7 @@ class PreviewApplication:
         )
         self._settings.setValue(
             SETTINGS_CONTROLS_VISIBLE_KEY,
-            self._controls_dock.isVisible(),
+            self._controls_dock_requested,
         )
         self._settings.setValue(
             SETTINGS_FULLSCREEN_KEY,
@@ -1775,9 +1888,13 @@ class PreviewApplication:
         return None
 
     def _controls_surface_state(self) -> str:
-        """Return whether the controls dock is visible."""
+        """Return the current visibility and docking mode for controls."""
 
-        return "open" if not self._controls_dock.isHidden() else "closed"
+        if not self._controls_dock.isVisible():
+            return "hidden"
+        if self._controls_dock.isFloating():
+            return "floating"
+        return "docked"
 
     def _source_mode_label(self) -> str:
         """Return the current source-mode summary for the status bar."""
@@ -1956,9 +2073,54 @@ class PreviewApplication:
             preview_state=self._preview_state,
             preview_framing_mode=self._preview_framing_mode,
             capture_framing_mode=self._capture_framing_mode,
+            controls_surface_state=self._controls_surface_state(),
             control_count=len(self._active_controls),
         )
         self._controls_summary_label.setText("\n".join(lines))
+
+    def _sync_controls_dock_state(self, *, notice: str | None = None) -> None:
+        """Keep dock state, status, and persistence aligned with the pane."""
+
+        if getattr(self, "_status_label", None) is None:
+            return
+        state = self._controls_surface_state()
+        if not self._suspend_dock_sync:
+            self._controls_dock_requested = state != "hidden"
+        if self._toggle_controls_action is not None:
+            was_blocked = self._toggle_controls_action.blockSignals(True)
+            self._toggle_controls_action.setChecked(state != "hidden")
+            self._toggle_controls_action.blockSignals(was_blocked)
+        if notice is None:
+            if state == "hidden":
+                notice = "Controls dock hidden."
+            elif state == "floating":
+                notice = "Controls dock floating."
+            else:
+                notice = "Controls dock docked."
+        self._sync_controls_surface_layout()
+        self._set_status(self._preview_state, notice=notice)
+        self._render_latest_preview()
+        self._layout_fullscreen_surface()
+        self._persist_workspace_state()
+
+    def _sync_controls_surface_layout(self) -> None:
+        """Reflow the dock controls when the visible width changes."""
+
+        if (
+            self._controls_body_widget is None
+            or self._controls_body_layout is None
+        ):
+            return
+        desired_columns = _controls_surface_column_count(
+            self._controls_body_widget.width(),
+            len(_group_controls_for_surface(self._active_controls)),
+        )
+        if (
+            self._controls_body_layout.count() > 0
+            and desired_columns == self._controls_layout_columns
+        ):
+            return
+        self._rebuild_controls_widgets()
 
     def _set_capture_framing_mode(self, framing_mode: str) -> None:
         """Switch capture framing without changing the live preview mode."""
@@ -2003,19 +2165,32 @@ class PreviewApplication:
             if widget is not None:
                 widget.deleteLater()
 
-    def _rebuild_controls_widgets(self) -> None:
-        """Render the current control surface into the Qt dock."""
+    def _build_controls_empty_state_widget(self):
+        """Build the empty-state widget for the controls dock."""
 
-        self._clear_layout(self._controls_body_layout)
-        if not self._active_controls:
-            self._controls_body_layout.addWidget(
-                self._qt_widgets.QLabel(
-                    "No camera controls are currently available for the "
-                    "selected camera/backend."
-                )
-            )
-            self._controls_body_layout.addStretch(1)
-            return
+        QtWidgets = self._qt_widgets
+
+        container = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+        message = QtWidgets.QLabel(
+            "No camera controls are currently available for the selected "
+            "camera/backend."
+        )
+        message.setWordWrap(True)
+        layout.addWidget(message)
+        layout.addStretch(1)
+        return container
+
+    def _build_controls_section_widget(
+        self,
+        heading: str,
+        controls: tuple[CameraControl, ...],
+    ):
+        """Build one grouped controls section for the dock."""
+
+        QtWidgets = self._qt_widgets
 
         builder_by_kind = {
             "numeric": self._build_numeric_control,
@@ -2024,20 +2199,95 @@ class PreviewApplication:
             "read_only": self._build_read_only_control,
             "action": self._build_action_control,
         }
-        for heading, controls in _group_controls_for_surface(
-            self._active_controls
-        ):
-            self._controls_body_layout.addWidget(
-                self._controls_section_heading(heading)
+
+        container = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+        layout.addWidget(self._controls_section_heading(heading))
+
+        rendered_controls = 0
+        for control in controls:
+            builder = builder_by_kind.get(control.kind)
+            if builder is None:
+                continue
+            widget = builder(control)
+            if widget is None:
+                continue
+            layout.addWidget(widget)
+            rendered_controls += 1
+
+        if rendered_controls == 0:
+            container.deleteLater()
+            return None
+
+        layout.addStretch(1)
+        return container
+
+    def _build_controls_column_widget(
+        self,
+        section_widgets: tuple[object, ...],
+    ):
+        """Build one visible column of grouped controls sections."""
+
+        QtWidgets = self._qt_widgets
+
+        container = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(16)
+        for section_widget in section_widgets:
+            layout.addWidget(section_widget)
+        layout.addStretch(1)
+        return container
+
+    def _rebuild_controls_widgets(self) -> None:
+        """Render the current control surface into the Qt dock."""
+
+        if self._controls_body_layout is None:
+            return
+        self._clear_layout(self._controls_body_layout)
+        grouped_sections = _group_controls_for_surface(self._active_controls)
+        section_widgets: list[object] = []
+        for heading, controls in grouped_sections:
+            section_widget = self._build_controls_section_widget(
+                heading,
+                controls,
             )
-            for control in controls:
-                builder = builder_by_kind.get(control.kind)
-                if builder is None:
-                    continue
-                widget = builder(control)
-                if widget is not None:
-                    self._controls_body_layout.addWidget(widget)
-        self._controls_body_layout.addStretch(1)
+            if section_widget is not None:
+                section_widgets.append(section_widget)
+
+        if not section_widgets:
+            self._controls_layout_columns = 1
+            self._controls_body_layout.addWidget(
+                self._build_controls_empty_state_widget()
+            )
+            return
+
+        section_count = len(section_widgets)
+        desired_columns = _controls_surface_column_count(
+            (
+                self._controls_body_widget.width()
+                if self._controls_body_widget is not None
+                else 0
+            ),
+            section_count,
+        )
+        column_count = max(1, min(desired_columns, section_count))
+        self._controls_layout_columns = column_count
+        if column_count == 1:
+            self._controls_body_layout.addWidget(
+                self._build_controls_column_widget(tuple(section_widgets))
+            )
+            return
+
+        column_size = math.ceil(section_count / column_count)
+        for start in range(0, section_count, column_size):
+            self._controls_body_layout.addWidget(
+                self._build_controls_column_widget(
+                    tuple(section_widgets[start : start + column_size])
+                )
+            )
 
     def _numeric_divisions(self, control: CameraControl) -> int | None:
         """Return safe slider divisions for one numeric control."""
@@ -2739,7 +2989,6 @@ class PreviewApplication:
             self._central_layout.setContentsMargins(0, 0, 0, 0)
             self._central_layout.setSpacing(0)
             self._preview_title_label.hide()
-            self._workspace_notes.hide()
             self._window_toolbar.hide()
             self._window.statusBar().hide()
             self._suspend_dock_sync = True
@@ -2753,7 +3002,6 @@ class PreviewApplication:
             self._central_layout.setContentsMargins(*WINDOWED_CONTENT_MARGINS)
             self._central_layout.setSpacing(WINDOWED_LAYOUT_SPACING)
             self._preview_title_label.show()
-            self._workspace_notes.show()
             self._window_toolbar.show()
             self._window.statusBar().show()
             self._suspend_dock_sync = True
@@ -2775,16 +3023,37 @@ class PreviewApplication:
     def _handle_controls_dock_visibility_changed(self, visible: bool) -> None:
         """Keep status and action state in sync with dock visibility."""
 
-        if not self._suspend_dock_sync:
-            self._controls_dock_requested = bool(visible)
-        was_blocked = self._toggle_controls_action.blockSignals(True)
-        self._toggle_controls_action.setChecked(bool(visible))
-        self._toggle_controls_action.blockSignals(was_blocked)
-        notice = "Controls dock open." if visible else "Controls dock closed."
-        self._set_status(self._preview_state, notice=notice)
-        self._render_latest_preview()
-        self._layout_fullscreen_surface()
-        self._persist_workspace_state()
+        if self._suspend_dock_sync:
+            return
+        self._sync_controls_dock_state()
+
+    def _handle_controls_dock_top_level_changed(
+        self,
+        floating: bool,
+    ) -> None:
+        """Keep status and layout in sync when the dock detaches."""
+
+        if self._suspend_dock_sync:
+            return
+        self._sync_controls_dock_state()
+
+    def _restore_controls_dock(self) -> None:
+        """Restore the controls dock to the right docked position."""
+
+        QtCore = self._qt_core
+
+        self._suspend_dock_sync = True
+        try:
+            self._window.addDockWidget(
+                QtCore.Qt.DockWidgetArea.RightDockWidgetArea,
+                self._controls_dock,
+            )
+            self._controls_dock.setFloating(False)
+            self._controls_dock.setVisible(True)
+        finally:
+            self._suspend_dock_sync = False
+        self._controls_dock_requested = True
+        self._sync_controls_dock_state(notice="Controls dock restored.")
 
     def _toggle_controls_dock(self, checked: bool | None = None) -> None:
         """Open or close the dedicated controls dock."""

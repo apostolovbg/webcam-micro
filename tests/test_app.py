@@ -34,7 +34,15 @@ class ApplicationEntryPointTest(unittest.TestCase):
         self.assertIn("native desktop menu bar", plan.shell_contract)
         self.assertIn("toolbar", plan.shell_contract)
         self.assertIn("controls dock", plan.shell_contract)
+        self.assertIn("dockable, detachable", plan.shell_contract)
+        self.assertIn("hide, dock, float, and restore", plan.shell_contract)
         self.assertIn("fit/fill/crop", plan.shell_contract)
+        self.assertIn("one-column default layout", plan.shell_contract)
+        self.assertIn("two-column variant", plan.shell_contract)
+        self.assertIn(
+            "output folders that live in Preferences", plan.shell_contract
+        )
+        self.assertIn("compact structured status bar", plan.shell_contract)
         self.assertIn("still-save", plan.shell_contract)
         self.assertIn("recording", plan.shell_contract)
         self.assertIn("preferences", plan.shell_contract)

@@ -44,10 +44,11 @@ area, toggleable controls dock, quiet still-image save to the configured
 folder, a tighter preview refresh cadence, native recording, session
 preferences, diagnostics, and a compact fullscreen command surface with
 expanded and collapsed states. Preview framing, capture framing, camera
-selection, window layout, current preset name, output folders, and
-per-camera control values persist across launches. User-editable defaults,
-keyboard shortcuts, and named presets are available, while broader platform
-validation remains in progress.
+selection, window layout, current preset name, and per-camera control
+values persist across launches. Image and video output folders live in
+Preferences, and the compact status bar stays structured. User-editable
+defaults, keyboard shortcuts, and named presets are available, while
+broader platform validation remains in progress.
 
 ## Alpha Status
 `webcam-micro` is now the official alpha release.
@@ -63,8 +64,9 @@ complete for the current release path.
   command, bootstraps a stable per-user runtime interpreter on every
   supported OS, and can also run from source during development.
 - Windowed workspace: the main shell keeps the preview central while the
-  menu bar, toolbar, controls dock, and status bar expose the primary
-  microscope actions.
+  menu bar, toolbar, and status bar expose the primary microscope
+  actions, and the controls dock can dock, float, hide, and restore
+  without taking the preview off center.
 - Fullscreen workspace: the preview expands to the full screen and the
   command surface collapses into a compact overlay with safe exit paths.
 - Preview and framing: live preview supports fit, fill, and centered crop
@@ -72,13 +74,16 @@ complete for the current release path.
   motion when the preview resizes.
 - Camera controls: the active backend exposes numeric, boolean, enum,
   read-only, and action controls when the device supports them, and the
-  dock groups visible controls into Exposure, Zoom, Source Info, and
-  Actions sections across supported OSes.
+  dock groups visible controls into stable Exposure, Focus, White
+  Balance, Light/Flicker, Color/Image Quality, Zoom, Source Info,
+  Actions, and Other Controls families across supported OSes with a
+  one-column default layout that widens to two columns on roomy docks.
 - Capture and recording: still images save quietly to the configured folder
   with the current capture framing, and recordings use native controls with
   platform-supported containers.
-- Preferences, defaults, and presets: framing, output folders, keyboard
-  shortcuts, defaults, and named presets are stored with the workspace.
+- Preferences, defaults, and presets: framing, keyboard shortcuts,
+  defaults, and named presets are stored with the workspace, while image
+  and video output folders live in Preferences.
 - Diagnostics and status: the shell reports runtime state, recent failures,
   and prototype exit checks in a visible diagnostics dialog and status bar.
 - Platform notes: Qt Multimedia owns the camera and recording stack, while
@@ -119,13 +124,17 @@ image, including controls, camera refresh, camera open and close, framing,
 still capture, recording, fullscreen, and preferences. The right edge of
 the toolbar displays `© 2026 Black Epsilon Ltd. and Apostol Apostolov`.
 
-The controls dock can be shown or hidden so camera controls do not consume
-preview space permanently. Numeric controls use guvcview-style affordances:
-a slider, min/mid/max labels, and an adjacent field with step buttons. The
-dock groups visible controls into Exposure, Zoom, Source Info, and Actions
-sections so related settings stay together on every supported OS. Boolean,
-enumerated, read-only, and action controls appear when the backend exposes
-them.
+The controls dock can be shown, hidden, floated, or restored so camera
+controls do not consume preview space permanently. It keeps the preview
+central even when detached, defaults to one vertical column, and widens to
+two columns on roomier layouts while preserving the section order.
+Numeric controls use guvcview-style affordances: a slider, min/mid/max
+labels, and an adjacent field with step buttons. The dock groups visible
+controls into stable Exposure, Focus, White Balance, Light/Flicker,
+Color/Image Quality, Zoom, Source Info, Actions, and Other Controls
+families so related settings stay together on every supported OS.
+Boolean, enumerated, read-only, and action controls appear when the backend
+exposes them.
 
 ## Fullscreen Workspace
 Fullscreen replaces the windowed chrome with a compact command surface.

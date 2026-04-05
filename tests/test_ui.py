@@ -21,6 +21,7 @@ from webcam_micro.ui import (
     RuntimeStatus,
     ShellSpec,
     _control_default_setting_key,
+    _controls_surface_column_count,
     _directory_setting_path,
     _group_controls_for_surface,
     _named_presets_from_value,
@@ -59,9 +60,24 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("pyside6 qt widgets", combined_body.lower())
         self.assertIn("Qt Multimedia", combined_body)
         self.assertIn("native desktop menu bar", combined_body)
-        self.assertIn("toggleable dock", combined_body)
-        self.assertIn("Exposure", combined_body)
-        self.assertIn("Zoom", combined_body)
+        self.assertIn("toggleable, detachable dock", combined_body)
+        self.assertIn("detachable dock", combined_body)
+        self.assertIn("dock, float, hide, and restore", combined_body)
+        self.assertIn("one column", combined_body)
+        self.assertIn("two columns", combined_body)
+        self.assertIn("compact structured status bar", combined_body)
+        for family_name in (
+            "Exposure",
+            "Focus",
+            "White Balance",
+            "Light/Flicker",
+            "Color/Image Quality",
+            "Zoom",
+            "Source Info",
+            "Actions",
+            "Other Controls",
+        ):
+            self.assertIn(family_name, combined_body)
         self.assertIn("still capture saves quietly", combined_body)
         self.assertIn("tighter preview cadence", combined_body.lower())
         self.assertEqual(
@@ -107,6 +123,12 @@ class ShellSpecTest(unittest.TestCase):
         diagnostics_source = inspect.getsource(
             PreviewApplication._open_diagnostics
         )
+        fullscreen_toggle_source = inspect.getsource(
+            PreviewApplication._set_fullscreen
+        )
+        dock_source = inspect.getsource(
+            PreviewApplication._build_controls_dock
+        )
         controls_source = inspect.getsource(
             PreviewApplication._rebuild_controls_widgets
         )
@@ -132,6 +154,10 @@ class ShellSpecTest(unittest.TestCase):
             callable(PreviewApplication._set_fullscreen_surface_expanded)
         )
         self.assertTrue(callable(PreviewApplication._handle_escape_shortcut))
+        self.assertTrue(callable(PreviewApplication._restore_controls_dock))
+        self.assertTrue(
+            callable(PreviewApplication._sync_controls_surface_layout)
+        )
         self.assertTrue(callable(PreviewApplication._persist_workspace_state))
         self.assertTrue(
             callable(PreviewApplication._apply_persisted_control_state)
@@ -149,7 +175,13 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("save_named_preset", preferences_source)
         self.assertIn("_group_controls_for_surface", preferences_source)
         self.assertIn("add_text_tab", diagnostics_source)
+        self.assertNotIn("_workspace_notes", fullscreen_toggle_source)
+        self.assertIn("ResizeAwareControlsWidget", dock_source)
         self.assertIn("_group_controls_for_surface", controls_source)
+        self.assertIn("_controls_surface_column_count", controls_source)
+        self.assertIn("_build_controls_section_widget", controls_source)
+        self.assertIn("_build_controls_column_widget", controls_source)
+        self.assertIn("_build_controls_empty_state_widget", controls_source)
         self.assertIn("PreciseTimer", run_source)
         self.assertIn("self._poll_preview_frame()", open_source)
         self.assertTrue(issubclass(MissingGuiDependencyError, RuntimeError))
@@ -406,7 +438,7 @@ class ShellSpecTest(unittest.TestCase):
             source_mode="640x480@30 preview",
             framing_mode="fit",
             capture_framing_mode="crop",
-            controls_surface_state="open",
+            controls_surface_state="docked",
             current_preset_name="none",
             recording_state="not ready",
             notice="Live preview active.",
@@ -419,10 +451,73 @@ class ShellSpecTest(unittest.TestCase):
         self.assertEqual("640x480@30 preview", status.source_mode)
         self.assertEqual("fit", status.framing_mode)
         self.assertEqual("crop", status.capture_framing_mode)
-        self.assertEqual("open", status.controls_surface_state)
+        self.assertEqual("docked", status.controls_surface_state)
         self.assertEqual("none", status.current_preset_name)
         self.assertEqual("not ready", status.recording_state)
         self.assertEqual("Live preview active.", status.notice)
+
+    def test_controls_surface_state_tracks_dock_modes(self) -> None:
+        """Assert the dock state helper reports hidden, docked, and
+        floating."""
+
+        class FakeDock:
+            """Expose the minimal dock API used by the state helper."""
+
+            def __init__(self) -> None:
+                """Initialize the fake dock state."""
+
+                self.visible = False
+                self.floating = True
+
+            def isVisible(self) -> bool:
+                """Return whether the dock is currently visible."""
+
+                return self.visible
+
+            def isFloating(self) -> bool:
+                """Return whether the dock is currently floating."""
+
+                return self.floating
+
+        class FakeShell:
+            """Provide only the dock attribute used by the helper."""
+
+            def __init__(self) -> None:
+                """Initialize the fake shell wrapper."""
+
+                self._controls_dock = FakeDock()
+
+        shell = FakeShell()
+
+        self.assertEqual(
+            "hidden",
+            PreviewApplication._controls_surface_state(shell),
+        )
+        shell._controls_dock.visible = True
+        shell._controls_dock.floating = False
+        self.assertEqual(
+            "docked",
+            PreviewApplication._controls_surface_state(shell),
+        )
+        shell._controls_dock.floating = True
+        self.assertEqual(
+            "floating",
+            PreviewApplication._controls_surface_state(shell),
+        )
+        shell._controls_dock.visible = False
+        self.assertEqual(
+            "hidden",
+            PreviewApplication._controls_surface_state(shell),
+        )
+
+    def test_controls_surface_column_count_prefers_two_columns(
+        self,
+    ) -> None:
+        """Assert the dock layout stays single-column until it has room."""
+
+        self.assertEqual(1, _controls_surface_column_count(799, 2))
+        self.assertEqual(2, _controls_surface_column_count(800, 2))
+        self.assertEqual(1, _controls_surface_column_count(1200, 1))
 
     def test_controls_surface_summary_mentions_live_state(self) -> None:
         """Assert the controls surface summary reflects current shell state."""
@@ -434,6 +529,7 @@ class ShellSpecTest(unittest.TestCase):
                 "Preview: live",
                 "Preview framing: fill",
                 "Capture framing: crop",
+                "Controls dock: docked",
                 "Controls surfaced: 7",
             ),
             build_controls_surface_lines(
@@ -442,14 +538,187 @@ class ShellSpecTest(unittest.TestCase):
                 preview_state="live",
                 preview_framing_mode="fill",
                 capture_framing_mode="crop",
+                controls_surface_state="docked",
                 control_count=7,
             ),
         )
 
+    def test_restore_controls_dock_reanchors_the_controls_pane(self) -> None:
+        """Assert the restore action docks the pane back to the right edge."""
+
+        class FakeDock:
+            """Expose the dock API exercised by the restore action."""
+
+            def __init__(self) -> None:
+                """Initialize the fake dock state."""
+
+                self.calls: list[tuple[str, object]] = []
+                self.visible = False
+                self.floating = True
+
+            def setFloating(self, floating: bool) -> None:
+                """Record the floating-state change."""
+
+                self.calls.append(("setFloating", floating))
+                self.floating = floating
+
+            def setVisible(self, visible: bool) -> None:
+                """Record the visible-state change."""
+
+                self.calls.append(("setVisible", visible))
+                self.visible = visible
+
+            def isVisible(self) -> bool:
+                """Return whether the dock is currently visible."""
+
+                return self.visible
+
+            def isFloating(self) -> bool:
+                """Return whether the dock is currently floating."""
+
+                return self.floating
+
+        class FakeWindow:
+            """Record the dock reattachment request."""
+
+            def __init__(self) -> None:
+                """Initialize the recorded dock calls."""
+
+                self.calls: list[tuple[object, object]] = []
+
+            def addDockWidget(self, area: object, dock: object) -> None:
+                """Record the requested dock area."""
+
+                self.calls.append((area, dock))
+
+        class FakeToggleAction:
+            """Record the action state mirrored from the dock."""
+
+            def __init__(self) -> None:
+                """Initialize the recorded toggle state."""
+
+                self.checked: bool | None = None
+                self.signals_blocked = False
+
+            def blockSignals(self, blocked: bool) -> bool:
+                """Record the signal-blocking state and return the old one."""
+
+                previous = self.signals_blocked
+                self.signals_blocked = blocked
+                return previous
+
+            def setChecked(self, checked: bool) -> None:
+                """Record the dock toggle state."""
+
+                self.checked = checked
+
+        class FakeQtNamespace:
+            """Expose only the dock area enum needed here."""
+
+            class DockWidgetArea:
+                """Provide the right-dock area constant."""
+
+                RightDockWidgetArea = "right"
+
+        class FakeQtCore:
+            """Provide the Qt namespace used by the restore action."""
+
+            def __init__(self) -> None:
+                """Expose the dock area namespace under the Qt attribute."""
+
+                setattr(self, "Qt", FakeQtNamespace)
+
+        class FakeShell:
+            """Provide only the shell methods used during restore."""
+
+            def __init__(self) -> None:
+                """Initialize the recorded restore state."""
+
+                self._qt_core = FakeQtCore()
+                self._window = FakeWindow()
+                self._controls_dock = FakeDock()
+                self._controls_dock_requested = False
+                self._suspend_dock_sync = False
+                self._toggle_controls_action = FakeToggleAction()
+                self._status_label = object()
+                self._preview_state = "live"
+                self.sync_calls: list[str] = []
+                self.status_calls: list[tuple[str, str | None]] = []
+                self.render_calls = 0
+                self.layout_calls = 0
+                self.persist_calls = 0
+
+            def _sync_controls_surface_layout(self) -> None:
+                """Record the dock-layout refresh."""
+
+                self.sync_calls.append("sync")
+
+            def _controls_surface_state(self) -> str:
+                """Return the current dock state through the real helper."""
+
+                return PreviewApplication._controls_surface_state(self)
+
+            def _sync_controls_dock_state(
+                self,
+                *,
+                notice: str | None = None,
+            ) -> None:
+                """Run the real dock-state sync through the fake shell."""
+
+                PreviewApplication._sync_controls_dock_state(
+                    self,
+                    notice=notice,
+                )
+
+            def _set_status(
+                self,
+                preview_state: str,
+                notice: str | None = None,
+            ) -> None:
+                """Record the visible status update."""
+
+                self.status_calls.append((preview_state, notice))
+
+            def _render_latest_preview(self) -> None:
+                """Record the preview refresh."""
+
+                self.render_calls += 1
+
+            def _layout_fullscreen_surface(self) -> None:
+                """Record the fullscreen overlay refresh."""
+
+                self.layout_calls += 1
+
+            def _persist_workspace_state(self) -> None:
+                """Record the workspace persistence request."""
+
+                self.persist_calls += 1
+
+        shell = FakeShell()
+
+        PreviewApplication._restore_controls_dock(shell)
+
+        self.assertEqual(
+            [("right", shell._controls_dock)], shell._window.calls
+        )
+        self.assertEqual(
+            [("setFloating", False), ("setVisible", True)],
+            shell._controls_dock.calls,
+        )
+        self.assertTrue(shell._controls_dock_requested)
+        self.assertTrue(shell._toggle_controls_action.checked)
+        self.assertEqual(["sync"], shell.sync_calls)
+        self.assertEqual(
+            [("live", "Controls dock restored.")], shell.status_calls
+        )
+        self.assertEqual(1, shell.render_calls)
+        self.assertEqual(1, shell.layout_calls)
+        self.assertEqual(1, shell.persist_calls)
+
     def test_controls_surface_groups_related_controls_and_hides_backend_info(
         self,
     ) -> None:
-        """Assert related controls stay grouped on every supported backend."""
+        """Assert related controls stay grouped into stable families."""
 
         controls = (
             CameraControl(
@@ -463,6 +732,30 @@ class ShellSpecTest(unittest.TestCase):
                 label="Exposure Locked",
                 kind="boolean",
                 value=False,
+            ),
+            CameraControl(
+                control_id="focus_auto",
+                label="Focus Automatic",
+                kind="boolean",
+                value=False,
+            ),
+            CameraControl(
+                control_id="white_balance_temperature",
+                label="White Balance Temperature",
+                kind="numeric",
+                value=2800,
+            ),
+            CameraControl(
+                control_id="power_line_frequency",
+                label="Power Line Frequency",
+                kind="enum",
+                value="50",
+            ),
+            CameraControl(
+                control_id="saturation",
+                label="Saturation",
+                kind="numeric",
+                value=128,
             ),
             CameraControl(
                 control_id="zoom_factor",
@@ -481,6 +774,12 @@ class ShellSpecTest(unittest.TestCase):
                 label="Restore Auto Exposure",
                 kind="action",
                 value=None,
+            ),
+            CameraControl(
+                control_id="vendor_extension",
+                label="Vendor Extension",
+                kind="read_only",
+                value="Enabled",
             ),
             CameraControl(
                 control_id="control_backend",
@@ -503,9 +802,14 @@ class ShellSpecTest(unittest.TestCase):
         self.assertEqual(
             (
                 ("Exposure", ("exposure_mode", "exposure_locked")),
+                ("Focus", ("focus_auto",)),
+                ("White Balance", ("white_balance_temperature",)),
+                ("Light/Flicker", ("power_line_frequency",)),
+                ("Color/Image Quality", ("saturation",)),
                 ("Zoom", ("zoom_factor",)),
                 ("Source Info", ("active_format",)),
                 ("Actions", ("restore_auto_exposure",)),
+                ("Other Controls", ("vendor_extension",)),
             ),
             grouped,
         )
@@ -596,7 +900,7 @@ class ShellSpecTest(unittest.TestCase):
                 "Capture framing: crop",
                 "Controls surfaced: 7",
                 "Preset: daylight",
-                "Controls dock: open",
+                "Controls dock: docked",
                 "Fullscreen: windowed",
                 "Recording: recording 00:05",
                 "Image folder: /tmp/images",
@@ -615,7 +919,7 @@ class ShellSpecTest(unittest.TestCase):
                 recording_state="recording 00:05",
                 image_directory="/tmp/images",
                 video_directory="/tmp/videos",
-                controls_surface_state="open",
+                controls_surface_state="docked",
                 fullscreen_state="windowed",
                 notice="Live preview active.",
             ),
@@ -638,7 +942,7 @@ class ShellSpecTest(unittest.TestCase):
                 "Source mode: 1280x720 live preview",
                 "Preview framing: fill",
                 "Capture framing: crop",
-                "Controls dock: open",
+                "Controls dock: docked",
                 "Fullscreen: windowed",
                 "Preset: daylight",
                 "Recording: recording 00:05",
@@ -657,7 +961,7 @@ class ShellSpecTest(unittest.TestCase):
                 source_mode="1280x720 live preview",
                 preview_framing_mode="fill",
                 capture_framing_mode="crop",
-                controls_surface_state="open",
+                controls_surface_state="docked",
                 fullscreen_state="windowed",
                 current_preset_name="daylight",
                 recording_state="recording 00:05",
@@ -937,6 +1241,7 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("Save Current", preferences_source)
         self.assertIn("Apply Selected", preferences_source)
         self.assertIn("refresh_preset_combo", preferences_source)
+        self.assertNotIn("_workspace_notes", window_source)
         self.assertIn("QTabWidget", diagnostics_source)
         self.assertIn("Recent Notices", diagnostics_source)
         self.assertIn("Exit Checks", diagnostics_source)
