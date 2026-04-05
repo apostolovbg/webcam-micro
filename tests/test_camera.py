@@ -1352,6 +1352,155 @@ class CameraContractTest(unittest.TestCase):
                 1.5,
             )
 
+    @mock.patch("webcam_micro.camera._load_avfoundation_modules")
+    @mock.patch("webcam_micro.camera.sys.platform", "darwin")
+    def test_avfoundation_control_surface_skips_unsupported_white_balance(
+        self,
+        load_modules: mock.MagicMock,
+    ) -> None:
+        """Assert unsupported white-balance temperature stays hidden."""
+
+        class FakeTemperatureTintValues:
+            """Provide a minimal white-balance temperature/tint struct."""
+
+            def __init__(self, temperature: float, tint: float) -> None:
+                """Store the white-balance values used by the backend."""
+
+                self.field_0 = temperature
+                self.field_1 = tint
+
+        class FakeActiveFormat:
+            """Expose the AVFoundation format metadata used by the backend."""
+
+            def __str__(self) -> str:
+                """Return a readable active-format summary."""
+
+                return "1920x1080 30 FPS (MJPEG)"
+
+        class FakeDevice:
+            """Provide the unsupported AVFoundation surface."""
+
+            def __init__(self) -> None:
+                """Store the current test-double state and call log."""
+
+                self.calls: list[tuple[object, ...]] = []
+                self._active_format = FakeActiveFormat()
+                self._white_balance_gains = object()
+
+            def localizedName(self) -> str:
+                """Return the device name used for descriptor matching."""
+
+                return "Unsupported White Balance Camera"
+
+            def uniqueID(self) -> str:
+                """Return the device identifier used for matching."""
+
+                return "camera-white-balance-unsupported"
+
+            def activeFormat(self) -> FakeActiveFormat:
+                """Return the current active camera format."""
+
+                return self._active_format
+
+            def isWhiteBalanceModeSupported_(self, mode_value: int) -> bool:
+                """Report support only for the auto white-balance modes."""
+
+                return mode_value in {1, 2}
+
+            def whiteBalanceMode(self) -> int:
+                """Return the current white-balance mode."""
+
+                return 1
+
+            def deviceWhiteBalanceGains(self) -> object:
+                """Return one white-balance gains snapshot."""
+
+                return self._white_balance_gains
+
+            def temperatureAndTintValuesForDeviceWhiteBalanceGains_(
+                self,
+                gains: object,
+            ) -> FakeTemperatureTintValues:
+                """Convert gains into one temperature/tint structure."""
+
+                return FakeTemperatureTintValues(3000.0, 0.0)
+
+            def minAvailableVideoZoomFactor(self) -> float:
+                """Return the minimum zoom factor."""
+
+                return 1.0
+
+            def maxAvailableVideoZoomFactor(self) -> float:
+                """Return the maximum zoom factor."""
+
+                return 2.0
+
+            def videoZoomFactor(self) -> float:
+                """Return the current zoom factor."""
+
+                return 1.0
+
+            def lockForConfiguration_(self, _error) -> bool:
+                """Pretend the device can be configured."""
+
+                return True
+
+            def unlockForConfiguration(self) -> None:
+                """No-op for the fake device."""
+
+                return None
+
+            def set_white_balance_temperature(
+                self,
+                values: FakeTemperatureTintValues,
+                completion: object,
+            ) -> None:
+                """Record white-balance updates."""
+
+                self.calls.append(
+                    ("setWhiteBalanceTemperature", values.field_0)
+                )
+
+            locals()[
+                "setWhiteBalanceModeLockedWithDeviceWhiteBalanceTemperatureAnd"
+                "TintValues_completionHandler_"
+            ] = set_white_balance_temperature
+
+        class FakeCaptureDeviceClass:
+            """Return one fake device for the macOS control backend."""
+
+            _device = FakeDevice()
+
+            @staticmethod
+            def devicesWithMediaType_(media_type: object) -> tuple[FakeDevice]:
+                """Return the fake device list for the selected media type."""
+
+                return (FakeCaptureDeviceClass._device,)
+
+        load_modules.return_value = (FakeCaptureDeviceClass, object())
+        backend = AvFoundationCameraControlBackend()
+        descriptor = CameraDescriptor(
+            stable_id="camera-white-balance-unsupported",
+            display_name="Unsupported White Balance Camera",
+            backend_name="avfoundation",
+            device_selector="camera-white-balance-unsupported",
+            native_identifier="camera-white-balance-unsupported",
+        )
+
+        control_ids = tuple(
+            control.control_id for control in backend.list_controls(descriptor)
+        )
+
+        self.assertNotIn("white_balance_automatic", control_ids)
+        self.assertNotIn("white_balance_temperature", control_ids)
+
+        with self.assertRaises(CameraControlApplyError):
+            backend.set_control_value(
+                descriptor,
+                "white_balance_temperature",
+                5000,
+            )
+
     def test_recording_container_helpers_track_supported_formats(self) -> None:
         """Assert recording helpers expose only supported video formats."""
 

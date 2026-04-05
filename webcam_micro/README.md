@@ -84,12 +84,13 @@ complete for the current release path.
   temperature, flash or torch, and source-format details when the device
   reports them. On macOS, including Intel Macs, AVFoundation adds
   exposure mode, manual exposure time and ISO, backlight compensation
-  when the camera reports a supported bias range, focus, white balance,
-  flash, torch, smooth autofocus, automatic video HDR, and zoom when the
-  camera reports them. On Linux, V4L2 adds power line frequency,
-  brightness, contrast, saturation, hue, gamma, gain, sharpness, lamp,
-  illumination, activity LED, and vendor-specific extension controls
-  when the camera reports them.
+  when the camera reports a supported bias range, white balance
+  temperature when it can lock white balance, focus, flash, torch,
+  smooth autofocus, automatic video HDR, and zoom when the camera
+  reports them. On Linux, V4L2 adds power line frequency, brightness,
+  contrast, saturation, hue, gamma, gain, sharpness, lamp, illumination,
+  activity LED, and vendor-specific extension controls when the camera
+  reports them.
 - Capture and recording: still images save quietly to the configured folder
   with the current capture framing, and recordings use native controls with
   platform-supported containers.
@@ -172,8 +173,9 @@ reports them. Supported controls include numeric, boolean, enumerated,
 read-only, and action widgets. The app tolerates partial control sets and
 does not fail just because a camera lacks an expected control.
 On macOS, backlight compensation only appears when AVFoundation reports a
-supported exposure-bias range, and the app skips saved values for unsupported
-devices instead of reopening the camera with a crash.
+supported exposure-bias range, white balance temperature only appears
+when the device can lock white balance, and the app skips saved values
+for unsupported devices instead of reopening the camera with a crash.
 
 ## Capture and Recording
 Still images save quietly to the configured image folder as PNG or JPEG

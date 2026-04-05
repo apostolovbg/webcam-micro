@@ -3121,6 +3121,23 @@ class AvFoundationCameraControlBackend:
             max_bias = 4.0
         return min_bias, max_bias
 
+    def _white_balance_temperature_supported(self, device: Any) -> bool:
+        """Return whether locked white balance temperature is safe."""
+
+        support_method = getattr(device, "isWhiteBalanceModeSupported_", None)
+        setter = getattr(
+            device,
+            "setWhiteBalanceModeLockedWithDeviceWhiteBalanceTemperatureAnd"
+            "TintValues_completionHandler_",
+            None,
+        )
+        if support_method is None or setter is None:
+            return False
+        try:
+            return bool(support_method(0))
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            return False
+
     def _cmtime_seconds(self, value: object) -> float | None:
         """Return the seconds represented by one AVFoundation CMTime."""
 
@@ -3416,11 +3433,7 @@ class AvFoundationCameraControlBackend:
         )
         supports_temperature_tint_update = (
             temperature_tint_values is not None
-            and hasattr(
-                device,
-                "setWhiteBalanceModeLockedWithDeviceWhiteBalanceTemperatureAnd"
-                "TintValues_completionHandler_",
-            )
+            and self._white_balance_temperature_supported(device)
         )
         if supports_temperature_tint_update:
             if current_temperature is None or current_temperature <= 0:
@@ -3884,6 +3897,11 @@ class AvFoundationCameraControlBackend:
                 device.setWhiteBalanceMode_(0)
                 return
             if control_id == "white_balance_temperature":
+                if not self._white_balance_temperature_supported(device):
+                    raise CameraControlApplyError(
+                        "The camera does not support white balance "
+                        "temperature control."
+                    )
                 temperature = _safe_float(value)
                 if temperature is None:
                     raise CameraControlApplyError(

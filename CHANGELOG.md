@@ -61,6 +61,21 @@ Example:
 ## Version 0.1.0b1
 
 - 2026-04-05:
+  Change: Hardened macOS white balance temperature behind the locked
+    white-balance support check.
+  Why: Prevented unsupported DAL cameras from crashing when saved
+    control state reopened the device.
+  Impact: Updated the macOS control contract to hide unsafe
+    white-balance temperature controls, keep the startup restore path
+    from calling unsupported setters, and refresh the docs and tests.
+  Files:
+  CHANGELOG.md
+  README.md
+  tests/test_camera.py
+  webcam_micro/README.md
+  webcam_micro/camera.py
+
+- 2026-04-05:
   Change: Hardened the macOS backlight compensation control behind the
     supported AVFoundation exposure-bias range.
   Why: Prevented unsupported DAL cameras from crashing when saved
