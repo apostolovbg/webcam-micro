@@ -61,6 +61,39 @@ Example:
 ## Version 0.1.0a1
 
 - 2026-04-05:
+  Change: Refactored the macOS camera-permission callback through a
+    repo-owned adapter so Linux CI no longer imports
+    `rubicon.objc.Block` at decorator time.
+  Why: Preserved the optional Objective-C dependency behind the
+    production boundary and made the permission test portable on
+    non-macOS CI.
+  Impact: Updated `webcam_micro/camera.py`, `tests/test_camera.py`,
+    `tests/test_macos_permission.py`, and both READMEs so the launch
+    docs match the import-safe permission path.
+  Files:
+  CHANGELOG.md
+  README.md
+  tests/test_camera.py
+  tests/test_macos_permission.py
+  webcam_micro/README.md
+  webcam_micro/camera.py
+  webcam_micro/macos_permission.py
+
+- 2026-04-05:
+  Change: Aligned the shared preview image placement so it appears
+    directly after the package-facing introduction sentence in both
+    READMEs.
+  Why: Aligned the top-of-file layout with the requested placement and kept
+    the canonical and packaged documentation in sync.
+  Impact: Updated `README.md` and `webcam_micro/README.md` so the preview
+    image sits above the table of contents, and recorded the doc-only
+    layout change here.
+  Files:
+  CHANGELOG.md
+  README.md
+  webcam_micro/README.md
+
+- 2026-04-05:
   Change: Clarified the beta-prep status in the user-facing READMEs and
     recorded the remaining Windows and Linux platform-validation follow-up
     in the plan.

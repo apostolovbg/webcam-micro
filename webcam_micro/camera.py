@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
+from .macos_permission import wrap_completion_handler
+
 
 @dataclass(frozen=True)
 class CameraDescriptor:
@@ -445,12 +447,9 @@ def _request_macos_camera_permission(qt_core: Any) -> tuple[bool, str]:
     if status in {1, 2}:
         return False, _camera_permission_denied_message()
 
-    from rubicon.objc import Block
-
     completion_loop = qt_core.QEventLoop()
     result = {"granted": False, "finished": False}
 
-    @Block
     def completion_handler(granted: c_bool) -> None:
         """Store the macOS permission result and stop waiting."""
 
@@ -458,6 +457,7 @@ def _request_macos_camera_permission(qt_core: Any) -> tuple[bool, str]:
         result["finished"] = True
         completion_loop.quit()
 
+    completion_handler = wrap_completion_handler(completion_handler)
     capture_device_class.requestAccessForMediaType_completionHandler_(
         media_type_video,
         completion_handler,

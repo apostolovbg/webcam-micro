@@ -40,6 +40,12 @@ from webcam_micro.camera import (
 )
 
 
+def _identity_completion_handler(handler: object) -> object:
+    """Return the test handler unchanged."""
+
+    return handler
+
+
 class CameraContractTest(unittest.TestCase):
     """Verify the preview-backend contract and documented backend plan."""
 
@@ -279,13 +285,15 @@ class CameraContractTest(unittest.TestCase):
                 fake_qt_multimedia,
             )
 
-    @mock.patch("rubicon.objc.Block", side_effect=lambda func: func)
+    @mock.patch(
+        "webcam_micro.camera.wrap_completion_handler",
+        new=_identity_completion_handler,
+    )
     @mock.patch("webcam_micro.camera._load_avfoundation_modules")
     @mock.patch("webcam_micro.camera.sys.platform", "darwin")
     def test_camera_permission_helper_requests_macos_prompt(
         self,
         load_modules: mock.MagicMock,
-        _block: mock.MagicMock,
     ) -> None:
         """Assert the macOS helper requests camera access explicitly."""
 

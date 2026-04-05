@@ -9,10 +9,10 @@
 
 <!-- DEVCOV:END -->
 
-![webcam-micro preview](https://raw.githubusercontent.com/apostolovbg/webcam-micro/main/webcam_micro/webcam-micro.png)
-
 Cross-platform microscope camera application distributed as a Python package
 on PyPI.
+
+![webcam-micro preview](https://raw.githubusercontent.com/apostolovbg/webcam-micro/main/webcam_micro/webcam-micro.png)
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -98,13 +98,15 @@ create or reuse a stable per-user runtime interpreter on Windows, macOS,
 and Linux before the Qt shell starts, so the first launch sets up the
 Python identity that will own later camera access on macOS. The runtime
 bridge keeps the package imports visible in that interpreter so Qt still
-loads from the installed package set.
+loads from the installed package set. On macOS, the camera permission
+prompt runs through a repo-owned adapter so the same code path stays
+import-safe on Windows and Linux.
 The command bar and native menu bar provide access to the core camera,
 capture, framing, preference, and diagnostics actions without requiring a
 terminal once the app is running.
 On macOS, the runtime interpreter requests camera permission the first time
-a camera opens; if it was denied before, reset the Camera privacy setting and
-relaunch.
+a camera opens through that adapter; if it was denied before, reset the
+Camera privacy setting and relaunch.
 
 ## Windowed Workspace
 The main window keeps the microscope preview central.
