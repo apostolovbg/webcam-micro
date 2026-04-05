@@ -61,6 +61,20 @@ Example:
 ## Version 0.1.0b1
 
 - 2026-04-05:
+  Change: Hardened the macOS backlight compensation control behind the
+    supported AVFoundation exposure-bias range.
+  Why: Prevented unsupported DAL cameras from crashing when saved
+    control state reopened the device.
+  Impact: Updated the safer macOS control contract and kept unsupported
+    cameras from applying the bias control at startup.
+  Files:
+  CHANGELOG.md
+  README.md
+  tests/test_camera.py
+  webcam_micro/README.md
+  webcam_micro/camera.py
+
+- 2026-04-05:
   Change: Expanded the macOS control surface with AVFoundation-backed
     sliders, spinboxes, and a dock-side restore action.
   Why: Aligned the Intel Mac path with the cross-platform workstation

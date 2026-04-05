@@ -816,6 +816,15 @@ class CameraContractTest(unittest.TestCase):
                 self.field_0 = temperature
                 self.field_1 = tint
 
+        class FakeExposureBiasRange:
+            """Provide the recommended macOS exposure-bias range."""
+
+            def __init__(self) -> None:
+                """Store one stable range for the control surface."""
+
+                self.minExposureBias = -2.0
+                self.maxExposureBias = 2.0
+
         class FakeActiveFormat:
             """Expose the AVFoundation format metadata used by the backend."""
 
@@ -826,6 +835,9 @@ class CameraContractTest(unittest.TestCase):
                 self.maxExposureDuration = FakeCMTime(1, 2)
                 self.minISO = 80.0
                 self.maxISO = 640.0
+                self.systemRecommendedExposureBiasRange = (
+                    FakeExposureBiasRange()
+                )
 
             def __str__(self) -> str:
                 """Return a readable active-format summary."""
@@ -1143,6 +1155,12 @@ class CameraContractTest(unittest.TestCase):
         self.assertEqual(
             "numeric", controls_by_id["backlight_compensation"].kind
         )
+        self.assertEqual(
+            -2.0, controls_by_id["backlight_compensation"].min_value
+        )
+        self.assertEqual(
+            2.0, controls_by_id["backlight_compensation"].max_value
+        )
         self.assertEqual("boolean", controls_by_id["focus_auto"].kind)
         self.assertEqual("numeric", controls_by_id["focus_distance"].kind)
         self.assertEqual(
@@ -1200,6 +1218,139 @@ class CameraContractTest(unittest.TestCase):
             ],
             device.calls,
         )
+
+    @mock.patch("webcam_micro.camera._load_avfoundation_modules")
+    @mock.patch("webcam_micro.camera.sys.platform", "darwin")
+    def test_avfoundation_control_surface_skips_unsupported_bias(
+        self,
+        load_modules: mock.MagicMock,
+    ) -> None:
+        """Assert unsupported exposure bias never reaches the setter."""
+
+        class FakeActiveFormat:
+            """Expose the AVFoundation format metadata used by the backend."""
+
+            def __str__(self) -> str:
+                """Return a readable active-format summary."""
+
+                return "1920x1080 30 FPS (MJPEG)"
+
+        class FakeDevice:
+            """Provide the unsupported AVFoundation surface."""
+
+            def __init__(self) -> None:
+                """Store the current test-double state and call log."""
+
+                self.calls: list[tuple[object, ...]] = []
+                self._active_format = FakeActiveFormat()
+
+            def localizedName(self) -> str:
+                """Return the device name used for descriptor matching."""
+
+                return "Unsupported Camera"
+
+            def uniqueID(self) -> str:
+                """Return the device identifier used for matching."""
+
+                return "camera-unsupported"
+
+            def isExposureModeSupported_(self, mode_value: int) -> bool:
+                """Report support only for plain auto exposure."""
+
+                return mode_value == 1
+
+            def exposureMode(self) -> int:
+                """Return the current writable exposure mode."""
+
+                return 1
+
+            def activeFormat(self) -> FakeActiveFormat:
+                """Return the current active camera format."""
+
+                return self._active_format
+
+            def minExposureTargetBias(self) -> float:
+                """Return the minimum exposure compensation."""
+
+                return -4.0
+
+            def maxExposureTargetBias(self) -> float:
+                """Return the maximum exposure compensation."""
+
+                return 4.0
+
+            def exposureTargetBias(self) -> float:
+                """Return the current exposure compensation."""
+
+                return 0.5
+
+            def minAvailableVideoZoomFactor(self) -> float:
+                """Return the minimum zoom factor."""
+
+                return 1.0
+
+            def maxAvailableVideoZoomFactor(self) -> float:
+                """Return the maximum zoom factor."""
+
+                return 2.0
+
+            def videoZoomFactor(self) -> float:
+                """Return the current zoom factor."""
+
+                return 1.0
+
+            def lockForConfiguration_(self, _error) -> bool:
+                """Pretend the device can be configured."""
+
+                return True
+
+            def unlockForConfiguration(self) -> None:
+                """No-op for the fake device."""
+
+                return None
+
+            def setExposureTargetBias_completionHandler_(
+                self,
+                compensation: float,
+                completion: object,
+            ) -> None:
+                """Record exposure-compensation updates."""
+
+                self.calls.append(("setExposureTargetBias", compensation))
+
+        class FakeCaptureDeviceClass:
+            """Return one fake device for the macOS control backend."""
+
+            _device = FakeDevice()
+
+            @staticmethod
+            def devicesWithMediaType_(media_type: object) -> tuple[FakeDevice]:
+                """Return the fake device list for the selected media type."""
+
+                return (FakeCaptureDeviceClass._device,)
+
+        load_modules.return_value = (FakeCaptureDeviceClass, object())
+        backend = AvFoundationCameraControlBackend()
+        descriptor = CameraDescriptor(
+            stable_id="camera-unsupported",
+            display_name="Unsupported Camera",
+            backend_name="avfoundation",
+            device_selector="camera-unsupported",
+            native_identifier="camera-unsupported",
+        )
+
+        control_ids = tuple(
+            control.control_id for control in backend.list_controls(descriptor)
+        )
+
+        self.assertNotIn("backlight_compensation", control_ids)
+
+        with self.assertRaises(CameraControlApplyError):
+            backend.set_control_value(
+                descriptor,
+                "backlight_compensation",
+                1.5,
+            )
 
     def test_recording_container_helpers_track_supported_formats(self) -> None:
         """Assert recording helpers expose only supported video formats."""

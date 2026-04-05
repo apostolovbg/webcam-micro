@@ -3070,6 +3070,57 @@ class AvFoundationCameraControlBackend:
 
         return _avfoundation_choice_value(token, specs)
 
+    def _backlight_compensation_range(
+        self,
+        device: Any,
+        active_format: Any,
+    ) -> tuple[float, float] | None:
+        """Return the supported exposure-bias range when available."""
+
+        if active_format is not None and hasattr(
+            active_format,
+            "systemRecommendedExposureBiasRange",
+        ):
+            bias_range = _call_or_value(
+                getattr(
+                    active_format,
+                    "systemRecommendedExposureBiasRange",
+                    None,
+                )
+            )
+            if bias_range is None:
+                return None
+            min_bias = _safe_float(
+                _call_or_value(getattr(bias_range, "minExposureBias", None))
+            )
+            max_bias = _safe_float(
+                _call_or_value(getattr(bias_range, "maxExposureBias", None))
+            )
+            if min_bias is None or max_bias is None or max_bias <= min_bias:
+                return None
+            return min_bias, max_bias
+
+        if not (
+            hasattr(device, "isExposureModeSupported_")
+            and (
+                device.isExposureModeSupported_(0)
+                or device.isExposureModeSupported_(2)
+            )
+            and hasattr(device, "minExposureTargetBias")
+            and hasattr(device, "maxExposureTargetBias")
+            and hasattr(device, "exposureTargetBias")
+            and hasattr(device, "setExposureTargetBias_completionHandler_")
+        ):
+            return None
+
+        min_bias = _safe_float(_call_or_value(device.minExposureTargetBias))
+        max_bias = _safe_float(_call_or_value(device.maxExposureTargetBias))
+        if min_bias is None:
+            min_bias = -4.0
+        if max_bias is None or max_bias <= min_bias:
+            max_bias = 4.0
+        return min_bias, max_bias
+
     def _cmtime_seconds(self, value: object) -> float | None:
         """Return the seconds represented by one AVFoundation CMTime."""
 
@@ -3239,25 +3290,14 @@ class AvFoundationCameraControlBackend:
                 )
             )
 
-        exposure_bias_supported = (
-            hasattr(device, "minExposureTargetBias")
-            and hasattr(device, "maxExposureTargetBias")
-            and hasattr(device, "exposureTargetBias")
-            and hasattr(device, "setExposureTargetBias_completionHandler_")
+        backlight_compensation_range = self._backlight_compensation_range(
+            device,
+            active_format,
         )
-        if exposure_bias_supported:
-            min_bias = _safe_float(
-                _call_or_value(device.minExposureTargetBias)
-            )
-            max_bias = _safe_float(
-                _call_or_value(device.maxExposureTargetBias)
-            )
-            if min_bias is None:
-                min_bias = -4.0
-            if max_bias is None or max_bias <= min_bias:
-                max_bias = 4.0
+        if backlight_compensation_range is not None:
+            min_bias, max_bias = backlight_compensation_range
             current_bias = _safe_float(
-                _call_or_value(device.exposureTargetBias)
+                _call_or_value(getattr(device, "exposureTargetBias", None))
             )
             if current_bias is None:
                 current_bias = 0.0
@@ -3747,23 +3787,39 @@ class AvFoundationCameraControlBackend:
                 )
                 return
             if control_id == "backlight_compensation":
+                backlight_compensation_range = (
+                    self._backlight_compensation_range(
+                        device,
+                        active_format,
+                    )
+                )
+                if backlight_compensation_range is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support backlight "
+                        "compensation."
+                    )
+                min_bias, max_bias = backlight_compensation_range
                 compensation = _safe_float(value)
                 if compensation is None:
                     raise CameraControlApplyError(
                         "Backlight compensation must be numeric."
                     )
-                min_bias = _safe_float(
-                    _call_or_value(device.minExposureTargetBias)
-                )
-                max_bias = _safe_float(
-                    _call_or_value(device.maxExposureTargetBias)
-                )
-                if min_bias is not None and max_bias is not None:
-                    compensation = max(min_bias, min(max_bias, compensation))
-                device.setExposureTargetBias_completionHandler_(
-                    compensation,
-                    completion,
-                )
+                compensation = max(min_bias, min(max_bias, compensation))
+                try:
+                    device.setExposureTargetBias_completionHandler_(
+                        compensation,
+                        completion,
+                    )
+                except (
+                    AttributeError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                ) as exc:
+                    raise CameraControlApplyError(
+                        "The camera does not support backlight "
+                        "compensation."
+                    ) from exc
                 return
             if control_id == "focus_auto":
                 locked_supported = bool(device.isFocusModeSupported_(0))
