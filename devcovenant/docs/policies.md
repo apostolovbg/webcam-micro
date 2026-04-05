@@ -1,5 +1,5 @@
 # Policies
-**Last Updated:** 2026-04-04
+**Last Updated:** 2026-04-05
 
 **Project Version:** 1.0.1b1
 
@@ -153,6 +153,9 @@ The package-facing builtin sync policies follow the same contract.
 `package-doc-sync` can synchronize one or more configured `source=>target`
 doc pairs, strip configured repo-only marker blocks, and rewrite repo-relative
 public links for packaged docs.
+That same rewrite step also normalizes same-repository absolute `main` or
+`master` public links into release-stable tagged URLs when the packaged doc
+should not depend on a moving branch head.
 `package-artifact-mirror` can keep configured file and directory mirrors
 inside the shipped package synchronized from their canonical repository-root
 sources.
