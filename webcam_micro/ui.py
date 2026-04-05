@@ -21,8 +21,10 @@ from webcam_micro.camera import (
     QtCameraBackend,
     RecordingCropPlan,
     _choice_for_value,
+    _preferred_recording_output_suffix,
     _safe_float,
     build_backend_plan,
+    build_recording_file_filter,
     request_camera_permission,
 )
 
@@ -88,11 +90,35 @@ PRIMARY_SHORTCUT_SPECS = (
     ("fullscreen_expand", "Expand Surface", "Ctrl+]", None),
     ("preferences", "Preferences", "Ctrl+,", "_preferences_action"),
 )
-STILL_FILE_FILTER = "PNG Image (*.png);;JPEG Image (*.jpg *.jpeg)"
-VIDEO_FILE_FILTER = (
-    "MPEG-4 Video (*.mp4);;QuickTime Movie (*.mov);;"
-    "Matroska Video (*.mkv);;WebM Video (*.webm)"
+CONTROL_SURFACE_HIDDEN_CONTROL_IDS = {
+    "control_backend",
+    "low_light_boost_support",
+}
+CONTROL_SURFACE_SECTION_BY_CONTROL_ID = {
+    "active_format": "Source Info",
+    "exposure_locked": "Exposure",
+    "exposure_mode": "Exposure",
+    "restore_auto_exposure": "Actions",
+    "zoom_factor": "Zoom",
+}
+CONTROL_SURFACE_SECTION_BY_KIND = {
+    "action": "Actions",
+    "boolean": "Toggles",
+    "enum": "Selections",
+    "numeric": "Adjustments",
+    "read_only": "Source Info",
+}
+CONTROL_SURFACE_SECTION_ORDER = (
+    "Exposure",
+    "Zoom",
+    "Source Info",
+    "Actions",
+    "Adjustments",
+    "Toggles",
+    "Selections",
+    "Other Controls",
 )
+STILL_FILE_FILTER = "PNG Image (*.png);;JPEG Image (*.jpg *.jpeg)"
 
 
 @dataclass(frozen=True)
@@ -126,9 +152,13 @@ def build_shell_spec() -> ShellSpec:
             "the workspace keeps microscope-specific framing in the preview.",
             "A native desktop menu bar and toolbar keep the primary command "
             "surface close to the preview workspace, camera controls live "
-            "in a toggleable dock, and native dialogs handle preferences, "
-            "diagnostics, still saves, recording start or stop flows, and "
-            "named presets.",
+            "in a toggleable dock, still capture saves quietly to the "
+            "configured folder, and camera controls are grouped into "
+            "Exposure, Zoom, Source Info, and Actions sections while "
+            "backend-only details stay out of the main surface. A tighter "
+            "preview cadence keeps the newest frame close to live motion "
+            "while native dialogs handle preferences, diagnostics, "
+            "recording start or stop flows, and named presets.",
         ),
         command_sections=(
             "Menu Bar",
@@ -355,7 +385,7 @@ def build_prototype_exit_check_lines(
         f"Image folder: {image_directory}",
         f"Video folder: {video_directory}",
         f"Recent diagnostic events: {diagnostic_event_count}",
-        "Open gap: cross-platform recording container validation.",
+        "Recording containers are validated on this runtime.",
     )
 
 
@@ -534,10 +564,29 @@ def _default_still_output_path(directory: Path) -> Path:
     return directory / f"microscope-{_timestamp_slug()}.png"
 
 
-def _default_recording_output_path(directory: Path) -> Path:
+def _next_available_output_path(path: Path) -> Path:
+    """Return one unused output path by appending a numeric suffix."""
+
+    if not path.exists():
+        return path
+    candidate_index = 1
+    while True:
+        candidate = path.with_name(
+            f"{path.stem}-{candidate_index}{path.suffix}"
+        )
+        if not candidate.exists():
+            return candidate
+        candidate_index += 1
+
+
+def _default_recording_output_path(
+    directory: Path,
+    *,
+    suffix: str = ".mp4",
+) -> Path:
     """Return one default recording output path."""
 
-    return directory / f"microscope-{_timestamp_slug()}.mp4"
+    return directory / f"microscope-{_timestamp_slug()}{suffix}"
 
 
 def _directory_setting_path(value: object, *, default: Path) -> Path:
@@ -641,6 +690,43 @@ def _named_presets_to_value(
     """Return one deterministic JSON payload for named presets."""
 
     return json.dumps(presets, sort_keys=True, separators=(",", ":"))
+
+
+def _control_surface_section_name(control: CameraControl) -> str | None:
+    """Return the visible controls-surface section for one control."""
+
+    if control.control_id in CONTROL_SURFACE_HIDDEN_CONTROL_IDS:
+        return None
+    section = CONTROL_SURFACE_SECTION_BY_CONTROL_ID.get(control.control_id)
+    if section is not None:
+        return section
+    return CONTROL_SURFACE_SECTION_BY_KIND.get(
+        control.kind,
+        "Other Controls",
+    )
+
+
+def _group_controls_for_surface(
+    controls: tuple[CameraControl, ...],
+) -> tuple[tuple[str, tuple[CameraControl, ...]], ...]:
+    """Return the user-facing control groups in their display order."""
+
+    grouped_controls: dict[str, list[CameraControl]] = {}
+    for control in controls:
+        section_name = _control_surface_section_name(control)
+        if section_name is None:
+            continue
+        grouped_controls.setdefault(section_name, []).append(control)
+    grouped_sections: list[tuple[str, tuple[CameraControl, ...]]] = []
+    for section_name in CONTROL_SURFACE_SECTION_ORDER:
+        section_controls = grouped_controls.pop(section_name, None)
+        if section_controls:
+            grouped_sections.append((section_name, tuple(section_controls)))
+    for section_name in sorted(grouped_controls):
+        section_controls = grouped_controls[section_name]
+        if section_controls:
+            grouped_sections.append((section_name, tuple(section_controls)))
+    return tuple(grouped_sections)
 
 
 def _persisted_control_value(
@@ -844,7 +930,7 @@ def _slider_scale(step: float | None) -> int:
 class PreviewApplication:
     """Manage camera discovery, preview, and controls in the Qt shell."""
 
-    refresh_interval_milliseconds = 50
+    refresh_interval_milliseconds = 16
 
     def __init__(self, qt_core, qt_gui, qt_widgets, qt_application) -> None:
         """Build the Qt shell and initialize runtime state."""
@@ -1841,7 +1927,7 @@ class PreviewApplication:
         initial_path: Path,
         filter_text: str,
     ) -> Path | None:
-        """Open one native save dialog for a still or recording path."""
+        """Open one native save dialog for a recording path."""
 
         initial_path.parent.mkdir(parents=True, exist_ok=True)
         selected_path, _selected_filter = (
@@ -1921,15 +2007,6 @@ class PreviewApplication:
         """Render the current control surface into the Qt dock."""
 
         self._clear_layout(self._controls_body_layout)
-        controls_by_kind: dict[str, list[CameraControl]] = {
-            "numeric": [],
-            "boolean": [],
-            "enum": [],
-            "read_only": [],
-            "action": [],
-        }
-        for control in self._active_controls:
-            controls_by_kind.setdefault(control.kind, []).append(control)
         if not self._active_controls:
             self._controls_body_layout.addWidget(
                 self._qt_widgets.QLabel(
@@ -1940,21 +2017,23 @@ class PreviewApplication:
             self._controls_body_layout.addStretch(1)
             return
 
-        sections = (
-            ("Numeric Controls", "numeric", self._build_numeric_control),
-            ("Toggle Controls", "boolean", self._build_boolean_control),
-            ("Enumerated Controls", "enum", self._build_enum_control),
-            ("Read-Only Details", "read_only", self._build_read_only_control),
-            ("Actions", "action", self._build_action_control),
-        )
-        for heading, kind, builder in sections:
-            controls = controls_by_kind[kind]
-            if not controls:
-                continue
+        builder_by_kind = {
+            "numeric": self._build_numeric_control,
+            "boolean": self._build_boolean_control,
+            "enum": self._build_enum_control,
+            "read_only": self._build_read_only_control,
+            "action": self._build_action_control,
+        }
+        for heading, controls in _group_controls_for_surface(
+            self._active_controls
+        ):
             self._controls_body_layout.addWidget(
                 self._controls_section_heading(heading)
             )
             for control in controls:
+                builder = builder_by_kind.get(control.kind)
+                if builder is None:
+                    continue
                 widget = builder(control)
                 if widget is not None:
                     self._controls_body_layout.addWidget(widget)
@@ -2587,6 +2666,7 @@ class PreviewApplication:
                 self._persist_workspace_state()
         else:
             self._set_status("opening", notice="Opening selected camera.")
+        self._poll_preview_frame()
 
     def _poll_preview_frame(self) -> None:
         """Poll the newest frame and refresh the preview without lagging."""
@@ -2736,7 +2816,7 @@ class PreviewApplication:
         self.open_selected_camera()
 
     def _capture_still_action(self, _checked=False) -> None:
-        """Save one framed still image through the native Qt shell."""
+        """Save one framed still image to the configured output folder."""
 
         if self._latest_frame is None:
             self._set_status(
@@ -2747,20 +2827,9 @@ class PreviewApplication:
                 "Wait for a live preview frame before saving a still."
             )
             return
-        output_path = self._select_output_path(
-            title="Save Still Image",
-            initial_path=_default_still_output_path(self._image_directory),
-            filter_text=STILL_FILE_FILTER,
+        output_path = _next_available_output_path(
+            _default_still_output_path(self._image_directory)
         )
-        if output_path is None:
-            self._set_status(
-                self._preview_state,
-                notice="Still capture canceled.",
-            )
-            self._record_diagnostic_event("Still capture canceled.")
-            return
-        if not output_path.suffix:
-            output_path = output_path.with_suffix(".png")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         target_width, target_height = self._preview_target_size()
         image = _capture_image_from_frame(
@@ -2808,8 +2877,11 @@ class PreviewApplication:
             return
         output_path = self._select_output_path(
             title="Start Recording",
-            initial_path=_default_recording_output_path(self._video_directory),
-            filter_text=VIDEO_FILE_FILTER,
+            initial_path=_default_recording_output_path(
+                self._video_directory,
+                suffix=_preferred_recording_output_suffix(self._qt_multimedia),
+            ),
+            filter_text=build_recording_file_filter(self._qt_multimedia),
         )
         if output_path is None:
             self._set_status(
@@ -2818,8 +2890,6 @@ class PreviewApplication:
             )
             self._record_diagnostic_event("Recording canceled.")
             return
-        if not output_path.suffix:
-            output_path = output_path.with_suffix(".mp4")
         if self._latest_frame is None:
             self._set_status(
                 self._preview_state,
@@ -2837,7 +2907,7 @@ class PreviewApplication:
             target_height=target_height,
         )
         try:
-            self._session.start_recording(
+            recorded_path = self._session.start_recording(
                 output_path,
                 crop_plan=crop_plan,
             )
@@ -2845,12 +2915,12 @@ class PreviewApplication:
             self._set_status(self._preview_state, notice=str(exc))
             self._record_diagnostic_event(str(exc))
             return
-        self._video_directory = output_path.parent
+        self._video_directory = recorded_path.parent
         self._persist_output_directories()
         self._recording_state = "recording 00:00"
         self._set_status(
             self._preview_state,
-            notice=f"Recording to {output_path.name}.",
+            notice=f"Recording to {recorded_path.name}.",
         )
 
     def _open_preferences(self, _checked=False) -> None:
@@ -2987,10 +3057,9 @@ class PreviewApplication:
 
         default_widgets: dict[str, object] = {}
         defaults_box = QtWidgets.QGroupBox("Control Defaults", dialog)
-        defaults_layout = QtWidgets.QFormLayout(defaults_box)
-        defaults_layout.setFieldGrowthPolicy(
-            QtWidgets.QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
-        )
+        defaults_layout = QtWidgets.QVBoxLayout(defaults_box)
+        defaults_layout.setContentsMargins(12, 12, 12, 12)
+        defaults_layout.setSpacing(8)
         editable_controls = [
             control
             for control in self._active_controls
@@ -2998,37 +3067,48 @@ class PreviewApplication:
             and control.value is not None
         ]
         if editable_controls:
-            for control in editable_controls:
-                default_value = self._settings.value(
-                    _control_default_setting_key(control.control_id)
+            for section_name, section_controls in _group_controls_for_surface(
+                tuple(editable_controls)
+            ):
+                section_box = QtWidgets.QGroupBox(section_name, defaults_box)
+                section_layout = QtWidgets.QFormLayout(section_box)
+                section_layout.setFieldGrowthPolicy(
+                    QtWidgets.QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
                 )
-                if default_value is None:
-                    default_value = BUILTIN_CONTROL_DEFAULT_VALUES.get(
-                        control.control_id,
-                        control.value,
+                for control in section_controls:
+                    default_value = self._settings.value(
+                        _control_default_setting_key(control.control_id)
                     )
-                if control.kind == "boolean":
-                    widget = QtWidgets.QCheckBox(defaults_box)
-                    widget.setChecked(bool(default_value))
-                elif control.kind == "enum":
-                    widget = QtWidgets.QComboBox(defaults_box)
-                    for choice in control.choices:
-                        widget.addItem(choice.label, choice.value)
-                    if default_value is not None:
-                        index = widget.findData(str(default_value))
-                        if index >= 0:
-                            widget.setCurrentIndex(index)
-                else:
-                    widget = QtWidgets.QLineEdit(
-                        str(
-                            default_value if default_value is not None else ""
-                        ),
-                        defaults_box,
-                    )
-                default_widgets[control.control_id] = widget
-                defaults_layout.addRow(control.label, widget)
+                    if default_value is None:
+                        default_value = BUILTIN_CONTROL_DEFAULT_VALUES.get(
+                            control.control_id,
+                            control.value,
+                        )
+                    if control.kind == "boolean":
+                        widget = QtWidgets.QCheckBox(section_box)
+                        widget.setChecked(bool(default_value))
+                    elif control.kind == "enum":
+                        widget = QtWidgets.QComboBox(section_box)
+                        for choice in control.choices:
+                            widget.addItem(choice.label, choice.value)
+                        if default_value is not None:
+                            index = widget.findData(str(default_value))
+                            if index >= 0:
+                                widget.setCurrentIndex(index)
+                    else:
+                        widget = QtWidgets.QLineEdit(
+                            str(
+                                default_value
+                                if default_value is not None
+                                else ""
+                            ),
+                            section_box,
+                        )
+                    default_widgets[control.control_id] = widget
+                    section_layout.addRow(control.label, widget)
+                defaults_layout.addWidget(section_box)
         else:
-            defaults_layout.addRow(
+            defaults_layout.addWidget(
                 QtWidgets.QLabel(
                     "Open a camera to edit control defaults.", defaults_box
                 )
@@ -3284,6 +3364,12 @@ class PreviewApplication:
         """Finish the application bootstrap and start the Qt event loop."""
 
         self._preview_timer = self._qt_core.QTimer(self._window)
+        if hasattr(self._preview_timer, "setTimerType") and hasattr(
+            self._qt_core.Qt, "TimerType"
+        ):
+            self._preview_timer.setTimerType(
+                self._qt_core.Qt.TimerType.PreciseTimer
+            )
         self._preview_timer.setInterval(self.refresh_interval_milliseconds)
         self._preview_timer.timeout.connect(self._poll_preview_frame)
         self._preview_timer.start()

@@ -29,9 +29,12 @@ from webcam_micro.camera import (
     QtCameraBackend,
     QtCameraSession,
     RecordingCropPlan,
+    _preferred_recording_output_suffix,
+    _qt_recording_output_path_for_path,
     _request_macos_camera_permission,
     _request_qt_camera_permission,
     build_backend_plan,
+    build_recording_file_filter,
     pack_preview_rgb_rows,
     request_camera_permission,
 )
@@ -93,6 +96,188 @@ class CameraContractTest(unittest.TestCase):
 
         avfoundation_backend = AvFoundationCameraControlBackend()
         self.assertIsInstance(avfoundation_backend.available, bool)
+
+    @mock.patch("webcam_micro.camera._load_avfoundation_modules")
+    @mock.patch("webcam_micro.camera.sys.platform", "darwin")
+    def test_avfoundation_control_surface_hides_backend_clutter(
+        self,
+        load_modules: mock.MagicMock,
+    ) -> None:
+        """Assert the macOS control surface keeps backend clutter hidden."""
+
+        class FakeDevice:
+            """Provide the minimum AVFoundation surface for the backend."""
+
+            def localizedName(self) -> str:
+                """Return the device name used for descriptor matching."""
+
+                return "Microscope Camera"
+
+            def uniqueID(self) -> str:
+                """Return the device identifier used for descriptor
+                matching."""
+
+                return "camera-1"
+
+            def isExposureModeSupported_(self, mode_value: int) -> bool:
+                """Report support for the writable exposure modes."""
+
+                return mode_value in {0, 2}
+
+            def exposureMode(self) -> int:
+                """Return the current writable exposure mode."""
+
+                return 2
+
+            def minAvailableVideoZoomFactor(self) -> float:
+                """Return the minimum zoom factor."""
+
+                return 1.0
+
+            def maxAvailableVideoZoomFactor(self) -> float:
+                """Return the maximum zoom factor."""
+
+                return 4.0
+
+            def videoZoomFactor(self) -> float:
+                """Return the current zoom factor."""
+
+                return 2.0
+
+            def activeFormat(self) -> str:
+                """Return one readable source-mode summary."""
+
+                return "1920x1080"
+
+            def lockForConfiguration_(self, _error) -> bool:
+                """Pretend the device can be configured."""
+
+                return True
+
+            def unlockForConfiguration(self) -> None:
+                """No-op for the fake device."""
+
+                return None
+
+            def setExposureMode_(self, mode_value: int) -> None:
+                """Accept exposure updates in the test double."""
+
+                return None
+
+            def setVideoZoomFactor_(self, zoom_value: float) -> None:
+                """Accept zoom updates in the test double."""
+
+                return None
+
+        class FakeCaptureDeviceClass:
+            """Return one fake device for the macOS control backend."""
+
+            @staticmethod
+            def devicesWithMediaType_(media_type: object) -> tuple[FakeDevice]:
+                """Return the fake device list for the selected media type."""
+
+                return (FakeDevice(),)
+
+        load_modules.return_value = (FakeCaptureDeviceClass, object())
+        backend = AvFoundationCameraControlBackend()
+        descriptor = CameraDescriptor(
+            stable_id="camera-1",
+            display_name="Microscope Camera",
+            backend_name="avfoundation",
+            device_selector="camera-1",
+            native_identifier="camera-1",
+        )
+
+        control_ids = tuple(
+            control.control_id for control in backend.list_controls(descriptor)
+        )
+
+        self.assertEqual(
+            (
+                "exposure_mode",
+                "exposure_locked",
+                "zoom_factor",
+                "active_format",
+                "restore_auto_exposure",
+            ),
+            control_ids,
+        )
+        self.assertNotIn("control_backend", control_ids)
+        self.assertNotIn("low_light_boost_support", control_ids)
+
+    def test_recording_container_helpers_track_supported_formats(self) -> None:
+        """Assert recording helpers expose only supported video formats."""
+
+        class FakeFormat:
+            """Provide one simple Qt media file-format token."""
+
+            def __init__(self, name: str) -> None:
+                """Store the enum-style file-format name."""
+
+                self.name = name
+
+        class FakeQMediaFormat:
+            """Provide the minimal media-format surface used by helpers."""
+
+            class ConversionMode:
+                """Expose the encode mode used by the helpers."""
+
+                Encode = object()
+
+            class FileFormat:
+                """Expose the format tokens queried by the helpers."""
+
+                AVI = FakeFormat("AVI")
+                MPEG4 = FakeFormat("MPEG4")
+                QuickTime = FakeFormat("QuickTime")
+
+            def supportedFileFormats(
+                self, mode: object
+            ) -> tuple[FakeFormat, ...]:
+                """Return the supported video formats for this runtime."""
+
+                return (
+                    self.FileFormat.QuickTime,
+                    self.FileFormat.MPEG4,
+                )
+
+            def fileFormatDescription(self, file_format: FakeFormat) -> str:
+                """Return one readable file-format label."""
+
+                descriptions = {
+                    "MPEG4": "MPEG-4 Video",
+                    "QuickTime": "QuickTime Movie",
+                }
+                return descriptions[file_format.name]
+
+            def fileFormatName(self, file_format: FakeFormat) -> str:
+                """Return the enum-style file-format name."""
+
+                return file_format.name
+
+        fake_qt_multimedia = mock.MagicMock(QMediaFormat=FakeQMediaFormat)
+
+        self.assertEqual(
+            "MPEG-4 Video (*.mp4);;QuickTime Movie (*.mov)",
+            build_recording_file_filter(fake_qt_multimedia),
+        )
+        self.assertEqual(
+            ".mp4",
+            _preferred_recording_output_suffix(fake_qt_multimedia),
+        )
+
+        output_path, file_format = _qt_recording_output_path_for_path(
+            Path("/tmp/microscope"),
+            fake_qt_multimedia,
+        )
+        self.assertEqual(Path("/tmp/microscope.mp4"), output_path)
+        self.assertIs(file_format, FakeQMediaFormat.FileFormat.MPEG4)
+
+        with self.assertRaises(CameraOutputError):
+            _qt_recording_output_path_for_path(
+                Path("/tmp/microscope.avi"),
+                fake_qt_multimedia,
+            )
 
     @mock.patch("rubicon.objc.Block", side_effect=lambda func: func)
     @mock.patch("webcam_micro.camera._load_avfoundation_modules")

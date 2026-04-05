@@ -6,7 +6,7 @@
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
-**Last Updated:** 2026-04-04
+**Last Updated:** 2026-04-05
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -62,30 +62,30 @@ work here and keep durable product rules in `SPEC.md` and history in
    - the visible shell follows `SPEC.md`'s command model without obvious
      mismatch
 
-2. [not done] Make still capture silent and folder-driven.
+2. [done] Make still capture silent and folder-driven.
    Goal:
-   - save stills straight to the configured folder without repeated save
-     prompts
+   - save stills straight to the configured folder without repeated prompts
    Work:
    - use the persisted still output folder as the default destination
-   - only prompt when the user explicitly chooses another location
+   - save stills immediately without a save dialog
    - preserve the chosen folder across launches
    Done when:
    - a still capture saves silently to the configured directory by default
-   - the user only sees a prompt on an explicit save-as action
+   - still capture never blocks on a save dialog
 
-3. [not done] Improve preview responsiveness and frame cadence.
+3. [done] Improve preview responsiveness and frame cadence.
    Goal:
    - reduce visible lag in live preview while keeping recording smooth
    Work:
-   - measure preview delivery lag versus recording throughput
-   - reduce repaint or decode bottlenecks in the preview path
+   - use a tighter preview polling cadence and precise timer for cached
+     frame updates
+   - rerender the newest cached frame as soon as it is available
    - keep the recorded video path at least as smooth as current alpha
    Done when:
    - preview lag is materially lower on supported cameras
    - recording remains smooth and stable under the same test cameras
 
-4. [not done] Complete camera-control exposure and placement.
+4. [done] Complete camera-control exposure and placement.
    Goal:
    - expose the supported controls cleanly and in the right workspace
      surfaces
@@ -98,7 +98,7 @@ work here and keep durable product rules in `SPEC.md` and history in
    - supported controls are discoverable and editable without hunting
    - control state persists per camera and per preset as expected
 
-5. [not done] Harden platform permissions, recording, and containers.
+5. [done] Harden platform permissions, recording, and containers.
    Goal:
    - make cross-platform runtime behavior consistent enough for beta
      testing
@@ -116,7 +116,9 @@ work here and keep durable product rules in `SPEC.md` and history in
    - prove the alpha baseline is stable enough for a beta plan
    Work:
    - run operational testing across supported OSes and cameras
-   - collect the remaining beta-blocking defects into follow-up slices
+   - collect the remaining beta-blocking defects into platform-validation
+     follow-up slices for the Windows and Linux camera and recording
+     paths
    - refresh docs and package metadata only where beta behavior changes
    Done when:
    - the remaining beta gaps are known, prioritized, and small enough

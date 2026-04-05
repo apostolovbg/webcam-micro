@@ -6,7 +6,7 @@
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
-**Last Updated:** 2026-04-04
+**Last Updated:** 2026-04-05
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -59,6 +59,89 @@ Example:
 ## Log changes here
 
 ## Version 0.1.0a1
+
+- 2026-04-05:
+  Change: Clarified the beta-prep status in the user-facing READMEs and
+    recorded the remaining Windows and Linux platform-validation follow-up
+    in the plan.
+  Why: Kept the release-prep wording truthful after the recording and
+    container hardening work completed on the current runtime.
+  Impact: Updated the alpha-status docs, tightened the beta follow-up
+    wording in `PLAN.md`, and preserved the cross-platform validation
+    handoff for the next slice.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  webcam_micro/README.md
+
+- 2026-04-05:
+  Change: Hardened the recording save flow so the Qt shell filters
+    supported containers and the session normalizes the recorded output
+    path before recording starts.
+  Why: Preserved the cross-platform launch flow while removing
+    backend-specific recording surprises on macOS, Windows, and Linux.
+  Impact: Updated the recording dialog, runtime recording validation,
+    docs, plan status, and tests for runtime-supported containers.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  tests/test_camera.py
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/camera.py
+  webcam_micro/ui.py
+
+- 2026-04-05:
+  Change: Aligned the visible camera controls into Exposure, Zoom, Source
+    Info, and Actions sections and removed backend-only macOS rows from
+    the control surface.
+  Why: Preserved the same cross-platform control model while hiding
+    AVFoundation bookkeeping from the dock.
+  Impact: Updated the dock and Preferences to use sectioned control
+    placement on all supported OSes, removed the macOS bookkeeping rows,
+    and added docs and tests for the new grouping.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  tests/test_camera.py
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/camera.py
+  webcam_micro/ui.py
+
+- 2026-04-05:
+  Change: Tightened the preview polling cadence so the live shell renders
+    fresher frames sooner.
+  Why: Reduced visible preview lag while keeping the recording path on the
+    existing Qt Multimedia session flow.
+  Impact: The shell now polls on a precise 60 Hz cadence, opens cameras
+    with an immediate preview poll, and the docs and tests cover the lower-
+    lag preview contract.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/ui.py
+
+- 2026-04-05:
+  Change: Replaced the still-save prompt with silent folder-driven capture.
+  Why: Aligned still capture with the configured image-folder workflow and
+    removed the misleading save-as path.
+  Impact: Still images now save automatically to the user's image folder,
+    the plan and docs describe the quiet flow, and the UI test suite covers
+    the no-dialog behavior.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/ui.py
 
 - 2026-04-05:
   Change: Aligned the Qt shell menu placement so camera session actions live

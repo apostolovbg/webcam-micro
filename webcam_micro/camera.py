@@ -685,18 +685,169 @@ def _qimage_to_preview_frame(
     )
 
 
-def _qt_media_file_format_for_path(path: Path, qt_multimedia: Any) -> object:
-    """Return one Qt media file format that matches the output suffix."""
+_RECORDING_FILE_FORMAT_SUFFIXES = {
+    "AVI": (".avi",),
+    "Matroska": (".mkv",),
+    "MPEG4": (".mp4",),
+    "Ogg": (".ogv", ".ogg"),
+    "QuickTime": (".mov",),
+    "WMV": (".wmv",),
+    "WebM": (".webm",),
+}
+_PREFERRED_RECORDING_FILE_FORMAT_NAMES = (
+    "MPEG4",
+    "QuickTime",
+    "Matroska",
+    "WebM",
+    "WMV",
+    "AVI",
+    "Ogg",
+)
+
+
+def _qt_media_file_format_name(file_format: object) -> str:
+    """Return one stable enum name for a Qt media file format."""
+
+    return (
+        getattr(file_format, "name", "")
+        or str(file_format).rsplit(
+            ".",
+            1,
+        )[-1]
+    )
+
+
+def _qt_recording_file_format_entries(
+    qt_multimedia: Any,
+) -> tuple[tuple[object, tuple[str, ...], str], ...]:
+    """Return the supported video recording containers for this runtime."""
+
+    media_format_class = getattr(qt_multimedia, "QMediaFormat", None)
+    if media_format_class is None:
+        return ()
+    file_format_enum = getattr(media_format_class, "FileFormat", None)
+    conversion_mode_enum = getattr(media_format_class, "ConversionMode", None)
+    if file_format_enum is None or conversion_mode_enum is None:
+        return ()
+
+    probe = media_format_class()
+    try:
+        supported_file_formats = tuple(
+            probe.supportedFileFormats(conversion_mode_enum.Encode)
+        )
+    except (AttributeError, RuntimeError, TypeError):
+        supported_file_formats = ()
+
+    if supported_file_formats:
+        candidates: tuple[object, ...] = supported_file_formats
+    else:
+        candidates = tuple(
+            getattr(file_format_enum, name, None)
+            for name in _PREFERRED_RECORDING_FILE_FORMAT_NAMES
+        )
+
+    entries_by_name: dict[str, tuple[object, tuple[str, ...], str]] = {}
+    for file_format in candidates:
+        if file_format is None:
+            continue
+        format_name = _qt_media_file_format_name(file_format)
+        suffixes = _RECORDING_FILE_FORMAT_SUFFIXES.get(format_name)
+        if suffixes is None or format_name in entries_by_name:
+            continue
+        if not supported_file_formats:
+            try:
+                probe.setFileFormat(file_format)
+                if not probe.isSupported(conversion_mode_enum.Encode):
+                    continue
+            except (AttributeError, RuntimeError, TypeError):
+                continue
+        try:
+            label = probe.fileFormatDescription(file_format)
+        except (AttributeError, RuntimeError, TypeError):
+            label = ""
+        if not label:
+            try:
+                label = probe.fileFormatName(file_format)
+            except (AttributeError, RuntimeError, TypeError):
+                label = format_name
+        entries_by_name[format_name] = (
+            file_format,
+            suffixes,
+            str(label),
+        )
+
+    ordered_names = [
+        name
+        for name in _PREFERRED_RECORDING_FILE_FORMAT_NAMES
+        if name in entries_by_name
+    ]
+    ordered_names.extend(
+        sorted(name for name in entries_by_name if name not in ordered_names)
+    )
+    return tuple(entries_by_name[name] for name in ordered_names)
+
+
+def build_recording_file_filter(qt_multimedia: Any) -> str:
+    """Return one recording save filter tailored to supported formats."""
+
+    entries = _qt_recording_file_format_entries(qt_multimedia)
+    if not entries:
+        return "Video Files (*.mp4)"
+    filters = [
+        f"{label} ({' '.join(f'*{suffix}' for suffix in suffixes)})"
+        for _file_format, suffixes, label in entries
+    ]
+    return ";;".join(filters)
+
+
+def _preferred_recording_output_suffix(qt_multimedia: Any) -> str:
+    """Return one default recording suffix supported by this runtime."""
+
+    entries = _qt_recording_file_format_entries(qt_multimedia)
+    if not entries:
+        return ".mp4"
+    return entries[0][1][0]
+
+
+def _qt_recording_output_path_for_path(
+    path: Path,
+    qt_multimedia: Any,
+) -> tuple[Path, object]:
+    """Return one normalized recording path and its Qt media format."""
+
+    entries = _qt_recording_file_format_entries(qt_multimedia)
+    if not entries:
+        raise CameraOutputError(
+            "No supported video recording containers are available on "
+            "this platform."
+        )
+    format_by_suffix: dict[str, object] = {}
+    for file_format, suffixes, _label in entries:
+        for suffix in suffixes:
+            format_by_suffix.setdefault(suffix, file_format)
 
     suffix = path.suffix.lower()
-    formats = qt_multimedia.QMediaFormat.FileFormat
-    if suffix == ".mov":
-        return formats.QuickTime
-    if suffix == ".mkv":
-        return formats.Matroska
-    if suffix == ".webm":
-        return formats.WebM
-    return formats.MPEG4
+    if suffix:
+        file_format = format_by_suffix.get(suffix)
+        if file_format is None:
+            supported_suffixes = ", ".join(sorted(format_by_suffix))
+            raise CameraOutputError(
+                f"Recording format `{suffix}` is not supported on this "
+                f"platform. Supported video containers: {supported_suffixes}."
+            )
+        return path, file_format
+
+    preferred_path, file_format = next(
+        (
+            (
+                path.with_suffix(suffixes[0]),
+                file_format,
+            )
+            for file_format, suffixes, _label in entries
+        ),
+        (path.with_suffix(".mp4"), entries[0][0]),
+    )
+    return preferred_path, file_format
 
 
 def _qt_recorder_state_text(state: object, qt_multimedia: Any) -> str:
@@ -1196,26 +1347,6 @@ class AvFoundationCameraControlBackend:
                 details="Current AVFoundation source mode.",
             )
         )
-        controls.append(
-            CameraControl(
-                control_id="control_backend",
-                label="Control Backend",
-                kind="read_only",
-                value="AVFoundation",
-                details="Native control bridge used for macOS cameras.",
-            )
-        )
-        controls.append(
-            CameraControl(
-                control_id="low_light_boost_support",
-                label="Low Light Boost Supported",
-                kind="read_only",
-                value="Yes" if device.isLowLightBoostSupported() else "No",
-                details=(
-                    "Reports whether AVFoundation exposes low-light boost."
-                ),
-            )
-        )
 
         if _choice_for_value(exposure_choices, "continuous_auto") is not None:
             controls.append(
@@ -1467,14 +1598,13 @@ class QtCameraSession:
             raise CameraOutputError("The active camera session is closed.")
         if self._recording_crop_plan is not None:
             raise CameraOutputError("Recording is already active.")
+        output_path, file_format = _qt_recording_output_path_for_path(
+            output_path,
+            self._qt_multimedia,
+        )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         media_format = self._qt_multimedia.QMediaFormat()
-        media_format.setFileFormat(
-            _qt_media_file_format_for_path(
-                output_path,
-                self._qt_multimedia,
-            )
-        )
+        media_format.setFileFormat(file_format)
         self._media_recorder.setMediaFormat(media_format)
         self._media_recorder.setQuality(
             self._qt_multimedia.QMediaRecorder.Quality.HighQuality

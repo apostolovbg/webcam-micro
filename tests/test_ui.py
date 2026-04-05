@@ -5,9 +5,15 @@ from __future__ import annotations
 import inspect
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest import mock
 
-from webcam_micro.camera import CameraDescriptor, PreviewFrame
+from webcam_micro.camera import (
+    CameraControl,
+    CameraDescriptor,
+    PreviewFrame,
+    RecordingCropPlan,
+)
 from webcam_micro.ui import (
     MissingGuiDependencyError,
     PreviewApplication,
@@ -16,6 +22,7 @@ from webcam_micro.ui import (
     ShellSpec,
     _control_default_setting_key,
     _directory_setting_path,
+    _group_controls_for_surface,
     _named_presets_from_value,
     _named_presets_to_value,
     _recording_crop_plan_from_frame,
@@ -53,6 +60,10 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("Qt Multimedia", combined_body)
         self.assertIn("native desktop menu bar", combined_body)
         self.assertIn("toggleable dock", combined_body)
+        self.assertIn("Exposure", combined_body)
+        self.assertIn("Zoom", combined_body)
+        self.assertIn("still capture saves quietly", combined_body)
+        self.assertIn("tighter preview cadence", combined_body.lower())
         self.assertEqual(
             (
                 "Menu Bar",
@@ -96,6 +107,13 @@ class ShellSpecTest(unittest.TestCase):
         diagnostics_source = inspect.getsource(
             PreviewApplication._open_diagnostics
         )
+        controls_source = inspect.getsource(
+            PreviewApplication._rebuild_controls_widgets
+        )
+        run_source = inspect.getsource(PreviewApplication.run)
+        open_source = inspect.getsource(
+            PreviewApplication.open_selected_camera
+        )
         self.assertTrue(callable(build_controls_surface_lines))
         self.assertTrue(callable(build_diagnostics_lines))
         self.assertTrue(callable(build_fullscreen_surface_actions))
@@ -107,6 +125,7 @@ class ShellSpecTest(unittest.TestCase):
         self.assertTrue(callable(launch_main_window))
         self.assertTrue(callable(parse_numeric_control_text))
         self.assertTrue(callable(render_preview_image))
+        self.assertTrue(callable(_group_controls_for_surface))
         self.assertTrue(callable(_named_presets_from_value))
         self.assertTrue(callable(_named_presets_to_value))
         self.assertTrue(
@@ -124,10 +143,15 @@ class ShellSpecTest(unittest.TestCase):
         self.assertTrue(callable(PreviewApplication.open_selected_camera))
         self.assertTrue(callable(PreviewApplication.close_session))
         self.assertTrue(callable(PreviewApplication.run))
+        self.assertEqual(16, PreviewApplication.refresh_interval_milliseconds)
         self.assertIn("accept_dialog", preferences_source)
         self.assertIn("apply_named_preset", preferences_source)
         self.assertIn("save_named_preset", preferences_source)
+        self.assertIn("_group_controls_for_surface", preferences_source)
         self.assertIn("add_text_tab", diagnostics_source)
+        self.assertIn("_group_controls_for_surface", controls_source)
+        self.assertIn("PreciseTimer", run_source)
+        self.assertIn("self._poll_preview_frame()", open_source)
         self.assertTrue(issubclass(MissingGuiDependencyError, RuntimeError))
         self.assertEqual(
             "MissingGuiDependencyError", MissingGuiDependencyError.__name__
@@ -167,6 +191,103 @@ class ShellSpecTest(unittest.TestCase):
             "camera_menu.addAction(self._close_camera_action)",
             menu_bar_source,
         )
+
+    def test_capture_still_saves_quietly_to_the_image_folder(self) -> None:
+        """Assert still capture saves directly to the configured folder."""
+
+        class FakeImage:
+            """Record the still-save path and format."""
+
+            def __init__(self) -> None:
+                """Initialize the captured save calls list."""
+
+                self.calls: list[tuple[str, str]] = []
+
+            def save(self, path: str, format_name: str) -> bool:
+                """Record one still-save request."""
+
+                self.calls.append((path, format_name))
+                return True
+
+        class FakeShell:
+            """Provide the minimum still-capture surface."""
+
+            def __init__(self, image_directory: Path) -> None:
+                """Initialize the shell state used by still capture."""
+
+                self._latest_frame = object()
+                self._image_directory = image_directory
+                self._capture_framing_mode = "fit"
+                self._preview_state = "live"
+                self._qt_gui = object()
+                self.status_calls: list[tuple[str, str]] = []
+                self.diagnostic_calls: list[str] = []
+                self.persisted = False
+
+            def _preview_target_size(self) -> tuple[int, int]:
+                """Return the active preview size used for still capture."""
+
+                return (960, 640)
+
+            def _set_status(self, preview_state: str, notice: str) -> None:
+                """Record the visible status update."""
+
+                self.status_calls.append((preview_state, notice))
+
+            def _record_diagnostic_event(self, message: str) -> None:
+                """Record the diagnostic event emitted by still capture."""
+
+                self.diagnostic_calls.append(message)
+
+            def _persist_output_directories(self) -> None:
+                """Record that the output folder was persisted."""
+
+                self.persisted = True
+
+        with TemporaryDirectory() as temp_dir:
+            image_directory = Path(temp_dir)
+            existing_path = image_directory / "microscope-20260405-010203.png"
+            existing_path.write_text("existing still")
+            fake_image = FakeImage()
+            shell = FakeShell(image_directory)
+
+            with (
+                mock.patch(
+                    "webcam_micro.ui._timestamp_slug",
+                    return_value="20260405-010203",
+                ),
+                mock.patch(
+                    "webcam_micro.ui._capture_image_from_frame",
+                    return_value=fake_image,
+                ),
+                mock.patch.object(
+                    PreviewApplication,
+                    "_select_output_path",
+                    side_effect=AssertionError("save dialog should not run"),
+                ),
+            ):
+                PreviewApplication._capture_still_action(shell)
+
+        self.assertEqual(
+            [
+                (
+                    str(image_directory / "microscope-20260405-010203-1.png"),
+                    "PNG",
+                )
+            ],
+            fake_image.calls,
+        )
+        self.assertTrue(shell.persisted)
+        self.assertEqual(
+            [
+                (
+                    "live",
+                    "Saved still to microscope-20260405-010203-1.png.",
+                )
+            ],
+            shell.status_calls,
+        )
+        self.assertEqual([], shell.diagnostic_calls)
 
     def test_open_selected_camera_checks_permission_before_opening(
         self,
@@ -325,6 +446,70 @@ class ShellSpecTest(unittest.TestCase):
             ),
         )
 
+    def test_controls_surface_groups_related_controls_and_hides_backend_info(
+        self,
+    ) -> None:
+        """Assert related controls stay grouped on every supported backend."""
+
+        controls = (
+            CameraControl(
+                control_id="exposure_mode",
+                label="Exposure Mode",
+                kind="enum",
+                value="continuous_auto",
+            ),
+            CameraControl(
+                control_id="exposure_locked",
+                label="Exposure Locked",
+                kind="boolean",
+                value=False,
+            ),
+            CameraControl(
+                control_id="zoom_factor",
+                label="Zoom Factor",
+                kind="numeric",
+                value=2.0,
+            ),
+            CameraControl(
+                control_id="active_format",
+                label="Active Format",
+                kind="read_only",
+                value="1920x1080",
+            ),
+            CameraControl(
+                control_id="restore_auto_exposure",
+                label="Restore Auto Exposure",
+                kind="action",
+                value=None,
+            ),
+            CameraControl(
+                control_id="control_backend",
+                label="Control Backend",
+                kind="read_only",
+                value="AVFoundation",
+            ),
+        )
+
+        grouped = tuple(
+            (
+                section_name,
+                tuple(control.control_id for control in section_controls),
+            )
+            for section_name, section_controls in _group_controls_for_surface(
+                controls
+            )
+        )
+
+        self.assertEqual(
+            (
+                ("Exposure", ("exposure_mode", "exposure_locked")),
+                ("Zoom", ("zoom_factor",)),
+                ("Source Info", ("active_format",)),
+                ("Actions", ("restore_auto_exposure",)),
+            ),
+            grouped,
+        )
+
     def test_preview_rendering_modes_keep_expected_geometry(self) -> None:
         """Assert fit, fill, and crop render distinct preview geometries."""
 
@@ -460,7 +645,7 @@ class ShellSpecTest(unittest.TestCase):
                 "Image folder: /tmp/images",
                 "Video folder: /tmp/videos",
                 "Recent diagnostic events: 3",
-                "Open gap: cross-platform recording container validation.",
+                "Recording containers are validated on this runtime.",
             ),
             build_prototype_exit_check_lines(
                 app_name="webcam-micro",
@@ -482,6 +667,150 @@ class ShellSpecTest(unittest.TestCase):
             ),
         )
         self.assertEqual("00:05", format_recording_duration(5_900))
+
+    def test_recording_action_uses_runtime_supported_formats(self) -> None:
+        """Assert recording opens with runtime-supported containers."""
+
+        class FakeSession:
+            """Record the selected recording output path."""
+
+            def __init__(self) -> None:
+                """Initialize the recording state used by the shell."""
+
+                self.recording_state = "stopped"
+                self.recording_output_path = None
+                self.recording_error = None
+                self.recording_duration_milliseconds = 0
+                self.start_calls: list[tuple[Path, object]] = []
+
+            def start_recording(
+                self,
+                output_path: Path,
+                *,
+                crop_plan: object,
+            ) -> Path:
+                """Record the requested path and return the normalized path."""
+
+                self.start_calls.append((output_path, crop_plan))
+                return output_path.with_suffix(".mov")
+
+        class FakeShell:
+            """Provide the minimum surface needed by the record action."""
+
+            def __init__(self, video_directory: Path) -> None:
+                """Initialize the shell state used by recording."""
+
+                self._session = fake_session
+                self._preview_state = "live"
+                self._latest_frame = object()
+                self._capture_framing_mode = "fit"
+                self._video_directory = video_directory
+                self._qt_multimedia = object()
+                self.status_calls: list[tuple[str, str]] = []
+                self.diagnostic_calls: list[str] = []
+                self.persisted = False
+                self.select_calls: list[tuple[str, Path, str]] = []
+
+            def _preview_target_size(self) -> tuple[int, int]:
+                """Return the active preview size used for recording."""
+
+                return (960, 640)
+
+            def _set_status(self, preview_state: str, notice: str) -> None:
+                """Record the visible status update."""
+
+                self.status_calls.append((preview_state, notice))
+
+            def _record_diagnostic_event(self, message: str) -> None:
+                """Record the diagnostic event emitted by recording."""
+
+                self.diagnostic_calls.append(message)
+
+            def _persist_output_directories(self) -> None:
+                """Record that the output folder was persisted."""
+
+                self.persisted = True
+
+            def _select_output_path(
+                self,
+                *,
+                title: str,
+                initial_path: Path,
+                filter_text: str,
+            ) -> Path:
+                """Record the save-dialog request and return one path."""
+
+                self.select_calls.append((title, initial_path, filter_text))
+                return initial_path.with_name(initial_path.stem)
+
+        with TemporaryDirectory() as temp_dir:
+            video_directory = Path(temp_dir)
+            fake_session = FakeSession()
+            shell = FakeShell(video_directory)
+
+            with (
+                mock.patch(
+                    "webcam_micro.ui._timestamp_slug",
+                    return_value="20260405-010203",
+                ),
+                mock.patch(
+                    "webcam_micro.ui.build_recording_file_filter",
+                    return_value="supported-formats",
+                ) as build_filter,
+                mock.patch(
+                    "webcam_micro.ui._preferred_recording_output_suffix",
+                    return_value=".mov",
+                ) as preferred_suffix,
+                mock.patch(
+                    "webcam_micro.ui._recording_crop_plan_from_frame",
+                    return_value=RecordingCropPlan(
+                        source_x=0,
+                        source_y=0,
+                        source_width=960,
+                        source_height=640,
+                    ),
+                ),
+            ):
+                PreviewApplication._toggle_recording_action(shell)
+
+        self.assertEqual(
+            [
+                (
+                    "Start Recording",
+                    Path(temp_dir) / "microscope-20260405-010203.mov",
+                    "supported-formats",
+                )
+            ],
+            shell.select_calls,
+        )
+        self.assertEqual(1, build_filter.call_count)
+        self.assertEqual(1, preferred_suffix.call_count)
+        self.assertEqual(
+            [
+                (
+                    Path(temp_dir) / "microscope-20260405-010203",
+                    RecordingCropPlan(
+                        source_x=0,
+                        source_y=0,
+                        source_width=960,
+                        source_height=640,
+                    ),
+                )
+            ],
+            fake_session.start_calls,
+        )
+        self.assertTrue(shell.persisted)
+        self.assertEqual(Path(temp_dir), shell._video_directory)
+        self.assertEqual(
+            [
+                (
+                    "live",
+                    "Recording to microscope-20260405-010203.mov.",
+                )
+            ],
+            shell.status_calls,
+        )
+        self.assertEqual([], shell.diagnostic_calls)
 
     def test_output_helpers_freeze_capture_crop_and_setting_paths(
         self,
