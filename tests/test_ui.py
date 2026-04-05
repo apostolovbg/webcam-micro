@@ -137,6 +137,37 @@ class ShellSpecTest(unittest.TestCase):
         self.assertEqual("RuntimeStatus", RuntimeStatus.__name__)
         self.assertEqual("ShellSpec", ShellSpec.__name__)
 
+    def test_menu_bar_keeps_camera_actions_out_of_file(self) -> None:
+        """Assert the File menu stays exit-only while Camera owns sessions."""
+
+        menu_bar_source = inspect.getsource(PreviewApplication._build_menu_bar)
+
+        self.assertIn('file_menu = menu_bar.addMenu("File")', menu_bar_source)
+        self.assertIn(
+            "file_menu.addAction(self._exit_action)",
+            menu_bar_source,
+        )
+        self.assertNotIn(
+            "file_menu.addAction(self._open_action)",
+            menu_bar_source,
+        )
+        self.assertNotIn(
+            "file_menu.addAction(self._close_camera_action)",
+            menu_bar_source,
+        )
+        self.assertIn(
+            "camera_menu.addAction(self._refresh_action)",
+            menu_bar_source,
+        )
+        self.assertIn(
+            "camera_menu.addAction(self._open_action)",
+            menu_bar_source,
+        )
+        self.assertIn(
+            "camera_menu.addAction(self._close_camera_action)",
+            menu_bar_source,
+        )
+
     def test_open_selected_camera_checks_permission_before_opening(
         self,
     ) -> None:

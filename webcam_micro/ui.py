@@ -1223,9 +1223,6 @@ class PreviewApplication:
             menu_bar.setNativeMenuBar(True)
 
         file_menu = menu_bar.addMenu("File")
-        file_menu.addAction(self._open_action)
-        file_menu.addAction(self._close_camera_action)
-        file_menu.addSeparator()
         file_menu.addAction(self._exit_action)
 
         edit_menu = menu_bar.addMenu("Edit")

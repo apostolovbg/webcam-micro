@@ -104,11 +104,13 @@ relaunch.
 
 ## Windowed Workspace
 The main window keeps the microscope preview central.
-The native menu bar carries File, Edit, View, Camera, Capture, Tools, and
-Help actions. The toolbar keeps the main working actions close to the live
-image, including controls, camera refresh, open and close, framing, still
-capture, recording, fullscreen, and preferences. The right edge of the
-toolbar displays `© 2026 Black Epsilon Ltd. and Apostol Apostolov`.
+The native menu bar carries File for Exit, Edit for copy status, View for
+controls and framing, Camera for camera refresh, open, and close, Capture
+for still and recording actions, Tools for preferences and diagnostics, and
+Help for About. The toolbar keeps the main working actions close to the live
+image, including controls, camera refresh, camera open and close, framing,
+still capture, recording, fullscreen, and preferences. The right edge of
+the toolbar displays `© 2026 Black Epsilon Ltd. and Apostol Apostolov`.
 
 The controls dock can be shown or hidden so camera controls do not consume
 preview space permanently. Numeric controls use guvcview-style affordances:

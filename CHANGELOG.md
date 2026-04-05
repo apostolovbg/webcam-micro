@@ -60,6 +60,22 @@ Example:
 
 ## Version 0.1.0a1
 
+- 2026-04-05:
+  Change: Aligned the Qt shell menu placement so camera session actions live
+    under Camera instead of File.
+  Why: Aligned the windowed command surface with SPEC's desktop menu model
+    and removed the misplaced file-menu camera commands.
+  Impact: Updated the File menu to exit-only, aligned Camera menu ownership
+    for camera sessions, and refreshed the docs and tests around the new
+    layout.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/ui.py
+
 - 2026-04-04:
   Change: Replaced the completed alpha roadmap with a beta hardening plan
     focused on layout, capture, preview, controls, and validation.

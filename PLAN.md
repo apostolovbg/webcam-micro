@@ -50,7 +50,7 @@ work here and keep durable product rules in `SPEC.md` and history in
   forward here.
 
 ## Roadmap
-1. [not done] Align the Qt shell layout and command placement with SPEC.
+1. [done] Align the Qt shell layout and command placement with SPEC.
    Goal:
    - make the menu, toolbar, controls dock, and status surfaces match the
      documented workstation flow
