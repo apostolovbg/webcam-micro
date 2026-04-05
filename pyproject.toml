@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "webcam-micro"
-version = "0.1.0a1"
+version = "0.1.0b1"
 description = """
 Cross-platform microscope camera application distributed \
 as a Python package on PyPI."""

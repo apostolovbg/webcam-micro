@@ -1,7 +1,7 @@
 # Changelog
 **Doc ID:** CHANGELOG
 **Doc Type:** changelog
-**Project Version:** 0.1.0a1
+**Project Version:** 0.1.0b1
 **Project Stage:** alpha
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
@@ -57,6 +57,29 @@ Example:
 <!-- DEVCOV:END -->
 
 ## Log changes here
+
+## Version 0.1.0b1
+
+- 2026-04-05:
+  Change: Updated the package version to `0.1.0b1` across the source
+    version file, package manifest, managed docs, and version-sensitive
+    test coverage.
+  Why: Aligned the published metadata and generated headers with the new
+    beta prerelease version.
+  Impact: Consumers, docs, and tests now read `0.1.0b1` from
+    `webcam_micro/VERSION`, `pyproject.toml`, and the synced project
+    headers.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  CONTRIBUTING.md
+  PLAN.md
+  README.md
+  SPEC.md
+  pyproject.toml
+  tests/test_app.py
+  webcam_micro/README.md
+  webcam_micro/VERSION
 
 ## Version 0.1.0a1
 

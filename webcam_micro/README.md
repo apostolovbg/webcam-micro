@@ -1,7 +1,7 @@
 # webcam-micro
 **Doc ID:** README
 **Doc Type:** repo-readme
-**Project Version:** 0.1.0a1
+**Project Version:** 0.1.0b1
 **Last Updated:** 2026-04-05
 **DevCovenant Version:** 1.0.1b1
 
