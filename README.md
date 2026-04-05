@@ -55,8 +55,8 @@ The release version is sourced from `webcam_micro/VERSION`, and the shell
 chrome carries the full legal-owner notice.
 The Qt Widgets baseline is usable for live preview, camera control, still
 capture, recording, presets, and diagnostics. The remaining beta-prep work
-is platform validation on the supported desktop targets, and the follow-up
-plan lives in `PLAN.md`.
+is now deferred until after beta publication, so the beta plan is
+complete for the current release path.
 
 ## What Works Today
 - Launch and entrypoint: the application starts from the `webcam-micro`

@@ -61,6 +61,19 @@ Example:
 ## Version 0.1.0a1
 
 - 2026-04-05:
+  Change: Marked the beta plan complete and deferred the remaining
+    Windows and Linux validation until after beta publication.
+  Why: Preserved truthful release notes after deciding not to block the
+    beta path on unrun cross-platform tests.
+  Impact: Updated `PLAN.md` and both READMEs to describe the deferred
+    follow-up and the completed beta plan.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  webcam_micro/README.md
+
+- 2026-04-05:
   Change: Refactored the macOS camera-permission callback through a
     repo-owned adapter so Linux CI no longer imports
     `rubicon.objc.Block` at decorator time.

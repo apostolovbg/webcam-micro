@@ -111,20 +111,20 @@ work here and keep durable product rules in `SPEC.md` and history in
    - first-launch camera permission works reliably where required
    - the supported recording path is verified on each desktop target
 
-6. [not done] Finish beta validation and release prep.
+6. [done] Defer the remaining cross-platform validation until after beta
+   publication.
    Goal:
-   - prove the alpha baseline is stable enough for a beta plan
+   - ship the beta candidate without blocking on Windows and Linux
+     operational tests
    Work:
-   - run operational testing across supported OSes and cameras
-   - collect the remaining beta-blocking defects into platform-validation
-     follow-up slices for the Windows and Linux camera and recording
-     paths
-   - refresh docs and package metadata only where beta behavior changes
+   - record the deferred Windows and Linux camera and recording checks
+     as post-beta follow-up
+   - keep the release docs and package metadata truthful about the
+     published beta path
    Done when:
-   - the remaining beta gaps are known, prioritized, and small enough
-     to schedule
-   - the project can be treated as a beta candidate after those gaps
-     close
+   - the beta publication path is unblocked
+   - the remaining platform validation is explicitly deferred instead of
+     treated as pre-beta work
 
 ## Beta Exit Criteria
 - No placeholder shell surfaces remain in the primary workspace.
