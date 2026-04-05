@@ -77,6 +77,13 @@ complete for the current release path.
   Balance, Light/Flicker, Color/Image Quality, Zoom, Source Info,
   Actions, and Other Controls families across supported OSes with a
   one-column default layout that widens to two columns on roomy docks.
+  Qt Multimedia now surfaces backlight compensation, manual exposure time
+  and ISO, focus auto and distance, white balance automatic and
+  temperature, flash or torch, and source-format details when the device
+  reports them. On Linux, V4L2 adds power line frequency, brightness,
+  contrast, saturation, hue, gamma, gain, sharpness, lamp, illumination,
+  activity LED, and vendor-specific extension controls when the camera
+  reports them.
 - Capture and recording: still images save quietly to the configured folder
   with the current capture framing, and recordings use native controls with
   platform-supported containers.
@@ -151,12 +158,13 @@ changing the live microscope view.
 
 ## Camera Controls
 The app exposes the real control surface reported by the active camera and
-backend. Supported controls include numeric, boolean, enumerated, read-only,
-and action widgets. The app tolerates partial control sets and does not fail
-just because a camera lacks an expected control.
-
-On macOS, the active camera can bridge into AVFoundation through
-`rubicon-objc` when the backend exposes real native controls.
+backend. Qt Multimedia covers the common exposure, focus, white balance,
+flash, torch, zoom, and source-format controls across supported platforms,
+while Linux V4L2 adds power line frequency, image-quality controls, lamp,
+illumination, activity LED, and vendor-specific extensions when the device
+reports them. Supported controls include numeric, boolean, enumerated,
+read-only, and action widgets. The app tolerates partial control sets and
+does not fail just because a camera lacks an expected control.
 
 ## Capture and Recording
 Still images save quietly to the configured image folder as PNG or JPEG
@@ -182,10 +190,12 @@ mode, preview framing, capture framing, controls state, preset name,
 recording state, and the current status notice.
 
 ## Platform Notes
-Qt Multimedia owns camera discovery, preview, and recording.
-Actual controls and container support vary by camera, backend, and platform.
-The app only surfaces controls the backend can actually use, and the
-recording path filters the save dialog to supported containers.
+Qt Multimedia owns camera discovery, preview, recording, and the common
+control surface. On Linux, V4L2 contributes extra control discovery for
+device-specific and vendor-specific settings when available. Actual
+controls and container support vary by camera, backend, and platform. The
+app only surfaces controls the backend can actually use, and the recording
+path filters the save dialog to supported containers.
 
 ## Current Limitations
 Some camera controls and output formats remain backend-dependent.

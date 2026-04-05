@@ -30,6 +30,7 @@ class ApplicationEntryPointTest(unittest.TestCase):
         self.assertIn("Qt Multimedia now owns", plan.backend_strategy)
         self.assertIn("AVFoundation", plan.backend_strategy)
         self.assertIn("rubicon", plan.backend_strategy)
+        self.assertIn("Linux V4L2", plan.backend_strategy)
         self.assertIn("Qt Multimedia", plan.first_device_backend_target)
         self.assertIn("native desktop menu bar", plan.shell_contract)
         self.assertIn("toolbar", plan.shell_contract)

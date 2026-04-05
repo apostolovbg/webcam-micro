@@ -734,10 +734,40 @@ class ShellSpecTest(unittest.TestCase):
                 value=False,
             ),
             CameraControl(
+                control_id="backlight_compensation",
+                label="Backlight Compensation",
+                kind="numeric",
+                value=0.0,
+            ),
+            CameraControl(
+                control_id="manual_exposure_time",
+                label="Manual Exposure Time",
+                kind="numeric",
+                value=0.02,
+            ),
+            CameraControl(
+                control_id="manual_iso_sensitivity",
+                label="Manual ISO Sensitivity",
+                kind="numeric",
+                value=100,
+            ),
+            CameraControl(
                 control_id="focus_auto",
                 label="Focus Automatic",
                 kind="boolean",
                 value=False,
+            ),
+            CameraControl(
+                control_id="focus_distance",
+                label="Focus Distance",
+                kind="numeric",
+                value=0.5,
+            ),
+            CameraControl(
+                control_id="white_balance_automatic",
+                label="White Balance Automatic",
+                kind="boolean",
+                value=True,
             ),
             CameraControl(
                 control_id="white_balance_temperature",
@@ -750,6 +780,24 @@ class ShellSpecTest(unittest.TestCase):
                 label="Power Line Frequency",
                 kind="enum",
                 value="50",
+            ),
+            CameraControl(
+                control_id="flash_mode",
+                label="Flash Mode",
+                kind="enum",
+                value="off",
+            ),
+            CameraControl(
+                control_id="torch_mode",
+                label="Torch Mode",
+                kind="enum",
+                value="off",
+            ),
+            CameraControl(
+                control_id="activity_led",
+                label="Activity LED",
+                kind="boolean",
+                value=True,
             ),
             CameraControl(
                 control_id="saturation",
@@ -801,10 +849,30 @@ class ShellSpecTest(unittest.TestCase):
 
         self.assertEqual(
             (
-                ("Exposure", ("exposure_mode", "exposure_locked")),
-                ("Focus", ("focus_auto",)),
-                ("White Balance", ("white_balance_temperature",)),
-                ("Light/Flicker", ("power_line_frequency",)),
+                (
+                    "Exposure",
+                    (
+                        "exposure_mode",
+                        "exposure_locked",
+                        "backlight_compensation",
+                        "manual_exposure_time",
+                        "manual_iso_sensitivity",
+                    ),
+                ),
+                ("Focus", ("focus_auto", "focus_distance")),
+                (
+                    "White Balance",
+                    ("white_balance_automatic", "white_balance_temperature"),
+                ),
+                (
+                    "Light/Flicker",
+                    (
+                        "power_line_frequency",
+                        "flash_mode",
+                        "torch_mode",
+                        "activity_led",
+                    ),
+                ),
                 ("Color/Image Quality", ("saturation",)),
                 ("Zoom", ("zoom_factor",)),
                 ("Source Info", ("active_format",)),

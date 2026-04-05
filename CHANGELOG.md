@@ -61,6 +61,28 @@ Example:
 ## Version 0.1.0b1
 
 - 2026-04-05:
+  Change: Expanded the Qt and Linux control backends so light, flicker,
+    and vendor-specific camera controls now surface when the device
+    reports them.
+  Why: Aligned the backend capability handling with the item 4 control
+    contract and kept the active surface faithful to what the camera
+    exposes.
+  Impact: Updated the control backends, backend strategy, plan status,
+    docs, and tests so Linux V4L2 extras and the shared Qt controls stay
+    visible across supported platforms.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  tests/test_app.py
+  tests/test_camera.py
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/__init__.py
+  webcam_micro/camera.py
+  webcam_micro/ui.py
+
+- 2026-04-05:
   Change: Removed the narrative workspace notes from the main shell and
     updated the capture-settings wording to live in Preferences.
   Why: Aligned the preview-first shell with the item 3 separation

@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import contextlib
+import ctypes
+import errno
 import glob
 import math
+import os
 import re
 import shutil
 import subprocess
@@ -14,7 +17,7 @@ from collections import deque
 from ctypes import c_bool
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 from .macos_permission import wrap_completion_handler
 
@@ -214,8 +217,9 @@ def build_backend_plan() -> BackendPlan:
             "Preview readers keep only the newest frame surfaced through a "
             "QVideoSink so the workspace renderer does not lag behind live "
             "video.",
-            "The typed control surface still uses AVFoundation for macOS "
-            "camera-control access when available.",
+            "The typed control surface now combines Qt Multimedia "
+            "capability reporting with Linux V4L2 control discovery across "
+            "macOS, Windows, and Linux.",
         ),
     )
 
@@ -1184,6 +1188,1672 @@ def _choice_for_value(
     return None
 
 
+def _enum_name(value: object) -> str:
+    """Return one stable enum or value name for a Qt control token."""
+
+    name = getattr(value, "name", "")
+    if name:
+        return str(name)
+    text = str(value)
+    if "." in text:
+        return text.rsplit(".", 1)[-1]
+    return text
+
+
+def _qt_camera_device_for_descriptor(
+    qt_multimedia: Any,
+    descriptor: CameraDescriptor,
+) -> Any | None:
+    """Return the Qt camera device that matches one shared descriptor."""
+
+    if qt_multimedia is None:
+        return None
+    counts: dict[str, int] = {}
+    for index, device in enumerate(qt_multimedia.QMediaDevices.videoInputs()):
+        display_name = device.description() or f"Camera {index + 1}"
+        occurrence_index = counts.get(display_name, 0)
+        counts[display_name] = occurrence_index + 1
+        stable_id = _qt_camera_stable_id(device, fallback_index=index)
+        identifier = _qt_camera_identifier_text(bytes(device.id()))
+        if stable_id == descriptor.stable_id:
+            return device
+        if (
+            descriptor.native_identifier is not None
+            and identifier == descriptor.native_identifier
+        ):
+            return device
+        if (
+            descriptor.display_name == display_name
+            and descriptor.display_occurrence_index == occurrence_index
+        ):
+            return device
+    return None
+
+
+def _qcamera_feature_enabled(features: object, feature: object) -> bool:
+    """Return whether one Qt camera feature flag is set."""
+
+    try:
+        return bool(features & feature)
+    except TypeError:
+        return False
+
+
+def _qcamera_choice_list(
+    camera: Any,
+    enum_cls: Any,
+    support_method_name: str,
+    specs: tuple[tuple[str, str, str], ...],
+) -> tuple[CameraControlChoice, ...]:
+    """Return the supported enum choices for one Qt camera control."""
+
+    support_method = getattr(camera, support_method_name, None)
+    if support_method is None:
+        return ()
+    choices: list[CameraControlChoice] = []
+    for token, member_name, label in specs:
+        member = getattr(enum_cls, member_name, None)
+        if member is None:
+            continue
+        try:
+            if not support_method(member):
+                continue
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            continue
+        choices.append(CameraControlChoice(value=token, label=label))
+    return tuple(choices)
+
+
+def _qcamera_choice_token(
+    current_value: object,
+    enum_cls: Any,
+    specs: tuple[tuple[str, str, str], ...],
+) -> str | None:
+    """Return the stable token for one Qt camera enum value."""
+
+    for token, member_name, _label in specs:
+        member = getattr(enum_cls, member_name, None)
+        if member is not None and current_value == member:
+            return token
+    return None
+
+
+def _qcamera_choice_value(
+    token: str,
+    enum_cls: Any,
+    specs: tuple[tuple[str, str, str], ...],
+) -> object | None:
+    """Return the Qt enum value for one stable camera token."""
+
+    for spec_token, member_name, _label in specs:
+        if spec_token == token:
+            return getattr(enum_cls, member_name, None)
+    return None
+
+
+def _qcamera_camera_format_text(camera_format: object) -> str:
+    """Return one readable summary for the active Qt camera format."""
+
+    resolution = getattr(camera_format, "resolution", None)
+    if callable(resolution):
+        resolution = resolution()
+    width = getattr(resolution, "width", lambda: None)()
+    height = getattr(resolution, "height", lambda: None)()
+    parts: list[str] = []
+    if (
+        isinstance(width, int)
+        and isinstance(height, int)
+        and width > 0
+        and height > 0
+    ):
+        parts.append(f"{width}x{height}")
+    pixel_format = getattr(camera_format, "pixelFormat", None)
+    if callable(pixel_format):
+        pixel_format = pixel_format()
+    if pixel_format is not None:
+        parts.append(_enum_name(pixel_format))
+    min_frame_rate = _safe_float(
+        getattr(camera_format, "minFrameRate", lambda: 0)()
+    )
+    max_frame_rate = _safe_float(
+        getattr(camera_format, "maxFrameRate", lambda: 0)()
+    )
+    if min_frame_rate and max_frame_rate:
+        if math.isclose(min_frame_rate, max_frame_rate, abs_tol=1e-6):
+            parts.append(f"{max_frame_rate:g} fps")
+        else:
+            parts.append(f"{min_frame_rate:g}-{max_frame_rate:g} fps")
+    elif max_frame_rate:
+        parts.append(f"{max_frame_rate:g} fps")
+    return ", ".join(parts) if parts else "Unknown camera format"
+
+
+def _v4l2_normalize_text(text: str) -> str:
+    """Return one lowercase snake-case token for a V4L2 control label."""
+
+    return re.sub(r"[^0-9a-z]+", "_", text.lower()).strip("_")
+
+
+def _v4l2_humanize_text(text: str) -> str:
+    """Return one readable title-cased label for a V4L2 control name."""
+
+    readable = re.sub(r"[^0-9A-Za-z]+", " ", text).strip()
+    return readable.title() if readable else text
+
+
+def _v4l2_menu_choice_token(label: str, *, value: int | None = None) -> str:
+    """Return one stable token for a V4L2 menu item."""
+
+    numeric = re.search(r"\d+", label)
+    if numeric is not None:
+        return numeric.group(0)
+    if value is not None:
+        return str(value)
+    token = _v4l2_normalize_text(label)
+    return token or label.lower()
+
+
+def _ioctl_code(direction: int, type_char: str, number: int, size: int) -> int:
+    """Return one Linux ioctl request code for a structured call."""
+
+    ioctl_nrbits = 8
+    ioctl_typebits = 8
+    ioctl_sizebits = 14
+    ioctl_dirbits = 2
+    ioctl_nrshift = 0
+    ioctl_typeshift = ioctl_nrshift + ioctl_nrbits
+    ioctl_sizeshift = ioctl_typeshift + ioctl_typebits
+    ioctl_dirshift = ioctl_sizeshift + ioctl_sizebits
+    mask = (1 << ioctl_dirbits) - 1
+    return (
+        ((direction & mask) << ioctl_dirshift)
+        | (ord(type_char) << ioctl_typeshift)
+        | (number << ioctl_nrshift)
+        | (size << ioctl_sizeshift)
+    )
+
+
+def _ioctl_readwrite(type_char: str, number: int, size: int) -> int:
+    """Return one read-write ioctl request code."""
+
+    return _ioctl_code(3, type_char, number, size)
+
+
+class _V4L2Control(ctypes.Structure):
+    """Represent one V4L2 control value payload."""
+
+    _fields_ = [("id", ctypes.c_uint32), ("value", ctypes.c_int32)]
+
+
+class _V4L2QueryCtrl(ctypes.Structure):
+    """Represent one V4L2 control query payload."""
+
+    _fields_ = [
+        ("id", ctypes.c_uint32),
+        ("type", ctypes.c_uint32),
+        ("name", ctypes.c_uint8 * 32),
+        ("minimum", ctypes.c_int32),
+        ("maximum", ctypes.c_int32),
+        ("step", ctypes.c_int32),
+        ("default_value", ctypes.c_int32),
+        ("flags", ctypes.c_uint32),
+        ("reserved", ctypes.c_uint32 * 2),
+    ]
+
+
+class _V4L2QueryMenuValue(ctypes.Union):
+    """Represent the union payload for one V4L2 menu item."""
+
+    _fields_ = [
+        ("name", ctypes.c_uint8 * 32),
+        ("value", ctypes.c_int64),
+    ]
+
+
+class _V4L2QueryMenu(ctypes.Structure):
+    """Represent one V4L2 menu-item query payload."""
+
+    _pack_ = 1
+    _fields_ = [
+        ("id", ctypes.c_uint32),
+        ("index", ctypes.c_uint32),
+        ("payload", _V4L2QueryMenuValue),
+        ("reserved", ctypes.c_uint32),
+    ]
+
+
+_V4L2_CTRL_TYPE_INTEGER = 1
+_V4L2_CTRL_TYPE_BOOLEAN = 2
+_V4L2_CTRL_TYPE_MENU = 3
+_V4L2_CTRL_TYPE_BUTTON = 4
+_V4L2_CTRL_TYPE_INTEGER64 = 5
+_V4L2_CTRL_TYPE_CTRL_CLASS = 6
+_V4L2_CTRL_TYPE_STRING = 7
+_V4L2_CTRL_TYPE_BITMASK = 8
+_V4L2_CTRL_TYPE_INTEGER_MENU = 9
+_V4L2_CTRL_TYPE_U8 = 0x0100
+_V4L2_CTRL_TYPE_U16 = 0x0101
+_V4L2_CTRL_TYPE_U32 = 0x0102
+_V4L2_CTRL_TYPE_AREA = 0x0106
+_V4L2_CTRL_FLAG_DISABLED = 0x0001
+_V4L2_CTRL_FLAG_READ_ONLY = 0x0004
+_V4L2_CTRL_FLAG_WRITE_ONLY = 0x0040
+_V4L2_CTRL_FLAG_EXECUTE_ON_WRITE = 0x0200
+_V4L2_CTRL_FLAG_NEXT_CTRL = 0x80000000
+_V4L2_CTRL_FLAG_NEXT_COMPOUND = 0x40000000
+_V4L2_CID_PRIVATE_BASE = 0x08000000
+_VIDIOC_G_CTRL = _ioctl_readwrite(
+    "V",
+    27,
+    ctypes.sizeof(_V4L2Control),
+)
+_VIDIOC_S_CTRL = _ioctl_readwrite(
+    "V",
+    28,
+    ctypes.sizeof(_V4L2Control),
+)
+_VIDIOC_QUERYCTRL = _ioctl_readwrite(
+    "V",
+    36,
+    ctypes.sizeof(_V4L2QueryCtrl),
+)
+_VIDIOC_QUERYMENU = _ioctl_readwrite(
+    "V",
+    37,
+    ctypes.sizeof(_V4L2QueryMenu),
+)
+
+
+def _v4l2_ioctl_struct(
+    device_fd: int,
+    request: int,
+    struct_obj: object,
+) -> object:
+    """Run one V4L2 ioctl against a ctypes structure payload."""
+
+    import fcntl
+
+    struct_size = ctypes.sizeof(struct_obj)
+    buffer = ctypes.create_string_buffer(struct_size)
+    ctypes.memmove(buffer, ctypes.addressof(struct_obj), struct_size)
+    fcntl.ioctl(device_fd, request, buffer, True)
+    return type(struct_obj).from_buffer_copy(buffer)
+
+
+def _v4l2_control_name(query: _V4L2QueryCtrl) -> str:
+    """Return one readable label from a V4L2 control query."""
+
+    raw_name = (
+        bytes(query.name)
+        .split(b"\0", 1)[0]
+        .decode(
+            "utf-8",
+            errors="replace",
+        )
+    )
+    return raw_name.strip()
+
+
+def _v4l2_control_id(raw_name: str) -> str:
+    """Return one stable control ID from a V4L2 control label."""
+
+    normalized = _v4l2_normalize_text(raw_name)
+    alias_map = {
+        "auto_white_balance": "white_balance_automatic",
+        "white_balance_auto": "white_balance_automatic",
+        "white_balance_automatic": "white_balance_automatic",
+        "white_balance_temperature": "white_balance_temperature",
+        "backlight_compensation": "backlight_compensation",
+        "power_line_frequency": "power_line_frequency",
+        "auto_exposure": "exposure_mode",
+        "exposure_auto": "exposure_mode",
+    }
+    return alias_map.get(normalized, normalized or "unknown_control")
+
+
+@dataclass(frozen=True)
+class _V4L2ControlRecord:
+    """Describe one V4L2 control and its current value."""
+
+    control_id: str
+    label: str
+    kind: str
+    query_id: int
+    value: object | None
+    choices: tuple[CameraControlChoice, ...] = ()
+    menu_values: tuple[int, ...] = ()
+    min_value: float | None = None
+    max_value: float | None = None
+    step: float | None = None
+    read_only: bool = False
+    enabled: bool = True
+    unit: str = ""
+    details: str = ""
+    action_label: str = ""
+
+
+def _v4l2_querymenu_item(
+    device_fd: int,
+    control_id: int,
+    index: int,
+) -> _V4L2QueryMenu | None:
+    """Return one V4L2 menu item when the device exposes it."""
+
+    query = _V4L2QueryMenu()
+    query.id = control_id
+    query.index = index
+    try:
+        return _v4l2_ioctl_struct(device_fd, _VIDIOC_QUERYMENU, query)
+    except OSError as exc:
+        if exc.errno in {errno.EINVAL, errno.ENOENT, errno.ENOTTY}:
+            return None
+        raise
+
+
+def _v4l2_control_value(
+    device_fd: int,
+    query_id: int,
+) -> int | None:
+    """Return one integer V4L2 control value when readable."""
+
+    control = _V4L2Control()
+    control.id = query_id
+    try:
+        current = _v4l2_ioctl_struct(device_fd, _VIDIOC_G_CTRL, control)
+    except OSError as exc:
+        if exc.errno in {errno.EINVAL, errno.ENOENT, errno.ENOTTY}:
+            return None
+        raise
+    return int(getattr(current, "value", 0))
+
+
+def _v4l2_write_control_value(
+    device_fd: int,
+    query_id: int,
+    value: int,
+) -> None:
+    """Write one integer V4L2 control value."""
+
+    control = _V4L2Control()
+    control.id = query_id
+    control.value = int(value)
+    _v4l2_ioctl_struct(device_fd, _VIDIOC_S_CTRL, control)
+
+
+def _v4l2_control_record_from_query(
+    device_fd: int,
+    query: _V4L2QueryCtrl,
+) -> _V4L2ControlRecord | None:
+    """Return one typed V4L2 control record for the current query."""
+
+    raw_name = _v4l2_control_name(query)
+    if not raw_name:
+        return None
+    if query.type == _V4L2_CTRL_TYPE_CTRL_CLASS:
+        return None
+    if query.flags & _V4L2_CTRL_FLAG_DISABLED:
+        return None
+    control_id = _v4l2_control_id(raw_name)
+    label = _v4l2_humanize_text(raw_name)
+    details = f"Linux V4L2 control `{raw_name}`."
+    read_only = bool(query.flags & _V4L2_CTRL_FLAG_READ_ONLY)
+    enabled = not read_only and not bool(
+        query.flags & _V4L2_CTRL_FLAG_WRITE_ONLY
+    )
+    if query.flags & _V4L2_CTRL_FLAG_EXECUTE_ON_WRITE:
+        record_value = None
+        return _V4L2ControlRecord(
+            control_id=control_id,
+            label=label,
+            kind="action",
+            query_id=int(query.id),
+            value=record_value,
+            read_only=False,
+            enabled=enabled,
+            details=details,
+            action_label="Run",
+        )
+    if query.type == _V4L2_CTRL_TYPE_BUTTON:
+        return _V4L2ControlRecord(
+            control_id=control_id,
+            label=label,
+            kind="action",
+            query_id=int(query.id),
+            value=None,
+            read_only=False,
+            enabled=enabled,
+            details=details,
+            action_label="Run",
+        )
+    if query.type == _V4L2_CTRL_TYPE_BOOLEAN:
+        current_value = _v4l2_control_value(device_fd, int(query.id))
+        if current_value is None:
+            current_value = int(query.default_value)
+        return _V4L2ControlRecord(
+            control_id=control_id,
+            label=label,
+            kind="boolean",
+            query_id=int(query.id),
+            value=bool(current_value),
+            read_only=read_only,
+            enabled=enabled,
+            details=details,
+        )
+    if query.type in {_V4L2_CTRL_TYPE_MENU, _V4L2_CTRL_TYPE_INTEGER_MENU}:
+        menu_choices: list[CameraControlChoice] = []
+        menu_values: list[int] = []
+        for index in range(int(query.minimum), int(query.maximum) + 1):
+            menu_item = _v4l2_querymenu_item(
+                device_fd,
+                int(query.id),
+                index,
+            )
+            if menu_item is None:
+                continue
+            if query.type == _V4L2_CTRL_TYPE_MENU:
+                menu_label = (
+                    bytes(menu_item.payload.name)
+                    .split(
+                        b"\0",
+                        1,
+                    )[0]
+                    .decode("utf-8", errors="replace")
+                    .strip()
+                )
+                if not menu_label:
+                    continue
+                menu_value = index
+                token = _v4l2_menu_choice_token(menu_label)
+            else:
+                menu_value = int(menu_item.payload.value)
+                menu_label = (
+                    bytes(menu_item.payload.name)
+                    .split(
+                        b"\0",
+                        1,
+                    )[0]
+                    .decode("utf-8", errors="replace")
+                    .strip()
+                )
+                if not menu_label:
+                    menu_label = str(menu_value)
+                token = str(menu_value)
+            menu_choices.append(
+                CameraControlChoice(value=token, label=menu_label)
+            )
+            menu_values.append(menu_value)
+        current_value = _v4l2_control_value(device_fd, int(query.id))
+        current_token = None
+        if current_value is not None:
+            for choice, menu_value in zip(menu_choices, menu_values):
+                if menu_value == current_value:
+                    current_token = choice.value
+                    break
+        if current_token is None:
+            current_token = menu_choices[0].value if menu_choices else "0"
+        return _V4L2ControlRecord(
+            control_id=control_id,
+            label=label,
+            kind="enum",
+            query_id=int(query.id),
+            value=current_token,
+            choices=tuple(menu_choices),
+            menu_values=tuple(menu_values),
+            read_only=read_only,
+            enabled=enabled,
+            details=details,
+        )
+    if query.type in {
+        _V4L2_CTRL_TYPE_INTEGER,
+        _V4L2_CTRL_TYPE_INTEGER64,
+        _V4L2_CTRL_TYPE_BITMASK,
+        _V4L2_CTRL_TYPE_U8,
+        _V4L2_CTRL_TYPE_U16,
+        _V4L2_CTRL_TYPE_U32,
+    }:
+        current_value = _v4l2_control_value(device_fd, int(query.id))
+        if current_value is None:
+            current_value = int(query.default_value)
+        minimum = float(query.minimum)
+        maximum = float(query.maximum)
+        step = float(query.step or 1)
+        if minimum > maximum:
+            minimum, maximum = maximum, minimum
+        if step <= 0:
+            step = 1.0
+        return _V4L2ControlRecord(
+            control_id=control_id,
+            label=label,
+            kind="numeric",
+            query_id=int(query.id),
+            value=current_value,
+            min_value=minimum,
+            max_value=maximum,
+            step=step,
+            read_only=read_only,
+            enabled=enabled,
+            unit="",
+            details=details,
+        )
+    return _V4L2ControlRecord(
+        control_id=control_id,
+        label=label,
+        kind="read_only",
+        query_id=int(query.id),
+        value=raw_name,
+        read_only=True,
+        enabled=False,
+        details=details,
+    )
+
+
+def _v4l2_records_for_device_path(
+    device_path: str,
+) -> tuple[_V4L2ControlRecord, ...]:
+    """Return all V4L2 control records for one camera device node."""
+
+    if not sys.platform.startswith("linux"):
+        return ()
+    try:
+        device_fd = os.open(device_path, os.O_RDONLY)
+    except OSError:
+        return ()
+    try:
+        records: list[_V4L2ControlRecord] = []
+        query = _V4L2QueryCtrl()
+        query.id = _V4L2_CTRL_FLAG_NEXT_CTRL
+        seen_ids: set[int] = set()
+        while True:
+            try:
+                current = _v4l2_ioctl_struct(
+                    device_fd,
+                    _VIDIOC_QUERYCTRL,
+                    query,
+                )
+            except OSError as exc:
+                if exc.errno in {errno.EINVAL, errno.ENOENT, errno.ENOTTY}:
+                    break
+                raise
+            control_id = int(current.id)
+            if control_id in seen_ids:
+                break
+            seen_ids.add(control_id)
+            if current.type == _V4L2_CTRL_TYPE_CTRL_CLASS:
+                query.id = control_id | _V4L2_CTRL_FLAG_NEXT_CTRL
+                continue
+            record = _v4l2_control_record_from_query(device_fd, current)
+            if record is not None:
+                records.append(record)
+            query.id = control_id | _V4L2_CTRL_FLAG_NEXT_CTRL
+        return tuple(records)
+    finally:
+        os.close(device_fd)
+
+
+def _v4l2_device_path_for_descriptor(
+    descriptor: CameraDescriptor,
+) -> str | None:
+    """Return the Linux video-node path matching one shared descriptor."""
+
+    if not sys.platform.startswith("linux"):
+        return None
+    device_selector = str(descriptor.device_selector).strip()
+    if device_selector.startswith("/dev/video"):
+        return device_selector
+    counts: dict[str, int] = {}
+    for device_path in sorted(glob.glob("/dev/video*")):
+        device_name = Path(device_path).name
+        sysfs_name = Path("/sys/class/video4linux") / device_name / "name"
+        if not sysfs_name.exists():
+            continue
+        label = sysfs_name.read_text(encoding="utf-8").strip()
+        if not label:
+            continue
+        occurrence_index = counts.get(label, 0)
+        counts[label] = occurrence_index + 1
+        if (
+            label == descriptor.display_name
+            and occurrence_index == descriptor.display_occurrence_index
+        ):
+            return device_path
+    return None
+
+
+class CompositeCameraControlBackend:
+    """Merge multiple control backends into one stable surface."""
+
+    def __init__(self, *control_backends: CameraControlBackend) -> None:
+        """Store the ordered control backends used for lookup."""
+
+        self._control_backends = tuple(control_backends)
+
+    def list_controls(
+        self, descriptor: CameraDescriptor
+    ) -> tuple[CameraControl, ...]:
+        """Return the merged control surface from every backend."""
+
+        controls: list[CameraControl] = []
+        seen_control_ids: set[str] = set()
+        for backend in self._control_backends:
+            for control in backend.list_controls(descriptor):
+                if control.control_id in seen_control_ids:
+                    continue
+                seen_control_ids.add(control.control_id)
+                controls.append(control)
+        return tuple(controls)
+
+    def _backend_for_control_id(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+    ) -> CameraControlBackend | None:
+        """Return the first backend that reports one control ID."""
+
+        for backend in self._control_backends:
+            for control in backend.list_controls(descriptor):
+                if control.control_id == control_id:
+                    return backend
+        return None
+
+    def set_control_value(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+        value: object,
+    ) -> None:
+        """Apply one control value through the owning backend."""
+
+        backend = self._backend_for_control_id(descriptor, control_id)
+        if backend is None:
+            raise CameraControlApplyError(
+                f"Unsupported camera control `{control_id}`."
+            )
+        backend.set_control_value(descriptor, control_id, value)
+
+    def trigger_control_action(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+    ) -> None:
+        """Trigger one action through the owning backend."""
+
+        backend = self._backend_for_control_id(descriptor, control_id)
+        if backend is None:
+            raise CameraControlApplyError(
+                f"Unsupported action control `{control_id}`."
+            )
+        backend.trigger_control_action(descriptor, control_id)
+
+
+class LinuxV4L2CameraControlBackend:
+    """Expose Linux V4L2 controls when the device node is available."""
+
+    def __init__(
+        self,
+        device_path_for_descriptor: Callable[[CameraDescriptor], str | None],
+    ) -> None:
+        """Store the descriptor-to-device resolver used for V4L2 access."""
+
+        self._device_path_for_descriptor = device_path_for_descriptor
+
+    def _device_path(self, descriptor: CameraDescriptor) -> str | None:
+        """Return the Linux device-node path for one shared descriptor."""
+
+        return self._device_path_for_descriptor(descriptor)
+
+    def _records_for_descriptor(
+        self,
+        descriptor: CameraDescriptor,
+    ) -> tuple[_V4L2ControlRecord, ...]:
+        """Return every readable V4L2 control record for one descriptor."""
+
+        device_path = self._device_path(descriptor)
+        if device_path is None:
+            return ()
+        return _v4l2_records_for_device_path(device_path)
+
+    def list_controls(
+        self, descriptor: CameraDescriptor
+    ) -> tuple[CameraControl, ...]:
+        """Return the V4L2 control surface for the selected camera."""
+
+        controls: list[CameraControl] = []
+        for record in self._records_for_descriptor(descriptor):
+            controls.append(
+                CameraControl(
+                    control_id=record.control_id,
+                    label=record.label,
+                    kind=record.kind,
+                    value=record.value,
+                    choices=record.choices,
+                    min_value=record.min_value,
+                    max_value=record.max_value,
+                    step=record.step,
+                    read_only=record.read_only,
+                    enabled=record.enabled,
+                    unit=record.unit,
+                    details=record.details,
+                    action_label=record.action_label,
+                )
+            )
+        return tuple(controls)
+
+    def _record_for_control_id(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+    ) -> _V4L2ControlRecord | None:
+        """Return the V4L2 control record for one control ID."""
+
+        for record in self._records_for_descriptor(descriptor):
+            if record.control_id == control_id:
+                return record
+        return None
+
+    def set_control_value(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+        value: object,
+    ) -> None:
+        """Apply one V4L2 control value."""
+
+        device_path = self._device_path(descriptor)
+        if device_path is None:
+            raise CameraControlApplyError(
+                "The selected camera could not be found for control updates."
+            )
+        record = self._record_for_control_id(descriptor, control_id)
+        if record is None:
+            raise CameraControlApplyError(
+                f"Unsupported camera control `{control_id}`."
+            )
+        if record.read_only:
+            raise CameraControlApplyError(
+                f"The control `{control_id}` is read-only."
+            )
+        try:
+            device_fd = os.open(device_path, os.O_RDWR)
+        except OSError as exc:
+            raise CameraControlApplyError(str(exc)) from exc
+        try:
+            if record.kind == "boolean":
+                _v4l2_write_control_value(
+                    device_fd,
+                    record.query_id,
+                    int(bool(value)),
+                )
+                return
+            if record.kind == "numeric":
+                numeric_value = _safe_float(value)
+                if numeric_value is None:
+                    raise CameraControlApplyError(
+                        f"The control `{control_id}` must be numeric."
+                    )
+                _v4l2_write_control_value(
+                    device_fd,
+                    record.query_id,
+                    int(round(numeric_value)),
+                )
+                return
+            if record.kind == "enum":
+                token = str(value).strip()
+                if not token:
+                    raise CameraControlApplyError(
+                        "The control "
+                        f"`{control_id}` must be set to one option."
+                    )
+                for choice, menu_value in zip(
+                    record.choices,
+                    record.menu_values,
+                ):
+                    if choice.value == token:
+                        _v4l2_write_control_value(
+                            device_fd,
+                            record.query_id,
+                            menu_value,
+                        )
+                        return
+                raise CameraControlApplyError(
+                    f"Unsupported menu choice `{token}` for `{control_id}`."
+                )
+            if record.kind == "action":
+                _v4l2_write_control_value(device_fd, record.query_id, 1)
+                return
+            raise CameraControlApplyError(
+                f"Unsupported camera control `{control_id}`."
+            )
+        finally:
+            os.close(device_fd)
+
+    def trigger_control_action(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+    ) -> None:
+        """Trigger one V4L2 action control."""
+
+        record = self._record_for_control_id(descriptor, control_id)
+        if record is None or record.kind != "action":
+            raise CameraControlApplyError(
+                f"Unsupported action control `{control_id}`."
+            )
+        self.set_control_value(descriptor, control_id, True)
+
+
+def _build_control_backend(
+    qt_multimedia: Any | None,
+    qt_device_resolver: Callable[[CameraDescriptor], Any | None] | None,
+    v4l2_device_resolver: Callable[[CameraDescriptor], str | None] | None,
+) -> CameraControlBackend:
+    """Return the active control backend stack for one runtime."""
+
+    control_backends: list[CameraControlBackend] = []
+    if qt_multimedia is not None and qt_device_resolver is not None:
+        control_backends.append(
+            QtCameraControlBackend(
+                qt_multimedia,
+                qt_device_resolver,
+            )
+        )
+    if sys.platform.startswith("linux") and v4l2_device_resolver is not None:
+        control_backends.append(
+            LinuxV4L2CameraControlBackend(
+                v4l2_device_resolver,
+            )
+        )
+    if not control_backends:
+        return NullCameraControlBackend()
+    if len(control_backends) == 1:
+        return control_backends[0]
+    return CompositeCameraControlBackend(*control_backends)
+
+
+_QT_EXPOSURE_MODE_SPECS = (
+    ("continuous_auto", "ExposureAuto", "Continuous Auto"),
+    ("locked", "ExposureManual", "Locked"),
+)
+_QT_FLASH_MODE_SPECS = (
+    ("off", "FlashOff", "Off"),
+    ("on", "FlashOn", "On"),
+    ("auto", "FlashAuto", "Auto"),
+)
+_QT_TORCH_MODE_SPECS = (
+    ("off", "TorchOff", "Off"),
+    ("on", "TorchOn", "On"),
+    ("auto", "TorchAuto", "Auto"),
+)
+
+
+class QtCameraControlBackend:
+    """Expose Qt Multimedia camera controls on every supported platform."""
+
+    def __init__(
+        self,
+        qt_multimedia: Any,
+        device_resolver: Callable[[CameraDescriptor], Any | None],
+    ) -> None:
+        """Store the Qt modules and descriptor resolver used for controls."""
+
+        self._qt_multimedia = qt_multimedia
+        self._device_resolver = device_resolver
+
+    def _camera_for_descriptor(
+        self, descriptor: CameraDescriptor
+    ) -> Any | None:
+        """Return the Qt camera object for one shared descriptor."""
+
+        camera_device = self._device_resolver(descriptor)
+        if camera_device is None:
+            return None
+        camera_class = getattr(self._qt_multimedia, "QCamera", None)
+        if camera_class is None:
+            return None
+        return camera_class(camera_device)
+
+    def _exposure_mode_choices(
+        self, camera: Any
+    ) -> tuple[CameraControlChoice, ...]:
+        """Return the writable exposure-mode choices for one Qt camera."""
+
+        camera_class = self._qt_multimedia.QCamera
+        return _qcamera_choice_list(
+            camera,
+            camera_class.ExposureMode,
+            "isExposureModeSupported",
+            _QT_EXPOSURE_MODE_SPECS,
+        )
+
+    def _flash_mode_choices(
+        self, camera: Any
+    ) -> tuple[CameraControlChoice, ...]:
+        """Return the writable flash-mode choices for one Qt camera."""
+
+        camera_class = self._qt_multimedia.QCamera
+        return _qcamera_choice_list(
+            camera,
+            camera_class.FlashMode,
+            "isFlashModeSupported",
+            _QT_FLASH_MODE_SPECS,
+        )
+
+    def _torch_mode_choices(
+        self, camera: Any
+    ) -> tuple[CameraControlChoice, ...]:
+        """Return the writable torch-mode choices for one Qt camera."""
+
+        camera_class = self._qt_multimedia.QCamera
+        return _qcamera_choice_list(
+            camera,
+            camera_class.TorchMode,
+            "isTorchModeSupported",
+            _QT_TORCH_MODE_SPECS,
+        )
+
+    def list_controls(
+        self, descriptor: CameraDescriptor
+    ) -> tuple[CameraControl, ...]:
+        """Return the current Qt Multimedia control surface."""
+
+        camera = self._camera_for_descriptor(descriptor)
+        if camera is None:
+            return ()
+        camera_class = self._qt_multimedia.QCamera
+        features = getattr(camera, "supportedFeatures", lambda: 0)()
+        controls: list[CameraControl] = []
+
+        exposure_choices = self._exposure_mode_choices(camera)
+        if exposure_choices:
+            current_exposure_mode = (
+                _qcamera_choice_token(
+                    getattr(camera, "exposureMode", lambda: None)(),
+                    camera_class.ExposureMode,
+                    _QT_EXPOSURE_MODE_SPECS,
+                )
+                or exposure_choices[0].value
+            )
+            controls.append(
+                CameraControl(
+                    control_id="exposure_mode",
+                    label="Exposure Mode",
+                    kind="enum",
+                    value=current_exposure_mode,
+                    choices=exposure_choices,
+                    details=(
+                        "Qt Multimedia exposure mode for the active " "camera."
+                    ),
+                )
+            )
+            if len(exposure_choices) > 1:
+                controls.append(
+                    CameraControl(
+                        control_id="exposure_locked",
+                        label="Exposure Locked",
+                        kind="boolean",
+                        value=current_exposure_mode == "locked",
+                        details=(
+                            "Convenience toggle between continuous auto "
+                            "and manual exposure."
+                        ),
+                    )
+                )
+
+        if _qcamera_feature_enabled(
+            features, camera_class.Feature.ExposureCompensation
+        ):
+            exposure_compensation = _safe_float(
+                getattr(camera, "exposureCompensation", lambda: 0.0)()
+            )
+            if exposure_compensation is None:
+                exposure_compensation = 0.0
+            exposure_compensation = max(-4.0, min(4.0, exposure_compensation))
+            controls.append(
+                CameraControl(
+                    control_id="backlight_compensation",
+                    label="Backlight Compensation",
+                    kind="numeric",
+                    value=exposure_compensation,
+                    min_value=-4.0,
+                    max_value=4.0,
+                    step=0.1,
+                    details="Qt Multimedia exposure compensation in EV.",
+                )
+            )
+
+        manual_exposure_supported = _qcamera_feature_enabled(
+            features, camera_class.Feature.ManualExposureTime
+        )
+        if manual_exposure_supported:
+            minimum_exposure = _safe_float(
+                getattr(camera, "minimumExposureTime", lambda: 0.0)()
+            )
+            maximum_exposure = _safe_float(
+                getattr(camera, "maximumExposureTime", lambda: 0.0)()
+            )
+            current_exposure_time = _safe_float(
+                getattr(camera, "manualExposureTime", lambda: 0.0)()
+            )
+            if (
+                minimum_exposure is not None
+                and maximum_exposure is not None
+                and minimum_exposure > 0
+                and maximum_exposure > minimum_exposure
+            ):
+                if current_exposure_time is None:
+                    current_exposure_time = minimum_exposure
+                current_exposure_time = max(
+                    minimum_exposure,
+                    min(maximum_exposure, current_exposure_time),
+                )
+                controls.append(
+                    CameraControl(
+                        control_id="manual_exposure_time",
+                        label="Manual Exposure Time",
+                        kind="numeric",
+                        value=current_exposure_time,
+                        min_value=minimum_exposure,
+                        max_value=maximum_exposure,
+                        step=_numeric_step(minimum_exposure, maximum_exposure),
+                        details="Manual exposure time in seconds.",
+                    )
+                )
+
+        manual_iso_supported = _qcamera_feature_enabled(
+            features, camera_class.Feature.IsoSensitivity
+        )
+        if manual_iso_supported:
+            minimum_iso = _safe_float(
+                getattr(camera, "minimumIsoSensitivity", lambda: 0.0)()
+            )
+            maximum_iso = _safe_float(
+                getattr(camera, "maximumIsoSensitivity", lambda: 0.0)()
+            )
+            current_manual_iso = _safe_float(
+                getattr(camera, "manualIsoSensitivity", lambda: 0.0)()
+            )
+            if (
+                minimum_iso is not None
+                and maximum_iso is not None
+                and minimum_iso > 0
+                and maximum_iso > minimum_iso
+            ):
+                if current_manual_iso is None:
+                    current_manual_iso = minimum_iso
+                current_manual_iso = max(
+                    minimum_iso,
+                    min(maximum_iso, current_manual_iso),
+                )
+                controls.append(
+                    CameraControl(
+                        control_id="manual_iso_sensitivity",
+                        label="Manual ISO Sensitivity",
+                        kind="numeric",
+                        value=current_manual_iso,
+                        min_value=minimum_iso,
+                        max_value=maximum_iso,
+                        step=_numeric_step(minimum_iso, maximum_iso),
+                        details=(
+                            "Manual ISO sensitivity for the active camera."
+                        ),
+                    )
+                )
+
+        focus_auto_supported = getattr(camera, "isFocusModeSupported", None)
+        if focus_auto_supported is not None:
+            try:
+                focus_auto = bool(
+                    camera.isFocusModeSupported(
+                        camera_class.FocusMode.FocusModeAuto
+                    )
+                )
+                focus_manual = bool(
+                    camera.isFocusModeSupported(
+                        camera_class.FocusMode.FocusModeManual
+                    )
+                )
+            except (AttributeError, RuntimeError, TypeError, ValueError):
+                focus_auto = False
+                focus_manual = False
+            if focus_auto or focus_manual:
+                current_focus_mode = getattr(
+                    camera, "focusMode", lambda: None
+                )()
+                controls.append(
+                    CameraControl(
+                        control_id="focus_auto",
+                        label="Focus Automatic",
+                        kind="boolean",
+                        value=current_focus_mode
+                        == camera_class.FocusMode.FocusModeAuto,
+                        read_only=not (focus_auto and focus_manual),
+                        enabled=focus_auto and focus_manual,
+                        details="Auto or manual focus selection.",
+                    )
+                )
+
+        if _qcamera_feature_enabled(
+            features, camera_class.Feature.FocusDistance
+        ):
+            current_focus_distance = _safe_float(
+                getattr(camera, "focusDistance", lambda: 1.0)()
+            )
+            if current_focus_distance is None:
+                current_focus_distance = 1.0
+            current_focus_distance = max(
+                0.0,
+                min(1.0, current_focus_distance),
+            )
+            controls.append(
+                CameraControl(
+                    control_id="focus_distance",
+                    label="Focus Distance",
+                    kind="numeric",
+                    value=current_focus_distance,
+                    min_value=0.0,
+                    max_value=1.0,
+                    step=0.01,
+                    details="Manual focus distance between near and far.",
+                )
+            )
+
+        white_balance_auto_supported = getattr(
+            camera, "isWhiteBalanceModeSupported", None
+        )
+        if white_balance_auto_supported is not None:
+            try:
+                white_balance_auto = bool(
+                    camera.isWhiteBalanceModeSupported(
+                        camera_class.WhiteBalanceMode.WhiteBalanceAuto
+                    )
+                )
+                white_balance_manual = bool(
+                    camera.isWhiteBalanceModeSupported(
+                        camera_class.WhiteBalanceMode.WhiteBalanceManual
+                    )
+                )
+            except (AttributeError, RuntimeError, TypeError, ValueError):
+                white_balance_auto = False
+                white_balance_manual = False
+            if white_balance_auto or white_balance_manual:
+                current_white_balance_mode = getattr(
+                    camera, "whiteBalanceMode", lambda: None
+                )()
+                controls.append(
+                    CameraControl(
+                        control_id="white_balance_automatic",
+                        label="White Balance Automatic",
+                        kind="boolean",
+                        value=current_white_balance_mode
+                        == camera_class.WhiteBalanceMode.WhiteBalanceAuto,
+                        read_only=not (
+                            white_balance_auto and white_balance_manual
+                        ),
+                        enabled=white_balance_auto and white_balance_manual,
+                        details="Auto or manual white balance selection.",
+                    )
+                )
+
+        if _qcamera_feature_enabled(
+            features, camera_class.Feature.ColorTemperature
+        ):
+            current_color_temperature = _safe_float(
+                getattr(camera, "colorTemperature", lambda: 2800)()
+            )
+            if current_color_temperature is None:
+                current_color_temperature = 2800.0
+            current_color_temperature = max(
+                2000.0,
+                min(10000.0, current_color_temperature),
+            )
+            controls.append(
+                CameraControl(
+                    control_id="white_balance_temperature",
+                    label="White Balance Temperature",
+                    kind="numeric",
+                    value=current_color_temperature,
+                    min_value=2000.0,
+                    max_value=10000.0,
+                    step=100.0,
+                    details=(
+                        "Manual white balance color temperature in Kelvin."
+                    ),
+                )
+            )
+
+        flash_choices = self._flash_mode_choices(camera)
+        if flash_choices:
+            current_flash_mode = (
+                _qcamera_choice_token(
+                    getattr(camera, "flashMode", lambda: None)(),
+                    camera_class.FlashMode,
+                    _QT_FLASH_MODE_SPECS,
+                )
+                or flash_choices[0].value
+            )
+            controls.append(
+                CameraControl(
+                    control_id="flash_mode",
+                    label="Flash Mode",
+                    kind="enum",
+                    value=current_flash_mode,
+                    choices=flash_choices,
+                    read_only=len(flash_choices) < 2,
+                    enabled=len(flash_choices) > 1,
+                    details="Flash mode for still capture when available.",
+                )
+            )
+
+        torch_choices = self._torch_mode_choices(camera)
+        if torch_choices:
+            current_torch_mode = (
+                _qcamera_choice_token(
+                    getattr(camera, "torchMode", lambda: None)(),
+                    camera_class.TorchMode,
+                    _QT_TORCH_MODE_SPECS,
+                )
+                or torch_choices[0].value
+            )
+            controls.append(
+                CameraControl(
+                    control_id="torch_mode",
+                    label="Torch Mode",
+                    kind="enum",
+                    value=current_torch_mode,
+                    choices=torch_choices,
+                    read_only=len(torch_choices) < 2,
+                    enabled=len(torch_choices) > 1,
+                    details="Torch or illumination mode for live lighting.",
+                )
+            )
+
+        zoom_minimum = (
+            _safe_float(getattr(camera, "minimumZoomFactor", lambda: 1.0)())
+            or 1.0
+        )
+        zoom_maximum = (
+            _safe_float(getattr(camera, "maximumZoomFactor", lambda: 1.0)())
+            or 1.0
+        )
+        zoom_value = _safe_float(getattr(camera, "zoomFactor", lambda: 1.0)())
+        if zoom_value is None:
+            zoom_value = zoom_minimum
+        zoom_value = max(zoom_minimum, min(zoom_maximum, zoom_value))
+        zoom_writable = zoom_maximum > zoom_minimum + 0.001
+        controls.append(
+            CameraControl(
+                control_id="zoom_factor",
+                label="Zoom Factor",
+                kind="numeric",
+                value=zoom_value,
+                min_value=zoom_minimum,
+                max_value=zoom_maximum,
+                step=_numeric_step(zoom_minimum, zoom_maximum),
+                read_only=not zoom_writable,
+                enabled=zoom_writable,
+                unit="x",
+                details="Qt Multimedia video zoom factor.",
+            )
+        )
+
+        camera_format = getattr(camera, "cameraFormat", None)
+        if callable(camera_format):
+            camera_format = camera_format()
+        if camera_format is not None:
+            controls.append(
+                CameraControl(
+                    control_id="active_format",
+                    label="Active Format",
+                    kind="read_only",
+                    value=_qcamera_camera_format_text(camera_format),
+                    details="Current Qt Multimedia camera format.",
+                )
+            )
+
+        if exposure_choices and (
+            manual_exposure_supported or manual_iso_supported
+        ):
+            controls.append(
+                CameraControl(
+                    control_id="restore_auto_exposure",
+                    label="Restore Auto Exposure",
+                    kind="action",
+                    value=None,
+                    action_label="Restore",
+                    details="Return the camera to automatic exposure control.",
+                )
+            )
+
+        return tuple(controls)
+
+    def set_control_value(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+        value: object,
+    ) -> None:
+        """Apply one Qt Multimedia control value."""
+
+        camera = self._camera_for_descriptor(descriptor)
+        if camera is None:
+            raise CameraControlApplyError(
+                "The selected camera could not be found for control updates."
+            )
+        camera_class = self._qt_multimedia.QCamera
+        features = getattr(camera, "supportedFeatures", lambda: 0)()
+
+        if control_id == "exposure_mode":
+            mode_value = _qcamera_choice_value(
+                str(value),
+                camera_class.ExposureMode,
+                _QT_EXPOSURE_MODE_SPECS,
+            )
+            if mode_value is None:
+                raise CameraControlApplyError(
+                    "Unsupported exposure mode selection."
+                )
+            try:
+                camera.setExposureMode(mode_value)
+            except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise CameraControlApplyError(str(exc)) from exc
+            return
+
+        if control_id == "exposure_locked":
+            mode_value = (
+                camera_class.ExposureMode.ExposureManual
+                if bool(value)
+                else camera_class.ExposureMode.ExposureAuto
+            )
+            try:
+                camera.setExposureMode(mode_value)
+            except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise CameraControlApplyError(str(exc)) from exc
+            return
+
+        if control_id == "backlight_compensation":
+            compensation = _safe_float(value)
+            if compensation is None:
+                raise CameraControlApplyError(
+                    "Backlight compensation must be numeric."
+                )
+            try:
+                camera.setExposureCompensation(compensation)
+            except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise CameraControlApplyError(str(exc)) from exc
+            return
+
+        if control_id == "manual_exposure_time":
+            exposure_time = _safe_float(value)
+            if exposure_time is None:
+                raise CameraControlApplyError(
+                    "Manual exposure time must be numeric."
+                )
+            if _qcamera_feature_enabled(
+                features, camera_class.Feature.ManualExposureTime
+            ):
+                try:
+                    camera.setExposureMode(
+                        camera_class.ExposureMode.ExposureManual
+                    )
+                except (
+                    AttributeError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                ) as exc:
+                    raise CameraControlApplyError(str(exc)) from exc
+                try:
+                    camera.setManualExposureTime(exposure_time)
+                except (
+                    AttributeError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                ) as exc:
+                    raise CameraControlApplyError(str(exc)) from exc
+                return
+            raise CameraControlApplyError(
+                "Manual exposure time is unavailable for this camera."
+            )
+
+        if control_id == "manual_iso_sensitivity":
+            iso_value = _safe_float(value)
+            if iso_value is None:
+                raise CameraControlApplyError(
+                    "Manual ISO sensitivity must be numeric."
+                )
+            if _qcamera_feature_enabled(
+                features, camera_class.Feature.IsoSensitivity
+            ):
+                try:
+                    camera.setExposureMode(
+                        camera_class.ExposureMode.ExposureManual
+                    )
+                except (
+                    AttributeError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                ) as exc:
+                    raise CameraControlApplyError(str(exc)) from exc
+                try:
+                    camera.setManualIsoSensitivity(int(round(iso_value)))
+                except (
+                    AttributeError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                ) as exc:
+                    raise CameraControlApplyError(str(exc)) from exc
+                return
+            raise CameraControlApplyError(
+                "Manual ISO sensitivity is unavailable for this camera."
+            )
+
+        if control_id == "focus_auto":
+            focus_mode = (
+                camera_class.FocusMode.FocusModeAuto
+                if bool(value)
+                else camera_class.FocusMode.FocusModeManual
+            )
+            try:
+                camera.setFocusMode(focus_mode)
+            except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise CameraControlApplyError(str(exc)) from exc
+            return
+
+        if control_id == "focus_distance":
+            focus_distance = _safe_float(value)
+            if focus_distance is None:
+                raise CameraControlApplyError(
+                    "Focus distance must be numeric."
+                )
+            try:
+                camera.setFocusMode(camera_class.FocusMode.FocusModeManual)
+            except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise CameraControlApplyError(str(exc)) from exc
+            try:
+                camera.setFocusDistance(max(0.0, min(1.0, focus_distance)))
+            except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise CameraControlApplyError(str(exc)) from exc
+            return
+
+        if control_id == "white_balance_automatic":
+            white_balance_mode = (
+                camera_class.WhiteBalanceMode.WhiteBalanceAuto
+                if bool(value)
+                else camera_class.WhiteBalanceMode.WhiteBalanceManual
+            )
+            try:
+                camera.setWhiteBalanceMode(white_balance_mode)
+            except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise CameraControlApplyError(str(exc)) from exc
+            return
+
+        if control_id == "white_balance_temperature":
+            color_temperature = _safe_float(value)
+            if color_temperature is None:
+                raise CameraControlApplyError(
+                    "White balance temperature must be numeric."
+                )
+            try:
+                camera.setColorTemperature(int(round(color_temperature)))
+            except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise CameraControlApplyError(str(exc)) from exc
+            return
+
+        if control_id == "flash_mode":
+            mode_value = _qcamera_choice_value(
+                str(value),
+                camera_class.FlashMode,
+                _QT_FLASH_MODE_SPECS,
+            )
+            if mode_value is None:
+                raise CameraControlApplyError(
+                    "Unsupported flash mode selection."
+                )
+            try:
+                camera.setFlashMode(mode_value)
+            except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise CameraControlApplyError(str(exc)) from exc
+            return
+
+        if control_id == "torch_mode":
+            mode_value = _qcamera_choice_value(
+                str(value),
+                camera_class.TorchMode,
+                _QT_TORCH_MODE_SPECS,
+            )
+            if mode_value is None:
+                raise CameraControlApplyError(
+                    "Unsupported torch mode selection."
+                )
+            try:
+                camera.setTorchMode(mode_value)
+            except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise CameraControlApplyError(str(exc)) from exc
+            return
+
+        if control_id == "zoom_factor":
+            zoom_value = _safe_float(value)
+            if zoom_value is None:
+                raise CameraControlApplyError("Zoom must be numeric.")
+            minimum = (
+                _safe_float(
+                    getattr(camera, "minimumZoomFactor", lambda: 1.0)()
+                )
+                or 1.0
+            )
+            maximum = (
+                _safe_float(
+                    getattr(camera, "maximumZoomFactor", lambda: 1.0)()
+                )
+                or 1.0
+            )
+            if maximum <= minimum + 0.001:
+                raise CameraControlApplyError("Zoom is fixed on this camera.")
+            try:
+                camera.setZoomFactor(max(minimum, min(maximum, zoom_value)))
+            except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise CameraControlApplyError(str(exc)) from exc
+            return
+
+        if control_id == "restore_auto_exposure":
+            try:
+                camera.setExposureMode(camera_class.ExposureMode.ExposureAuto)
+            except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise CameraControlApplyError(str(exc)) from exc
+            with contextlib.suppress(
+                AttributeError, RuntimeError, TypeError, ValueError
+            ):
+                camera.setAutoExposureTime()
+            with contextlib.suppress(
+                AttributeError, RuntimeError, TypeError, ValueError
+            ):
+                camera.setAutoIsoSensitivity()
+            return
+
+        raise CameraControlApplyError(
+            f"Unsupported camera control `{control_id}`."
+        )
+
+    def trigger_control_action(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+    ) -> None:
+        """Trigger one Qt Multimedia action control."""
+
+        if control_id != "restore_auto_exposure":
+            raise CameraControlApplyError(
+                f"Unsupported action control `{control_id}`."
+            )
+        self.set_control_value(
+            descriptor,
+            "restore_auto_exposure",
+            True,
+        )
+
+
 class AvFoundationCameraControlBackend:
     """Expose macOS AVFoundation camera controls when the bridge is present."""
 
@@ -1869,36 +3539,20 @@ class QtCameraBackend:
                 "Install the package runtime dependencies before opening a "
                 "camera session."
             )
-        if sys.platform == "darwin":
-            control_backend = AvFoundationCameraControlBackend()
-            if control_backend.available:
-                self._control_backend: CameraControlBackend = control_backend
-            else:
-                self._control_backend = NullCameraControlBackend()
-        else:
-            self._control_backend = NullCameraControlBackend()
+        self._control_backend = _build_control_backend(
+            self._qt_multimedia,
+            self._camera_device_for_descriptor,
+            _v4l2_device_path_for_descriptor,
+        )
 
     def _camera_device_for_descriptor(
         self, descriptor: CameraDescriptor
     ) -> Any | None:
         """Return the Qt camera device matching one shared descriptor."""
 
-        assert self._qt_multimedia is not None
-        for index, device in enumerate(
-            self._qt_multimedia.QMediaDevices.videoInputs()
-        ):
-            if (
-                _qt_camera_stable_id(device, fallback_index=index)
-                == descriptor.stable_id
-            ):
-                return device
-            identifier = _qt_camera_identifier_text(bytes(device.id()))
-            if (
-                descriptor.native_identifier is not None
-                and identifier == descriptor.native_identifier
-            ):
-                return device
-        return None
+        return _qt_camera_device_for_descriptor(
+            self._qt_multimedia, descriptor
+        )
 
     def discover_cameras(self) -> tuple[CameraDescriptor, ...]:
         """Return the cameras Qt Multimedia can currently enumerate."""
@@ -1966,14 +3620,29 @@ class FfmpegCameraBackend:
         """Validate the runtime preview backend and initialize controls."""
 
         self._ffmpeg_exe = _ffmpeg_executable()
-        if sys.platform == "darwin":
-            control_backend = AvFoundationCameraControlBackend()
-            if control_backend.available:
-                self._control_backend: CameraControlBackend = control_backend
-            else:
-                self._control_backend = NullCameraControlBackend()
-        else:
-            self._control_backend = NullCameraControlBackend()
+        (
+            self._qt_core,
+            self._qt_gui,
+            self._qt_multimedia,
+        ) = _load_qt_camera_modules()
+        self._control_backend = _build_control_backend(
+            self._qt_multimedia,
+            (
+                lambda descriptor: (
+                    _qt_camera_device_for_descriptor(
+                        self._qt_multimedia,
+                        descriptor,
+                    )
+                    if self._qt_multimedia is not None
+                    else None
+                )
+            ),
+            lambda descriptor: (
+                descriptor.device_selector
+                if str(descriptor.device_selector).startswith("/dev/video")
+                else _v4l2_device_path_for_descriptor(descriptor)
+            ),
+        )
 
     def discover_cameras(self) -> tuple[CameraDescriptor, ...]:
         """Return the cameras FFmpeg can currently enumerate."""

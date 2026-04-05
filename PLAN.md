@@ -96,7 +96,7 @@ in `SPEC.md` and history in `CHANGELOG.md`.
    - the live shell is concise and the capture settings live in the settings
      workflow instead of the control pane
 
-4. [todo] Expand backend capability handling for light, flicker, and vendor
+4. [done] Expand backend capability handling for light, flicker, and vendor
    controls.
    Goal:
    - expose more of what cameras actually offer

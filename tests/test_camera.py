@@ -19,20 +19,24 @@ from webcam_micro.camera import (
     CameraDescriptor,
     CameraOutputError,
     CameraSession,
+    CompositeCameraControlBackend,
     FfmpegCameraBackend,
     FfmpegCameraSession,
+    LinuxV4L2CameraControlBackend,
     MissingCameraDependencyError,
     NullCameraBackend,
     NullCameraControlBackend,
     NullCameraSession,
     PreviewFrame,
     QtCameraBackend,
+    QtCameraControlBackend,
     QtCameraSession,
     RecordingCropPlan,
     _preferred_recording_output_suffix,
     _qt_recording_output_path_for_path,
     _request_macos_camera_permission,
     _request_qt_camera_permission,
+    _V4L2ControlRecord,
     build_backend_plan,
     build_recording_file_filter,
     pack_preview_rgb_rows,
@@ -58,7 +62,11 @@ class CameraContractTest(unittest.TestCase):
         self.assertEqual("QtCameraBackend", plan.active_backend)
         self.assertIn("Qt Multimedia", plan.first_device_backend_target)
         self.assertTrue(any("newest frame" in note for note in plan.notes))
-        self.assertTrue(any("AVFoundation" in note for note in plan.notes))
+        self.assertTrue(any("Qt Multimedia" in note for note in plan.notes))
+        self.assertTrue(any("Linux V4L2" in note for note in plan.notes))
+        self.assertTrue(
+            any("macOS, Windows, and Linux" in note for note in plan.notes)
+        )
 
     def test_camera_contract_symbols_stay_explicit(self) -> None:
         """Assert the backend contract symbols stay public and named."""
@@ -99,9 +107,682 @@ class CameraContractTest(unittest.TestCase):
         self.assertEqual("NullCameraSession", NullCameraSession.__name__)
         self.assertEqual("PreviewFrame", PreviewFrame.__name__)
         self.assertEqual("RecordingCropPlan", RecordingCropPlan.__name__)
+        self.assertEqual(
+            "CompositeCameraControlBackend",
+            CompositeCameraControlBackend.__name__,
+        )
+        self.assertEqual(
+            "QtCameraControlBackend",
+            QtCameraControlBackend.__name__,
+        )
+        self.assertEqual(
+            "LinuxV4L2CameraControlBackend",
+            LinuxV4L2CameraControlBackend.__name__,
+        )
 
         avfoundation_backend = AvFoundationCameraControlBackend()
         self.assertIsInstance(avfoundation_backend.available, bool)
+
+    def test_qt_camera_control_backend_surfaces_common_controls(
+        self,
+    ) -> None:
+        """Assert the Qt control backend applies native controls."""
+
+        class FakeExposureMode:
+            """Expose the Qt exposure-mode enum tokens used by the backend."""
+
+            ExposureAuto = "ExposureAuto"
+            ExposureManual = "ExposureManual"
+
+        class FakeFocusMode:
+            """Expose the Qt focus-mode enum tokens used by the backend."""
+
+            FocusModeAuto = "FocusModeAuto"
+            FocusModeManual = "FocusModeManual"
+
+        class FakeWhiteBalanceMode:
+            """Expose the Qt white-balance enum tokens used by the backend."""
+
+            WhiteBalanceAuto = "WhiteBalanceAuto"
+            WhiteBalanceManual = "WhiteBalanceManual"
+
+        class FakeFlashMode:
+            """Expose the Qt flash-mode enum tokens used by the backend."""
+
+            FlashOff = "FlashOff"
+            FlashOn = "FlashOn"
+            FlashAuto = "FlashAuto"
+
+        class FakeTorchMode:
+            """Expose the Qt torch-mode enum tokens used by the backend."""
+
+            TorchOff = "TorchOff"
+            TorchOn = "TorchOn"
+            TorchAuto = "TorchAuto"
+
+        class FakeFeature:
+            """Expose the Qt camera-feature bit flags used by the backend."""
+
+            ExposureCompensation = 1
+            FocusDistance = 2
+            ColorTemperature = 4
+            ManualExposureTime = 8
+            IsoSensitivity = 16
+
+        class FakeResolution:
+            """Expose a Qt-like size object for the current camera format."""
+
+            def __init__(self, width: int, height: int) -> None:
+                """Store one stable resolution."""
+
+                self._width = width
+                self._height = height
+
+            def width(self) -> int:
+                """Return the recorded width."""
+
+                return self._width
+
+            def height(self) -> int:
+                """Return the recorded height."""
+
+                return self._height
+
+        class FakeCameraFormat:
+            """Expose the current Qt camera-format details."""
+
+            def resolution(self) -> FakeResolution:
+                """Return the active format resolution."""
+
+                return FakeResolution(1920, 1080)
+
+            def pixelFormat(self) -> str:
+                """Return the active format token."""
+
+                return "PixelFormat.Format_NV12"
+
+            def minFrameRate(self) -> float:
+                """Return the lowest frame rate in the active format."""
+
+                return 30.0
+
+            def maxFrameRate(self) -> float:
+                """Return the highest frame rate in the active format."""
+
+                return 60.0
+
+        class FakeQCamera:
+            """Record every camera-control call made by the backend."""
+
+            Feature = FakeFeature
+            ExposureMode = FakeExposureMode
+            FocusMode = FakeFocusMode
+            WhiteBalanceMode = FakeWhiteBalanceMode
+            FlashMode = FakeFlashMode
+            TorchMode = FakeTorchMode
+            calls: list[tuple[str, object]] = []
+
+            def __init__(self, device: object) -> None:
+                """Initialize the fake camera with deterministic values."""
+
+                self.device = device
+
+            def supportedFeatures(self) -> int:
+                """Return every feature flag used by the test."""
+
+                return (
+                    FakeFeature.ExposureCompensation
+                    | FakeFeature.FocusDistance
+                    | FakeFeature.ColorTemperature
+                    | FakeFeature.ManualExposureTime
+                    | FakeFeature.IsoSensitivity
+                )
+
+            def isExposureModeSupported(self, mode: object) -> bool:
+                """Report support for the auto and manual exposure modes."""
+
+                return mode in {
+                    FakeExposureMode.ExposureAuto,
+                    FakeExposureMode.ExposureManual,
+                }
+
+            def exposureMode(self) -> object:
+                """Return the current exposure mode."""
+
+                return FakeExposureMode.ExposureAuto
+
+            def setExposureMode(self, mode: object) -> None:
+                """Record the requested exposure mode."""
+
+                self.calls.append(("setExposureMode", mode))
+
+            def exposureCompensation(self) -> float:
+                """Return the current exposure compensation."""
+
+                return 0.0
+
+            def setExposureCompensation(self, value: float) -> None:
+                """Record the requested exposure compensation."""
+
+                self.calls.append(("setExposureCompensation", value))
+
+            def minimumExposureTime(self) -> float:
+                """Return the minimum manual exposure time."""
+
+                return 0.0005
+
+            def maximumExposureTime(self) -> float:
+                """Return the maximum manual exposure time."""
+
+                return 0.5
+
+            def manualExposureTime(self) -> float:
+                """Return the current manual exposure time."""
+
+                return 0.02
+
+            def setManualExposureTime(self, value: float) -> None:
+                """Record the requested manual exposure time."""
+
+                self.calls.append(("setManualExposureTime", value))
+
+            def minimumIsoSensitivity(self) -> float:
+                """Return the minimum manual ISO sensitivity."""
+
+                return 100.0
+
+            def maximumIsoSensitivity(self) -> float:
+                """Return the maximum manual ISO sensitivity."""
+
+                return 1600.0
+
+            def manualIsoSensitivity(self) -> float:
+                """Return the current manual ISO sensitivity."""
+
+                return 100.0
+
+            def setManualIsoSensitivity(self, value: int) -> None:
+                """Record the requested manual ISO sensitivity."""
+
+                self.calls.append(("setManualIsoSensitivity", value))
+
+            def isFocusModeSupported(self, mode: object) -> bool:
+                """Report support for the auto and manual focus modes."""
+
+                return mode in {
+                    FakeFocusMode.FocusModeAuto,
+                    FakeFocusMode.FocusModeManual,
+                }
+
+            def focusMode(self) -> object:
+                """Return the current focus mode."""
+
+                return FakeFocusMode.FocusModeAuto
+
+            def setFocusMode(self, mode: object) -> None:
+                """Record the requested focus mode."""
+
+                self.calls.append(("setFocusMode", mode))
+
+            def focusDistance(self) -> float:
+                """Return the current focus distance."""
+
+                return 0.5
+
+            def setFocusDistance(self, value: float) -> None:
+                """Record the requested focus distance."""
+
+                self.calls.append(("setFocusDistance", value))
+
+            def isWhiteBalanceModeSupported(self, mode: object) -> bool:
+                """Report support for the white-balance modes."""
+
+                return mode in {
+                    FakeWhiteBalanceMode.WhiteBalanceAuto,
+                    FakeWhiteBalanceMode.WhiteBalanceManual,
+                }
+
+            def whiteBalanceMode(self) -> object:
+                """Return the current white-balance mode."""
+
+                return FakeWhiteBalanceMode.WhiteBalanceAuto
+
+            def setWhiteBalanceMode(self, mode: object) -> None:
+                """Record the requested white-balance mode."""
+
+                self.calls.append(("setWhiteBalanceMode", mode))
+
+            def colorTemperature(self) -> float:
+                """Return the current manual color temperature."""
+
+                return 2800.0
+
+            def setColorTemperature(self, value: int) -> None:
+                """Record the requested color temperature."""
+
+                self.calls.append(("setColorTemperature", value))
+
+            def isFlashModeSupported(self, mode: object) -> bool:
+                """Report support for the flash modes."""
+
+                return mode in {
+                    FakeFlashMode.FlashOff,
+                    FakeFlashMode.FlashOn,
+                    FakeFlashMode.FlashAuto,
+                }
+
+            def flashMode(self) -> object:
+                """Return the current flash mode."""
+
+                return FakeFlashMode.FlashOff
+
+            def setFlashMode(self, mode: object) -> None:
+                """Record the requested flash mode."""
+
+                self.calls.append(("setFlashMode", mode))
+
+            def isTorchModeSupported(self, mode: object) -> bool:
+                """Report support for the torch modes."""
+
+                return mode in {
+                    FakeTorchMode.TorchOff,
+                    FakeTorchMode.TorchOn,
+                    FakeTorchMode.TorchAuto,
+                }
+
+            def torchMode(self) -> object:
+                """Return the current torch mode."""
+
+                return FakeTorchMode.TorchOff
+
+            def setTorchMode(self, mode: object) -> None:
+                """Record the requested torch mode."""
+
+                self.calls.append(("setTorchMode", mode))
+
+            def minimumZoomFactor(self) -> float:
+                """Return the minimum zoom factor."""
+
+                return 1.0
+
+            def maximumZoomFactor(self) -> float:
+                """Return the maximum zoom factor."""
+
+                return 4.0
+
+            def zoomFactor(self) -> float:
+                """Return the current zoom factor."""
+
+                return 2.0
+
+            def setZoomFactor(self, value: float) -> None:
+                """Record the requested zoom factor."""
+
+                self.calls.append(("setZoomFactor", value))
+
+            def cameraFormat(self) -> FakeCameraFormat:
+                """Return the active camera format."""
+
+                return FakeCameraFormat()
+
+            def setAutoExposureTime(self) -> None:
+                """Record the auto-exposure-time reset."""
+
+                self.calls.append(("setAutoExposureTime", True))
+
+            def setAutoIsoSensitivity(self) -> None:
+                """Record the auto-ISO reset."""
+
+                self.calls.append(("setAutoIsoSensitivity", True))
+
+        fake_qt_multimedia = mock.MagicMock(QCamera=FakeQCamera)
+        descriptor = CameraDescriptor(
+            stable_id="qt-camera::example",
+            display_name="Example Camera",
+            backend_name="qt_multimedia",
+            device_selector="qt-camera::example",
+        )
+        backend = QtCameraControlBackend(
+            fake_qt_multimedia,
+            lambda _descriptor: object(),
+        )
+
+        controls = backend.list_controls(descriptor)
+
+        self.assertEqual(
+            (
+                "exposure_mode",
+                "exposure_locked",
+                "backlight_compensation",
+                "manual_exposure_time",
+                "manual_iso_sensitivity",
+                "focus_auto",
+                "focus_distance",
+                "white_balance_automatic",
+                "white_balance_temperature",
+                "flash_mode",
+                "torch_mode",
+                "zoom_factor",
+                "active_format",
+                "restore_auto_exposure",
+            ),
+            tuple(control.control_id for control in controls),
+        )
+        controls_by_id = {control.control_id: control for control in controls}
+        self.assertEqual(
+            "numeric", controls_by_id["backlight_compensation"].kind
+        )
+        self.assertEqual("boolean", controls_by_id["focus_auto"].kind)
+        self.assertEqual(
+            "boolean", controls_by_id["white_balance_automatic"].kind
+        )
+        self.assertEqual("enum", controls_by_id["flash_mode"].kind)
+        self.assertEqual("enum", controls_by_id["torch_mode"].kind)
+        self.assertEqual("read_only", controls_by_id["active_format"].kind)
+        self.assertIn("1920x1080", str(controls_by_id["active_format"].value))
+        self.assertIn("fps", str(controls_by_id["active_format"].value))
+
+        FakeQCamera.calls = []
+        backend.set_control_value(descriptor, "exposure_locked", True)
+        backend.set_control_value(descriptor, "backlight_compensation", 1.5)
+        backend.set_control_value(descriptor, "manual_exposure_time", 0.05)
+        backend.set_control_value(descriptor, "manual_iso_sensitivity", 200)
+        backend.set_control_value(descriptor, "focus_auto", False)
+        backend.set_control_value(descriptor, "focus_distance", 0.25)
+        backend.set_control_value(descriptor, "white_balance_automatic", False)
+        backend.set_control_value(
+            descriptor, "white_balance_temperature", 5000
+        )
+        backend.set_control_value(descriptor, "flash_mode", "on")
+        backend.set_control_value(descriptor, "torch_mode", "auto")
+        backend.set_control_value(descriptor, "restore_auto_exposure", True)
+
+        self.assertEqual(
+            [
+                ("setExposureMode", FakeExposureMode.ExposureManual),
+                ("setExposureCompensation", 1.5),
+                ("setExposureMode", FakeExposureMode.ExposureManual),
+                ("setManualExposureTime", 0.05),
+                ("setExposureMode", FakeExposureMode.ExposureManual),
+                ("setManualIsoSensitivity", 200),
+                ("setFocusMode", FakeFocusMode.FocusModeManual),
+                ("setFocusMode", FakeFocusMode.FocusModeManual),
+                ("setFocusDistance", 0.25),
+                (
+                    "setWhiteBalanceMode",
+                    FakeWhiteBalanceMode.WhiteBalanceManual,
+                ),
+                ("setColorTemperature", 5000),
+                ("setFlashMode", FakeFlashMode.FlashOn),
+                ("setTorchMode", FakeTorchMode.TorchAuto),
+                ("setExposureMode", FakeExposureMode.ExposureAuto),
+                ("setAutoExposureTime", True),
+                ("setAutoIsoSensitivity", True),
+            ],
+            FakeQCamera.calls,
+        )
+
+    def test_linux_v4l2_control_backend_surfaces_light_and_vendor_controls(
+        self,
+    ) -> None:
+        """Assert the Linux V4L2 backend keeps light and vendor controls."""
+
+        class FakeBackend(LinuxV4L2CameraControlBackend):
+            """Expose deterministic V4L2 records without touching hardware."""
+
+            def __init__(self) -> None:
+                """Store one fake resolver for the device node."""
+
+                super().__init__(lambda _descriptor: "/dev/video-test")
+
+            def _records_for_descriptor(
+                self,
+                descriptor: CameraDescriptor,
+            ) -> tuple[_V4L2ControlRecord, ...]:
+                """Return the synthetic V4L2 controls used by this test."""
+
+                return (
+                    _V4L2ControlRecord(
+                        control_id="brightness",
+                        label="Brightness",
+                        kind="numeric",
+                        query_id=101,
+                        value=64,
+                        min_value=0.0,
+                        max_value=255.0,
+                        step=1.0,
+                        details="Linux V4L2 control `Brightness`.",
+                    ),
+                    _V4L2ControlRecord(
+                        control_id="power_line_frequency",
+                        label="Power Line Frequency",
+                        kind="enum",
+                        query_id=102,
+                        value="50",
+                        choices=(
+                            CameraControlChoice(
+                                value="disabled",
+                                label="Disabled",
+                            ),
+                            CameraControlChoice(value="50", label="50 Hz"),
+                            CameraControlChoice(value="60", label="60 Hz"),
+                            CameraControlChoice(value="auto", label="Auto"),
+                        ),
+                        menu_values=(0, 1, 2, 3),
+                        details="Linux V4L2 control `Power Line Frequency`.",
+                    ),
+                    _V4L2ControlRecord(
+                        control_id="activity_led",
+                        label="Activity LED",
+                        kind="boolean",
+                        query_id=103,
+                        value=False,
+                        details="Linux V4L2 control `Activity LED`.",
+                    ),
+                    _V4L2ControlRecord(
+                        control_id="vendor_extension",
+                        label="Vendor Extension",
+                        kind="read_only",
+                        query_id=104,
+                        value="Enabled",
+                        read_only=True,
+                        enabled=False,
+                        details="Linux V4L2 control `Vendor Extension`.",
+                    ),
+                )
+
+        backend = FakeBackend()
+        descriptor = CameraDescriptor(
+            stable_id="linux-v4l2::example",
+            display_name="Microscope Camera",
+            backend_name="ffmpeg",
+            device_selector="/dev/video-test",
+        )
+
+        controls = backend.list_controls(descriptor)
+        controls_by_id = {control.control_id: control for control in controls}
+
+        self.assertEqual(
+            (
+                "brightness",
+                "power_line_frequency",
+                "activity_led",
+                "vendor_extension",
+            ),
+            tuple(control.control_id for control in controls),
+        )
+        self.assertEqual("numeric", controls_by_id["brightness"].kind)
+        self.assertEqual("enum", controls_by_id["power_line_frequency"].kind)
+        self.assertEqual("boolean", controls_by_id["activity_led"].kind)
+        self.assertTrue(controls_by_id["vendor_extension"].read_only)
+        self.assertIn(
+            "60 Hz",
+            [
+                choice.label
+                for choice in controls_by_id["power_line_frequency"].choices
+            ],
+        )
+
+        write_calls: list[tuple[int, int, int]] = []
+
+        def record_v4l2_write(
+            device_fd: int,
+            query_id: int,
+            value: int,
+        ) -> None:
+            """Record the synthetic V4L2 writes for this test."""
+
+            write_calls.append((device_fd, query_id, value))
+
+        with (
+            mock.patch(
+                "webcam_micro.camera.os.open",
+                return_value=7,
+            ),
+            mock.patch(
+                "webcam_micro.camera.os.close",
+                return_value=None,
+            ),
+            mock.patch(
+                "webcam_micro.camera._v4l2_write_control_value",
+                side_effect=record_v4l2_write,
+            ),
+        ):
+            backend.set_control_value(descriptor, "brightness", 12)
+            backend.set_control_value(descriptor, "power_line_frequency", "60")
+            backend.set_control_value(descriptor, "activity_led", True)
+            with self.assertRaises(CameraControlApplyError):
+                backend.set_control_value(
+                    descriptor,
+                    "vendor_extension",
+                    "Enabled",
+                )
+
+        self.assertEqual(
+            [
+                (7, 101, 12),
+                (7, 102, 2),
+                (7, 103, 1),
+            ],
+            write_calls,
+        )
+
+    def test_composite_control_backend_merges_and_routes_control_updates(
+        self,
+    ) -> None:
+        """Assert the composite backend keeps primary and extra controls."""
+
+        class PrimaryBackend:
+            """Expose one primary control and record writes."""
+
+            def __init__(self) -> None:
+                """Initialize the test bookkeeping."""
+
+                self.calls: list[tuple[str, str, object]] = []
+
+            def list_controls(
+                self,
+                descriptor: CameraDescriptor,
+            ) -> tuple[CameraControl, ...]:
+                """Return the primary control surface."""
+
+                return (
+                    CameraControl(
+                        control_id="exposure_mode",
+                        label="Exposure Mode",
+                        kind="enum",
+                        value="continuous_auto",
+                    ),
+                )
+
+            def set_control_value(
+                self,
+                descriptor: CameraDescriptor,
+                control_id: str,
+                value: object,
+            ) -> None:
+                """Record the primary update."""
+
+                self.calls.append(("set", control_id, value))
+
+            def trigger_control_action(
+                self,
+                descriptor: CameraDescriptor,
+                control_id: str,
+            ) -> None:
+                """Record the primary action."""
+
+                self.calls.append(("action", control_id, True))
+
+        class SecondaryBackend:
+            """Expose extra controls that the primary backend lacks."""
+
+            def __init__(self) -> None:
+                """Initialize the test bookkeeping."""
+
+                self.calls: list[tuple[str, str, object]] = []
+
+            def list_controls(
+                self,
+                descriptor: CameraDescriptor,
+            ) -> tuple[CameraControl, ...]:
+                """Return the extra control surface."""
+
+                return (
+                    CameraControl(
+                        control_id="brightness",
+                        label="Brightness",
+                        kind="numeric",
+                        value=12,
+                    ),
+                    CameraControl(
+                        control_id="vendor_extension",
+                        label="Vendor Extension",
+                        kind="read_only",
+                        value="Enabled",
+                    ),
+                )
+
+            def set_control_value(
+                self,
+                descriptor: CameraDescriptor,
+                control_id: str,
+                value: object,
+            ) -> None:
+                """Record the secondary update."""
+
+                self.calls.append(("set", control_id, value))
+
+            def trigger_control_action(
+                self,
+                descriptor: CameraDescriptor,
+                control_id: str,
+            ) -> None:
+                """Record the secondary action."""
+
+                self.calls.append(("action", control_id, True))
+
+        primary = PrimaryBackend()
+        secondary = SecondaryBackend()
+        backend = CompositeCameraControlBackend(primary, secondary)
+        descriptor = CameraDescriptor(
+            stable_id="composite::example",
+            display_name="Composite Camera",
+            backend_name="qt_multimedia",
+            device_selector="composite::example",
+        )
+
+        controls = backend.list_controls(descriptor)
+        self.assertEqual(
+            ("exposure_mode", "brightness", "vendor_extension"),
+            tuple(control.control_id for control in controls),
+        )
+
+        backend.set_control_value(descriptor, "brightness", 15)
+        backend.trigger_control_action(descriptor, "exposure_mode")
+
+        self.assertEqual([("set", "brightness", 15)], secondary.calls)
+        self.assertEqual([("action", "exposure_mode", True)], primary.calls)
 
     @mock.patch("webcam_micro.camera._load_avfoundation_modules")
     @mock.patch("webcam_micro.camera.sys.platform", "darwin")
