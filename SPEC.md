@@ -6,7 +6,7 @@
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
-**Last Updated:** 2026-04-04
+**Last Updated:** 2026-04-05
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -27,14 +27,15 @@ and required workflow law in `AGENTS.md`.
 5. [Non-Goals](#non-goals)
 6. [Users and Actors](#users-and-actors)
 7. [Core Workflows](#core-workflows)
-8. [Functional Requirements](#functional-requirements)
-9. [Non-Functional Requirements](#non-functional-requirements)
-10. [Data and State](#data-and-state)
-11. [Interfaces and Dependencies](#interfaces-and-dependencies)
-12. [Constraints and Assumptions](#constraints-and-assumptions)
-13. [Acceptance Criteria](#acceptance-criteria)
-14. [Open Questions](#open-questions)
-15. [Pointers](#pointers)
+8. [Workspace Model](#workspace-model)
+9. [Functional Requirements](#functional-requirements)
+10. [Non-Functional Requirements](#non-functional-requirements)
+11. [Data and State](#data-and-state)
+12. [Interfaces and Dependencies](#interfaces-and-dependencies)
+13. [Constraints and Assumptions](#constraints-and-assumptions)
+14. [Acceptance Criteria](#acceptance-criteria)
+15. [Open Questions](#open-questions)
+16. [Pointers](#pointers)
 
 ## Overview
 - Project summary: `webcam-micro` is a cross-platform microscope camera
@@ -53,16 +54,19 @@ and required workflow law in `AGENTS.md`.
 
 - Current scope: the current release line covers all platforms from the
   start, source-run development workflows, PyPI distribution as a proper
-  Python package, live preview, fullscreen mode, a dedicated controls
-  surface, configurable crop and framing behavior, still capture, video
-  recording, persistent folders, shortcuts, presets, defaults, and
-  microscope-specific workflow support such as calibration and overlays.
+  Python package, live preview, fullscreen mode, a dedicated and detachable
+  controls surface, configurable crop and framing behavior, still capture,
+  video recording, persistent folders, shortcuts, presets, defaults,
+  guvcview-style camera-control discovery, and microscope-specific workflow
+  support such as calibration and overlays.
 
 - Success signal: the product is clearly working when a user can run it from
   source or install it from PyPI, open a supported camera, see a preview,
-  adjust exposed controls, switch between fit/fill/crop preview behavior,
-  capture stills and video without terminal interaction, persist defaults per
-  camera, and use the application comfortably on all platforms.
+  adjust exposed controls through a clear family-based control surface,
+  switch between fit/fill/crop preview behavior, capture stills and video
+  without terminal interaction, persist defaults per camera, and use the
+  application comfortably on all platforms without the status bar turning
+  into a wall of text.
 
 ## Workflow
 - Keep durable product requirements here.
@@ -84,13 +88,16 @@ It should make the following possible:
 
 - a microscope user can prioritize preview area instead of fighting UI chrome
 - a user can expose and control the settings that the active camera actually
-  supports
+  supports, including light, flicker, color, and vendor-specific controls
+  when the camera exposes them
 - a user can frame the circular microscope field sensibly using fit, fill,
   and crop controls
 - a user can capture stills and video using the same practical framing they
   see in preview
-- a user can work repeatedly with remembered defaults, presets, folders, and
-  shortcuts
+- a user can work repeatedly with remembered defaults, presets, folders,
+  shortcuts, and per-camera control layouts
+- a user can keep camera controls docked, detached, or hidden without losing
+  the preview-first workspace
 - a developer can install the package from PyPI or run it directly from
   source during development on all platforms
 
@@ -103,8 +110,12 @@ useful than a generic webcam app with accidental microscope applicability.
   capture, video recording, camera control, crop/framing control, and
   persistent defaults without requiring terminal-based workflows.
 
-- Provide a preview-first user experience in which controls do not permanently
-  consume preview space and fullscreen operation remains practical and safe.
+- Provide a preview-first user experience in which controls do not
+  permanently consume preview space, can dock or detach when needed, and
+  fullscreen operation remains practical and safe.
+
+- Provide a capability-driven control surface that feels like a microscope
+  workstation rather than a settings dialog with a preview bolted on.
 
 - Provide a healthy cross-platform release line in which the application is
   published on PyPI, works on all platforms, runs from source during
@@ -178,6 +189,41 @@ useful than a generic webcam app with accidental microscope applicability.
    - Result: the user gets an immersive microscope view while retaining access
      to essential actions and safe fullscreen exit controls.
 
+4. Discover and tune camera controls.
+   - Trigger: the user opens the controls surface or the preferences dialog.
+
+   - Main path: the application discovers the active camera/backend
+     controls, groups them into stable families, renders each control with
+     the correct widget type, lets the user adjust supported values live,
+     and stores per-camera or named preset values where appropriate.
+
+   - Result: the user can tune exposure, white balance, flicker, light,
+     zoom, and vendor-specific controls without leaving the preview
+     workspace.
+
+## Workspace Model
+`webcam-micro` should behave like a microscope control workstation, not a
+settings dialog with a preview bolted onto it.
+
+- The live preview is the primary visual target.
+- The native menu bar provides complete command coverage.
+- The top toolbar carries high-frequency actions for camera refresh,
+  open and close, preview framing, still capture, recording, fullscreen,
+  controls visibility, and preferences.
+- The controls surface is dockable and detachable. It may hide, dock, or
+  float, but it must preserve preview space when hidden or moved.
+- The controls surface should default to a single vertical column. On wide
+  layouts it may expand to two columns, but the control order and section
+  grouping must remain stable.
+- Capture settings such as output folders, formats, and sequence rules
+  belong in Preferences or Settings, not in the live camera control pane.
+- The status bar must stay compact and structured. It may show runtime
+  state, but narrative help, long-form control details, and recovery advice
+  belong in the diagnostics surface.
+- The overall interaction model should follow the guvcview and quvcview
+  concept: capability-driven control discovery, type-aware widgets, and a
+  preview-first shell.
+
 ## Functional Requirements
 - The product must be published as a Python package on PyPI and must work on
   all platforms.
@@ -186,12 +232,12 @@ useful than a generic webcam app with accidental microscope applicability.
   source during development and testing.
 
 - The main application window must contain a primary command surface, a
-  central preview area, a toggleable dedicated controls surface, and a
-  dynamic status bar.
+  central preview area, a toggleable and detachable dedicated controls
+  surface, and a compact dynamic status bar.
 
-- The product must provide a dedicated controls surface that can be shown and
-  hidden from the main workspace so that camera controls do not permanently
-  consume preview space.
+- The product must provide a dedicated controls surface that can be shown,
+  hidden, docked, or detached from the main workspace so that camera
+  controls do not permanently consume preview space.
 
 - The product must provide a standard desktop command structure covering
   File, Edit, View, Camera, Capture, Tools, and Help functional areas.
@@ -245,23 +291,48 @@ useful than a generic webcam app with accidental microscope applicability.
 - The product must not present unsupported synthetic source modes as though
   they were native device modes.
 
-- The product must expose the controls that the active camera/backend actually
-  provides, including numeric, boolean, enumerated, read-only, and meaningful
-  action controls.
+- The product must expose the controls that the active camera/backend
+  actually provides, grouped into stable families and rendered with widgets
+  that match the control semantics.
+
+- The product must keep the control-family order stable across layouts and
+  backends. When a family is not supported, it must disappear cleanly
+  rather than leave a broken placeholder.
+
+- The product must support control families including Exposure, Focus,
+  White Balance, Light/Flicker, Color/Image Quality, Zoom, Source Info,
+  Actions, and Other Controls when the active device exposes them.
 
 - Numeric controls that expose values must use guvcview-style settings
   components: a slider, min/mid/max labels shown beneath the slider, and an
   adjacent input field with up/down arrows. The input field must update live
   from the slider, and invalid typed values must clear to blank.
 
+- Boolean controls must use checkboxes.
+
+- Enumerated controls must use dropdowns or combo boxes.
+
+- Read-only controls must use labels or disabled value fields.
+
+- Action controls must use push buttons or equivalent one-shot actions.
+
 - The product must tolerate cameras that expose only a subset of common
   controls and must not fail simply because some expected controls are absent.
 
 - The product must support common microscope-relevant controls where exposed,
   including brightness, contrast, saturation, hue, gamma, gain, sharpness,
-  backlight compensation, power line frequency, white balance automatic
-  control, white balance temperature, exposure automatic and manual controls,
-  focus automatic and manual controls, and zoom controls.
+  backlight compensation, power line frequency, AC flicker compensation,
+  white balance automatic control, white balance temperature, exposure
+  automatic and manual controls, focus automatic and manual controls, zoom
+  controls, color profile controls, and vendor-specific extension controls.
+
+- If a camera exposes a lamp, illumination, or activity LED control, the
+  product must surface it and allow it to be turned off when the device
+  supports that state.
+
+- The product must keep live capture settings separate from camera controls
+  and place image and video output configuration in Preferences or Settings,
+  not in the live control pane.
 
 - The built-in default preferred microscope values must be:
   - Brightness = 0
@@ -323,15 +394,17 @@ useful than a generic webcam app with accidental microscope applicability.
 
 - Shortcut conflicts must be detected and prevented.
 
-- The dynamic status bar must reflect runtime state, including the active
-  camera, active backend, source mode, framing mode, current preset, output
-  destinations, recording state, elapsed recording time, and warnings or
-  recoverable errors.
+- The dynamic status bar must stay compact and structured. It must reflect
+  runtime state, including the active camera, active backend, source mode,
+  framing mode, current preset, output destinations, recording state,
+  elapsed recording time, and warnings or recoverable errors. It must not
+  become a narrative help panel or a wall of text.
 
 - The application must persist user preferences across launches, including at
   minimum selected camera where appropriate, source mode preferences, preview
   framing mode, capture framing mode, image folder, video folder, shortcuts,
-  main-window geometry, controls-surface visibility,
+  main-window geometry, controls-surface visibility, controls-surface dock
+  or float state,
   fullscreen-surface state,
   and per-camera defaults or presets.
 
@@ -368,26 +441,28 @@ useful than a generic webcam app with accidental microscope applicability.
   preserve a clear and safe user path into and out of fullscreen mode.
 
 ## Data and State
-- Important entities: active camera identity, camera capability set, source
-  mode, preview framing mode, capture framing mode, per-camera settings,
-  built-in defaults, user presets, image outputs, video outputs, keyboard
-  shortcut map, window geometry, controls-surface visibility, and
+- Important entities: active camera identity, camera capability set, control
+  family ordering, source mode, preview framing mode, capture framing mode,
+  per-camera settings, built-in defaults, user presets, image outputs,
+  video outputs, keyboard shortcut map, window geometry,
+  controls-surface visibility, controls-surface dock or float state, and
   fullscreen-surface state.
 
 - Important state transitions: the application moves between no-camera and
-  active-camera states, windowed and fullscreen states, expanded and
-  collapsed fullscreen-command states, idle and recording states, and
-  unsaved/runtime state versus persisted preference state.
+  active-camera states, windowed and fullscreen states, docked and detached
+  control-surface states, expanded and collapsed fullscreen-command states,
+  idle and recording states, and unsaved/runtime state versus persisted
+  preference state.
 
 - Persistence rules: per-camera settings, output folders, shortcuts, framing
-  defaults, selected modes, and window/layout state must be stored
-  persistently. Live frame buffers and transient backend session state are
-  ephemeral.
+  defaults, selected modes, controls-surface visibility and dock state, and
+  window/layout state must be stored persistently. Live frame buffers and
+  transient backend session state are ephemeral.
 
 - Audit or history needs: the product should preserve enough diagnostics and
   runtime reporting for a user or maintainer to understand which camera,
-  backend, source mode, framing mode, and preset were active when a warning or
-  failure occurred.
+  backend, source mode, framing mode, control family, and preset were active
+  when a warning or failure occurred.
 
 ## Interfaces and Dependencies
 - External interfaces: desktop GUI, application command surfaces, keyboard
@@ -398,7 +473,8 @@ useful than a generic webcam app with accidental microscope applicability.
 - Internal interfaces: UI layer, camera-discovery layer, camera-control
   abstraction, preview/capture pipeline, persistence layer, diagnostics
   surface, calibration or overlay logic, and platform-specific backend
-  adapters.
+  adapters that translate native camera APIs and vendor-specific controls
+  into the stable control families above.
 
 - Dependencies: Python runtime, a cross-platform Python GUI toolkit, platform
   camera APIs or compatible backend integrations, image/video encoding support,
@@ -411,7 +487,9 @@ useful than a generic webcam app with accidental microscope applicability.
 
 - Compatibility expectations: the PyPI package is intended to work on all
   platforms; source-run development must be supported; platform backend
-  differences must not leak upward into broken user-facing contracts.
+  differences must not leak upward into broken user-facing contracts. The
+  user-facing control model must remain stable even when the underlying
+  backend exposes different native control shapes.
 
 ## Constraints and Assumptions
 - Constraint: camera backends differ materially in control exposure and device
@@ -420,7 +498,9 @@ useful than a generic webcam app with accidental microscope applicability.
 
 - Assumption: the active camera/backend will usually expose at least a
   meaningful subset of controls and source modes sufficient for microscope
-  preview and capture, but the exact set may vary widely by device.
+  preview and capture, but the exact set may vary widely by device. Some
+  cameras expose light, LED, or flicker controls and some do not; the UI
+  must surface only what the backend reports.
 
 - Explicit tradeoff: the product is optimized for microscope-friendly preview,
   framing, control visibility, and repeatable local workflows rather than for
@@ -434,19 +514,28 @@ useful than a generic webcam app with accidental microscope applicability.
   without needing a terminal for runtime interaction.
 
 - A user can open the controls surface, adjust the controls that the active
-  camera exposes, switch between fit/fill/crop framing behavior, capture a
-  still image, start and stop a video recording, and find the outputs in the
-  configured folders.
+  camera exposes, dock or detach it, switch between fit/fill/crop framing
+  behavior, capture a still image, start and stop a video recording, and
+  find the outputs in the configured folders.
+
+- A user can tune exposure, white balance, backlight compensation, flicker
+  compensation, zoom, and any activity LED or vendor-specific control that
+  the active camera exposes.
 
 - A user on any platform can enter fullscreen mode, use the fullscreen
   command surface in expanded and collapsed states, exit fullscreen safely,
   relaunch the application later, and observe persisted defaults, folders,
-  presets, and shortcut behavior consistent with the saved configuration.
+  presets, shortcuts, and controls-surface layout consistent with the saved
+  configuration.
+
+- The status bar stays compact while detailed runtime history remains in the
+  diagnostics surface.
 
 ## Open Questions
 - What should the exact default keyboard-shortcut map be for first release,
-  including still capture, record toggle, framing-mode change, and
-  fullscreen-surface collapse/expand actions?
+  including still capture, record toggle, framing-mode change, controls-
+  surface detach or restore, and fullscreen-surface collapse or expand
+  actions?
 
 - Should the first release support optional uncropped capture alongside the
   default “capture follows configured preview/output framing” behavior, or

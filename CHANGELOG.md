@@ -61,6 +61,32 @@ Example:
 ## Version 0.1.0a1
 
 - 2026-04-05:
+  Change: Rewrote `PLAN.md` into an implementation roadmap for the
+    revised workstation-shell contract.
+  Why: Aligned active implementation slices with the new
+    guvcview-style control surface, dockable pane, and compact status
+    bar requirements.
+  Impact: Constrained upcoming work to control-family rendering,
+    dock/detach behavior, shell chrome cleanup, and platform
+    validation.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+
+- 2026-04-05:
+  Change: Amended `SPEC.md` to define the guvcview-style microscope
+    workspace, detachable control surface, compact status bar, and
+    LED/flicker control families.
+  Why: Documented the requested GUI contract at the durable spec layer so
+    future UI work stayed aligned with the preview-first control model.
+  Impact: Constrained future implementation work to follow the documented
+    workspace layout, type-aware control rendering, compact status bar,
+    and light/flicker control requirements.
+  Files:
+  CHANGELOG.md
+  SPEC.md
+
+- 2026-04-05:
   Change: Marked the beta plan complete and deferred the remaining
     Windows and Linux validation until after beta publication.
   Why: Preserved truthful release notes after deciding not to block the

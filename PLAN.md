@@ -14,24 +14,25 @@ This opening section is managed by DevCovenant.
 Use `PLAN.md` to track active implementation work below this block.
 <!-- DEVCOV:END -->
 
-Use this plan to track the beta-hardening work that follows the official
-alpha release. Alpha delivery is complete, so keep active implementation
-work here and keep durable product rules in `SPEC.md` and history in
-`CHANGELOG.md`.
+Use this plan to track the active implementation work that follows the
+revised workstation-shell contract in `SPEC.md`. Keep durable product rules
+in `SPEC.md` and history in `CHANGELOG.md`.
 
 ## Table of Contents
 1. [Overview](#overview)
 2. [Workflow](#workflow)
-3. [Beta Direction](#beta-direction)
+3. [Implementation Direction](#implementation-direction)
 4. [Roadmap](#roadmap)
-5. [Beta Exit Criteria](#beta-exit-criteria)
+5. [Exit Criteria](#exit-criteria)
 6. [Validation Routine](#validation-routine)
 
 ## Overview
 - `PLAN.md` tracks active implementation work, not durable requirements.
-- This replacement plan starts after the official alpha release.
-- The beta goal is to tighten the current Qt shell toward the `SPEC.md`
-  workstation contract using operational-test feedback.
+- This roadmap replaces the finished beta-plan tracker and now focuses on the
+  workstation-shell contract in `SPEC.md`.
+- The next phase is to make the Qt shell feel like a microscope workstation:
+  capability-driven controls, dockable and detachable surfaces, compact
+  status, and a clear separation between live controls and capture settings.
 
 ## Workflow
 - Work in dependency order unless a real blocker forces reordering.
@@ -39,107 +40,105 @@ work here and keep durable product rules in `SPEC.md` and history in
 - Update status in the same session when work lands.
 - Split large themes into numbered items with clear closure criteria.
 
-## Beta Direction
-- Start from the current alpha behavior and remove the rough edges
-  exposed in manual testing.
-- Treat placeholder or truncated shell behavior as beta work.
-- Prioritize changes that affect daily use: layout, capture friction,
-  control discovery, preview responsiveness, persistence, and platform
-  behavior.
+## Implementation Direction
+- Start from the current Qt shell baseline and tighten it toward `SPEC.md`.
+- Prioritize daily microscope use: preview-first layout, capability-driven
+  controls, quiet capture, fullscreen safety, and persistence.
+- Treat control discovery, widget typing, and backend-specific capability
+  bridges as product work, not ad-hoc exceptions.
+- Keep live camera controls separate from capture settings and status text.
+- Prefer stable control families and predictable layout over ad-hoc polish.
 - Preserve the alpha delivery history in `CHANGELOG.md`; do not carry it
   forward here.
 
 ## Roadmap
-1. [done] Align the Qt shell layout and command placement with SPEC.
+1. [todo] Rebuild the controls surface around stable control families and
+   type-aware widgets.
    Goal:
-   - make the menu, toolbar, controls dock, and status surfaces match the
-     documented workstation flow
+   - surface camera controls guvcview-style
    Work:
-   - move commands that currently sit in the wrong surface
-   - remove placeholder labels and truncated affordances
-   - keep the primary workflow close to the preview area
+   - group controls into Exposure, Focus, White Balance, Light/Flicker,
+     Color/Image Quality, Zoom, Source Info, Actions, and Other Controls
+   - render numeric controls with sliders, min/mid/max labels, and input
+     fields
+   - render booleans as checkboxes, enums as combo boxes, read-only items as
+     labels, and action controls as buttons
+   - hide unsupported families cleanly instead of leaving placeholders
    Done when:
-   - the visible shell follows `SPEC.md`'s command model without obvious
-     mismatch
+   - control groups are stable, readable, and match the active backend's
+     capabilities
 
-2. [done] Make still capture silent and folder-driven.
+2. [todo] Make the controls surface dockable, detachable, and
+   preview-friendly.
    Goal:
-   - save stills straight to the configured folder without repeated prompts
+   - let the pane move without consuming preview space
    Work:
-   - use the persisted still output folder as the default destination
-   - save stills immediately without a save dialog
-   - preserve the chosen folder across launches
+   - support hide, dock, float, and restore behavior
+   - persist the controls-surface visibility and dock state
+   - keep a one-column default layout and allow a wider two-column variant
+     when the layout can support it
+   - keep preview central even when the control surface is floating
    Done when:
-   - a still capture saves silently to the configured directory by default
-   - still capture never blocks on a save dialog
+   - users can dock, detach, hide, and restore the control pane without
+     losing the preview-first layout
 
-3. [done] Improve preview responsiveness and frame cadence.
+3. [todo] Separate high-frequency shell actions from capture settings.
    Goal:
-   - reduce visible lag in live preview while keeping recording smooth
+   - keep toolbar and status bar lean
    Work:
-   - use a tighter preview polling cadence and precise timer for cached
-     frame updates
-   - rerender the newest cached frame as soon as it is available
-   - keep the recorded video path at least as smooth as current alpha
+   - keep refresh, open and close, framing, still, record, fullscreen,
+     controls, and preferences in the live command surfaces
+   - move image and video output configuration into Settings or Preferences
+   - keep the status bar compact and structured
+   - remove narrative helper text and other wall-of-text drift from the
+     main shell
    Done when:
-   - preview lag is materially lower on supported cameras
-   - recording remains smooth and stable under the same test cameras
+   - the live shell is concise and the capture settings live in the settings
+     workflow instead of the control pane
 
-4. [done] Complete camera-control exposure and placement.
+4. [todo] Expand backend capability handling for light, flicker, and vendor
+   controls.
    Goal:
-   - expose the supported controls cleanly and in the right workspace
-     surfaces
+   - expose more of what cameras actually offer
    Work:
-   - surface all supported controls that SPEC calls for
-   - put related control groups where users expect them
-   - hide backend-specific clutter and unsupported controls
-   - keep per-camera defaults and named presets usable from Preferences
+   - normalize backend discovery across macOS, Windows, and Linux
+   - surface AC flicker compensation, color profiles, backlight, and vendor
+     extension controls when the backend reports them
+   - surface lamp, illumination, or activity LED controls when available
+   - preserve per-camera defaults and named presets for supported controls
    Done when:
-   - supported controls are discoverable and editable without hunting
-   - control state persists per camera and per preset as expected
+   - the active camera's supported control set appears faithfully and
+     persists per camera and per preset
 
-5. [done] Harden platform permissions, recording, and containers.
+5. [todo] Validate the revised workstation shell across supported
+   platforms.
    Goal:
-   - make cross-platform runtime behavior consistent enough for beta
-     testing
+   - keep the new layout and control model stable
    Work:
-   - keep camera permission prompts reliable on macOS and other supported
-     OSes
-   - validate recording containers and output formats on each platform
-   - preserve the no-surprise launch behavior after permission is granted
+   - run focused smoke and manual checks for launch, controls discovery,
+     fullscreen overlay, recording, still capture, and settings persistence
+   - record any OS- or device-specific gaps as follow-up slices
+   - keep the workflow notes aligned with the observed platform behavior
    Done when:
-   - first-launch camera permission works reliably where required
-   - the supported recording path is verified on each desktop target
+   - the revised SPEC contract is verified by automated tests and
+     operational checks on the supported environments we can run here
 
-6. [done] Defer the remaining cross-platform validation until after beta
-   publication.
-   Goal:
-   - ship the beta candidate without blocking on Windows and Linux
-     operational tests
-   Work:
-   - record the deferred Windows and Linux camera and recording checks
-     as post-beta follow-up
-   - keep the release docs and package metadata truthful about the
-     published beta path
-   Done when:
-   - the beta publication path is unblocked
-   - the remaining platform validation is explicitly deferred instead of
-     treated as pre-beta work
-
-## Beta Exit Criteria
-- No placeholder shell surfaces remain in the primary workspace.
-- Still capture saves silently to the configured folder by default.
-- Live preview feels responsive enough for microscope work.
-- Supported controls and named presets are exposed where users expect
-  them.
-- Permission, recording, and output behavior are stable across supported
-  desktop platforms.
-- Operational-testing findings are recorded and turned into a short beta
-  follow-up plan.
+## Exit Criteria
+- The controls surface is capability-driven and grouped into stable
+  families.
+- The controls pane can dock, detach, hide, and restore without breaking
+  the preview-first layout.
+- Capture settings are no longer mixed into the live camera control
+  surface.
+- The status bar stays compact and structured.
+- Supported camera controls and presets persist per camera.
+- Platform checks cover launch, controls, fullscreen, stills, recording,
+  and persistence.
 
 ## Validation Routine
 - Use `devcovenant gate --start`, `gate --mid`, `devcovenant run`, and
   `gate --end` for implementation slices.
 - Keep operational test notes in `CHANGELOG.md` when behavior changes are
   confirmed.
-- Replace this plan again when beta work is complete.
+- Replace this plan again when the next major implementation phase is
+  complete.
