@@ -61,6 +61,25 @@ Example:
 ## Version 0.1.0b1
 
 - 2026-04-05:
+  Change: Expanded the macOS control surface with AVFoundation-backed
+    sliders, spinboxes, and a dock-side restore action.
+  Why: Aligned the Intel Mac path with the cross-platform workstation
+    contract and made detached controls reattachable from the visible
+    UI.
+  Impact: Surfaced richer native camera controls, added the dock
+    restore affordance, and refreshed the docs and tests that describe
+    the revised control surface.
+  Files:
+  CHANGELOG.md
+  README.md
+  tests/test_camera.py
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/__init__.py
+  webcam_micro/camera.py
+  webcam_micro/ui.py
+
+- 2026-04-05:
   Change: Validated the revised workstation shell with the Linux smoke
     path and the full test suite.
   Why: Aligned the item 5 validation slice with the governed Qt shell

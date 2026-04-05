@@ -14,7 +14,7 @@ import subprocess
 import sys
 import threading
 from collections import deque
-from ctypes import c_bool
+from ctypes import c_bool, c_void_p
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Protocol
@@ -218,8 +218,9 @@ def build_backend_plan() -> BackendPlan:
             "QVideoSink so the workspace renderer does not lag behind live "
             "video.",
             "The typed control surface now combines Qt Multimedia "
-            "capability reporting with Linux V4L2 control discovery across "
-            "macOS, Windows, and Linux.",
+            "capability reporting with macOS AVFoundation control "
+            "discovery on Intel and Apple silicon Macs and Linux V4L2 "
+            "control discovery across macOS, Windows, and Linux.",
         ),
     )
 
@@ -2049,6 +2050,8 @@ def _build_control_backend(
     """Return the active control backend stack for one runtime."""
 
     control_backends: list[CameraControlBackend] = []
+    if sys.platform == "darwin":
+        control_backends.append(AvFoundationCameraControlBackend())
     if qt_multimedia is not None and qt_device_resolver is not None:
         control_backends.append(
             QtCameraControlBackend(
@@ -2083,6 +2086,111 @@ _QT_TORCH_MODE_SPECS = (
     ("on", "TorchOn", "On"),
     ("auto", "TorchAuto", "Auto"),
 )
+_AVFOUNDATION_EXPOSURE_MODE_SPECS = (
+    (0, "locked", "Locked"),
+    (1, "auto", "Auto"),
+    (2, "continuous_auto", "Continuous Auto"),
+    (3, "custom", "Custom"),
+)
+_AVFOUNDATION_FOCUS_MODE_SPECS = (
+    (0, "locked", "Locked"),
+    (1, "auto", "Auto"),
+    (2, "continuous_auto", "Continuous Auto"),
+)
+_AVFOUNDATION_WHITE_BALANCE_MODE_SPECS = (
+    (0, "locked", "Locked"),
+    (1, "auto", "Auto"),
+    (2, "continuous_auto", "Continuous Auto"),
+)
+_AVFOUNDATION_FLASH_MODE_SPECS = (
+    (0, "off", "Off"),
+    (1, "on", "On"),
+    (2, "auto", "Auto"),
+)
+_AVFOUNDATION_TORCH_MODE_SPECS = (
+    (0, "off", "Off"),
+    (1, "on", "On"),
+    (2, "auto", "Auto"),
+)
+
+
+def _avfoundation_choice_list(
+    device: Any,
+    support_method_name: str,
+    specs: tuple[tuple[int, str, str], ...],
+) -> tuple[CameraControlChoice, ...]:
+    """Return the supported AVFoundation choices for one control."""
+
+    support_method = getattr(device, support_method_name, None)
+    if support_method is None:
+        return ()
+    choices: list[CameraControlChoice] = []
+    for raw_value, token, label in specs:
+        try:
+            if not support_method(raw_value):
+                continue
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            continue
+        choices.append(CameraControlChoice(value=token, label=label))
+    return tuple(choices)
+
+
+def _avfoundation_choice_token(
+    current_value: object,
+    specs: tuple[tuple[int, str, str], ...],
+) -> str | None:
+    """Return the stable token for one AVFoundation enum value."""
+
+    for raw_value, token, _label in specs:
+        if current_value == raw_value:
+            return token
+    return None
+
+
+def _avfoundation_choice_value(
+    token: str,
+    specs: tuple[tuple[int, str, str], ...],
+) -> int | None:
+    """Return one AVFoundation enum value for a stable token."""
+
+    for raw_value, spec_token, _label in specs:
+        if spec_token == token:
+            return raw_value
+    return None
+
+
+def _avfoundation_cmtime_seconds(value: object) -> float | None:
+    """Return the seconds stored in one AVFoundation CMTime structure."""
+
+    try:
+        raw_value = float(getattr(value, "field_0"))
+        timescale = float(getattr(value, "field_1"))
+    except (AttributeError, TypeError, ValueError):
+        return None
+    if timescale <= 0:
+        return None
+    return raw_value / timescale
+
+
+def _avfoundation_cmtime_from_seconds(
+    seconds: float,
+    *,
+    reference: object | None = None,
+) -> object:
+    """Return one AVFoundation CMTime structure from a seconds value."""
+
+    reference_type = type(reference) if reference is not None else None
+    if reference_type is None:
+        raise CameraControlApplyError(
+            "Could not build a camera timing value for this device."
+        )
+    reference_timescale = 0
+    if reference is not None:
+        with contextlib.suppress(AttributeError, TypeError, ValueError):
+            reference_timescale = int(getattr(reference, "field_1", 0))
+    timescale = reference_timescale if reference_timescale > 0 else 1_000_000
+    raw_value = int(round(seconds * timescale))
+    return reference_type(raw_value, timescale, 0, 0)
 
 
 class QtCameraControlBackend:
@@ -2934,6 +3042,75 @@ class AvFoundationCameraControlBackend:
         active_format = _call_or_value(device.activeFormat)
         return str(active_format)
 
+    def _mode_choices(
+        self,
+        device: Any,
+        support_method_name: str,
+        specs: tuple[tuple[int, str, str], ...],
+    ) -> tuple[CameraControlChoice, ...]:
+        """Return the supported mode choices for one AVFoundation device."""
+
+        return _avfoundation_choice_list(device, support_method_name, specs)
+
+    def _mode_token(
+        self,
+        current_value: object,
+        specs: tuple[tuple[int, str, str], ...],
+    ) -> str | None:
+        """Return the stable token for one AVFoundation enum value."""
+
+        return _avfoundation_choice_token(current_value, specs)
+
+    def _mode_value(
+        self,
+        token: str,
+        specs: tuple[tuple[int, str, str], ...],
+    ) -> int | None:
+        """Return one AVFoundation enum value for a stable token."""
+
+        return _avfoundation_choice_value(token, specs)
+
+    def _cmtime_seconds(self, value: object) -> float | None:
+        """Return the seconds represented by one AVFoundation CMTime."""
+
+        return _avfoundation_cmtime_seconds(value)
+
+    def _cmtime_from_seconds(
+        self,
+        seconds: float,
+        *,
+        reference: object | None = None,
+    ) -> object:
+        """Return one AVFoundation CMTime built from a seconds value."""
+
+        return _avfoundation_cmtime_from_seconds(
+            seconds,
+            reference=reference,
+        )
+
+    def _white_balance_temperature_tint_values(
+        self,
+        device: Any,
+    ) -> tuple[object | None, float | None, float]:
+        """Return the current white-balance temperature, tint, and struct."""
+
+        conversion = getattr(
+            device,
+            "temperatureAndTintValuesForDeviceWhiteBalanceGains_",
+            None,
+        )
+        gains_method = getattr(device, "deviceWhiteBalanceGains", None)
+        if conversion is None or gains_method is None:
+            return None, None, 0.0
+        try:
+            gains = gains_method()
+            values = conversion(gains)
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            return None, None, 0.0
+        temperature = _safe_float(getattr(values, "field_0", None))
+        tint = _safe_float(getattr(values, "field_1", None)) or 0.0
+        return values, temperature, tint
+
     def list_controls(
         self, descriptor: CameraDescriptor
     ) -> tuple[CameraControl, ...]:
@@ -2946,9 +3123,18 @@ class AvFoundationCameraControlBackend:
             return ()
         controls: list[CameraControl] = []
 
-        exposure_choices = self._exposure_mode_choices(device)
+        exposure_choices = self._mode_choices(
+            device,
+            "isExposureModeSupported_",
+            _AVFOUNDATION_EXPOSURE_MODE_SPECS,
+        )
         if exposure_choices:
-            current_exposure_mode = self._exposure_mode_name(device)
+            current_exposure_mode = self._mode_token(
+                _call_or_value(getattr(device, "exposureMode", None)),
+                _AVFOUNDATION_EXPOSURE_MODE_SPECS,
+            )
+            if current_exposure_mode is None:
+                current_exposure_mode = exposure_choices[0].value
             controls.append(
                 CameraControl(
                     control_id="exposure_mode",
@@ -2962,8 +3148,15 @@ class AvFoundationCameraControlBackend:
                 )
             )
             supports_lock_toggle = (
-                _choice_for_value(exposure_choices, "locked") is not None
-                and _choice_for_value(exposure_choices, "continuous_auto")
+                _choice_for_value(
+                    exposure_choices,
+                    "locked",
+                )
+                is not None
+                and _choice_for_value(
+                    exposure_choices,
+                    "continuous_auto",
+                )
                 is not None
             )
             if supports_lock_toggle:
@@ -2979,6 +3172,316 @@ class AvFoundationCameraControlBackend:
                         ),
                     )
                 )
+
+        active_format = _call_or_value(getattr(device, "activeFormat", None))
+        exposure_duration_supported = (
+            active_format is not None
+            and hasattr(active_format, "minExposureDuration")
+            and hasattr(active_format, "maxExposureDuration")
+            and hasattr(
+                device,
+                "setExposureModeCustomWithDuration_ISO_completionHandler_",
+            )
+            and hasattr(device, "ISO")
+        )
+        if exposure_duration_supported:
+            min_exposure = self._cmtime_seconds(
+                getattr(active_format, "minExposureDuration")
+            )
+            max_exposure = self._cmtime_seconds(
+                getattr(active_format, "maxExposureDuration")
+            )
+            if min_exposure is None or min_exposure <= 0:
+                min_exposure = 0.0001
+            if max_exposure is None or max_exposure <= min_exposure:
+                max_exposure = max(1.0, min_exposure * 1000)
+            current_exposure = self._cmtime_seconds(
+                _call_or_value(getattr(device, "exposureDuration", None))
+            )
+            if current_exposure is None or current_exposure <= 0:
+                current_exposure = min_exposure
+            controls.append(
+                CameraControl(
+                    control_id="manual_exposure_time",
+                    label="Manual Exposure Time",
+                    kind="numeric",
+                    value=current_exposure,
+                    min_value=min_exposure,
+                    max_value=max_exposure,
+                    step=_numeric_step(min_exposure, max_exposure),
+                    unit="s",
+                    details="Manual exposure time in seconds.",
+                )
+            )
+
+            min_iso = _safe_float(getattr(active_format, "minISO", None))
+            max_iso = _safe_float(getattr(active_format, "maxISO", None))
+            if min_iso is None or min_iso <= 0:
+                min_iso = 100.0
+            if max_iso is None or max_iso <= min_iso:
+                max_iso = max(1000.0, min_iso * 8)
+            current_iso = _safe_float(
+                _call_or_value(getattr(device, "ISO", None))
+            )
+            if current_iso is None or current_iso <= 0:
+                current_iso = min_iso
+            controls.append(
+                CameraControl(
+                    control_id="manual_iso_sensitivity",
+                    label="Manual ISO Sensitivity",
+                    kind="numeric",
+                    value=current_iso,
+                    min_value=min_iso,
+                    max_value=max_iso,
+                    step=_numeric_step(min_iso, max_iso),
+                    unit="ISO",
+                    details="Manual ISO sensitivity for the active camera.",
+                )
+            )
+
+        exposure_bias_supported = (
+            hasattr(device, "minExposureTargetBias")
+            and hasattr(device, "maxExposureTargetBias")
+            and hasattr(device, "exposureTargetBias")
+            and hasattr(device, "setExposureTargetBias_completionHandler_")
+        )
+        if exposure_bias_supported:
+            min_bias = _safe_float(
+                _call_or_value(device.minExposureTargetBias)
+            )
+            max_bias = _safe_float(
+                _call_or_value(device.maxExposureTargetBias)
+            )
+            if min_bias is None:
+                min_bias = -4.0
+            if max_bias is None or max_bias <= min_bias:
+                max_bias = 4.0
+            current_bias = _safe_float(
+                _call_or_value(device.exposureTargetBias)
+            )
+            if current_bias is None:
+                current_bias = 0.0
+            current_bias = max(min_bias, min(max_bias, current_bias))
+            controls.append(
+                CameraControl(
+                    control_id="backlight_compensation",
+                    label="Backlight Compensation",
+                    kind="numeric",
+                    value=current_bias,
+                    min_value=min_bias,
+                    max_value=max_bias,
+                    step=_numeric_step(min_bias, max_bias),
+                    unit="EV",
+                    details="AVFoundation exposure bias in EV.",
+                )
+            )
+
+        focus_choices = self._mode_choices(
+            device,
+            "isFocusModeSupported_",
+            _AVFOUNDATION_FOCUS_MODE_SPECS,
+        )
+        if focus_choices:
+            current_focus_mode = self._mode_token(
+                _call_or_value(getattr(device, "focusMode", None)),
+                _AVFOUNDATION_FOCUS_MODE_SPECS,
+            )
+            if current_focus_mode is None:
+                current_focus_mode = focus_choices[0].value
+            supports_focus_toggle = (
+                _choice_for_value(focus_choices, "locked") is not None
+                and _choice_for_value(focus_choices, "auto") is not None
+            ) or (
+                _choice_for_value(focus_choices, "locked") is not None
+                and _choice_for_value(
+                    focus_choices,
+                    "continuous_auto",
+                )
+                is not None
+            )
+            if supports_focus_toggle:
+                controls.append(
+                    CameraControl(
+                        control_id="focus_auto",
+                        label="Focus Automatic",
+                        kind="boolean",
+                        value=current_focus_mode != "locked",
+                        read_only=False,
+                        enabled=True,
+                        details="Auto or manual focus selection.",
+                    )
+                )
+
+        if hasattr(device, "lensPosition") and hasattr(
+            device, "setFocusModeLockedWithLensPosition_completionHandler_"
+        ):
+            current_focus_distance = _safe_float(
+                _call_or_value(device.lensPosition)
+            )
+            if current_focus_distance is None:
+                current_focus_distance = 0.0
+            current_focus_distance = max(0.0, min(1.0, current_focus_distance))
+            controls.append(
+                CameraControl(
+                    control_id="focus_distance",
+                    label="Focus Distance",
+                    kind="numeric",
+                    value=current_focus_distance,
+                    min_value=0.0,
+                    max_value=1.0,
+                    step=0.01,
+                    details="Manual focus lens position between near and far.",
+                )
+            )
+
+        white_balance_choices = self._mode_choices(
+            device,
+            "isWhiteBalanceModeSupported_",
+            _AVFOUNDATION_WHITE_BALANCE_MODE_SPECS,
+        )
+        if white_balance_choices:
+            current_white_balance_mode = self._mode_token(
+                _call_or_value(getattr(device, "whiteBalanceMode", None)),
+                _AVFOUNDATION_WHITE_BALANCE_MODE_SPECS,
+            )
+            if current_white_balance_mode is None:
+                current_white_balance_mode = white_balance_choices[0].value
+            supports_white_balance_toggle = (
+                _choice_for_value(white_balance_choices, "locked") is not None
+                and _choice_for_value(white_balance_choices, "auto")
+                is not None
+            ) or (
+                _choice_for_value(white_balance_choices, "locked") is not None
+                and _choice_for_value(
+                    white_balance_choices,
+                    "continuous_auto",
+                )
+                is not None
+            )
+            if supports_white_balance_toggle:
+                controls.append(
+                    CameraControl(
+                        control_id="white_balance_automatic",
+                        label="White Balance Automatic",
+                        kind="boolean",
+                        value=current_white_balance_mode != "locked",
+                        read_only=False,
+                        enabled=True,
+                        details="Auto or manual white balance selection.",
+                    )
+                )
+
+        temperature_tint_values, current_temperature, current_tint = (
+            self._white_balance_temperature_tint_values(device)
+        )
+        supports_temperature_tint_update = (
+            temperature_tint_values is not None
+            and hasattr(
+                device,
+                "setWhiteBalanceModeLockedWithDeviceWhiteBalanceTemperatureAnd"
+                "TintValues_completionHandler_",
+            )
+        )
+        if supports_temperature_tint_update:
+            if current_temperature is None or current_temperature <= 0:
+                current_temperature = 2800.0
+            controls.append(
+                CameraControl(
+                    control_id="white_balance_temperature",
+                    label="White Balance Temperature",
+                    kind="numeric",
+                    value=current_temperature,
+                    min_value=2000.0,
+                    max_value=10000.0,
+                    step=100.0,
+                    unit="K",
+                    details=(
+                        "Manual white balance color temperature in Kelvin."
+                    ),
+                )
+            )
+
+        flash_choices = self._mode_choices(
+            device,
+            "isFlashModeSupported_",
+            _AVFOUNDATION_FLASH_MODE_SPECS,
+        )
+        if flash_choices:
+            current_flash_mode = self._mode_token(
+                _call_or_value(getattr(device, "flashMode", None)),
+                _AVFOUNDATION_FLASH_MODE_SPECS,
+            )
+            if current_flash_mode is None:
+                current_flash_mode = flash_choices[0].value
+            controls.append(
+                CameraControl(
+                    control_id="flash_mode",
+                    label="Flash Mode",
+                    kind="enum",
+                    value=current_flash_mode,
+                    choices=flash_choices,
+                    read_only=len(flash_choices) < 2,
+                    enabled=len(flash_choices) > 1,
+                    details="Flash mode for still capture when available.",
+                )
+            )
+
+        torch_choices = self._mode_choices(
+            device,
+            "isTorchModeSupported_",
+            _AVFOUNDATION_TORCH_MODE_SPECS,
+        )
+        if torch_choices:
+            current_torch_mode = self._mode_token(
+                _call_or_value(getattr(device, "torchMode", None)),
+                _AVFOUNDATION_TORCH_MODE_SPECS,
+            )
+            if current_torch_mode is None:
+                current_torch_mode = torch_choices[0].value
+            controls.append(
+                CameraControl(
+                    control_id="torch_mode",
+                    label="Torch Mode",
+                    kind="enum",
+                    value=current_torch_mode,
+                    choices=torch_choices,
+                    read_only=len(torch_choices) < 2,
+                    enabled=len(torch_choices) > 1,
+                    details="Torch or illumination mode for live lighting.",
+                )
+            )
+
+        if hasattr(device, "isSmoothAutoFocusEnabled") and hasattr(
+            device, "setSmoothAutoFocusEnabled_"
+        ):
+            controls.append(
+                CameraControl(
+                    control_id="smooth_auto_focus",
+                    label="Smooth Auto Focus",
+                    kind="boolean",
+                    value=bool(
+                        _call_or_value(device.isSmoothAutoFocusEnabled)
+                    ),
+                    details="Smooth autofocus assistance when supported.",
+                )
+            )
+
+        if hasattr(device, "automaticallyAdjustsVideoHDREnabled") and hasattr(
+            device, "setAutomaticallyAdjustsVideoHDREnabled_"
+        ):
+            controls.append(
+                CameraControl(
+                    control_id="video_hdr_automatic",
+                    label="Automatic Video HDR",
+                    kind="boolean",
+                    value=bool(
+                        _call_or_value(
+                            device.automaticallyAdjustsVideoHDREnabled
+                        )
+                    ),
+                    details="Automatic HDR adjustments when supported.",
+                )
+            )
 
         zoom_minimum = (
             _safe_float(_call_or_value(device.minAvailableVideoZoomFactor))
@@ -3018,7 +3521,9 @@ class AvFoundationCameraControlBackend:
             )
         )
 
-        if _choice_for_value(exposure_choices, "continuous_auto") is not None:
+        if _choice_for_value(exposure_choices, "auto") is not None or (
+            _choice_for_value(exposure_choices, "continuous_auto") is not None
+        ):
             controls.append(
                 CameraControl(
                     control_id="restore_auto_exposure",
@@ -3062,13 +3567,25 @@ class AvFoundationCameraControlBackend:
                 "The selected camera could not be found for control updates."
             )
         self._lock_device(device)
+        active_format = _call_or_value(getattr(device, "activeFormat", None))
+
+        def completion_handler(_error: c_void_p = None) -> None:
+            """Ignore the AVFoundation completion callback state."""
+
+            return None
+
+        completion = wrap_completion_handler(completion_handler)
+        (
+            temperature_tint_values,
+            current_temperature,
+            current_tint,
+        ) = self._white_balance_temperature_tint_values(device)
         try:
             if control_id == "exposure_mode":
-                mode_map = {
-                    "locked": 0,
-                    "continuous_auto": 2,
-                }
-                mode_value = mode_map.get(str(value))
+                mode_value = self._mode_value(
+                    str(value),
+                    _AVFOUNDATION_EXPOSURE_MODE_SPECS,
+                )
                 if mode_value is None:
                     raise CameraControlApplyError(
                         "Unsupported exposure mode selection."
@@ -3077,15 +3594,315 @@ class AvFoundationCameraControlBackend:
                     raise CameraControlApplyError(
                         "The camera does not support that exposure mode."
                     )
+                if mode_value == 3:
+                    duration_reference = _call_or_value(
+                        getattr(device, "exposureDuration", None)
+                    )
+                    if self._cmtime_seconds(duration_reference) is None:
+                        duration_reference = getattr(
+                            active_format,
+                            "minExposureDuration",
+                            None,
+                        )
+                    if duration_reference is None:
+                        raise CameraControlApplyError(
+                            "Custom exposure timing is unavailable."
+                        )
+                    duration_seconds = self._cmtime_seconds(duration_reference)
+                    if duration_seconds is None or duration_seconds <= 0:
+                        duration_seconds = 0.001
+                    iso_value = _safe_float(
+                        _call_or_value(getattr(device, "ISO", None))
+                    )
+                    if iso_value is None or iso_value <= 0:
+                        iso_value = _safe_float(
+                            getattr(active_format, "minISO", None)
+                        )
+                    if iso_value is None or iso_value <= 0:
+                        iso_value = 100.0
+                    set_custom_exposure = getattr(
+                        device,
+                        "setExposureModeCustomWithDuration_ISO_"
+                        "completionHandler_",
+                    )
+                    set_custom_exposure(
+                        self._cmtime_from_seconds(
+                            duration_seconds,
+                            reference=duration_reference,
+                        ),
+                        iso_value,
+                        completion,
+                    )
+                    return
                 device.setExposureMode_(mode_value)
                 return
             if control_id == "exposure_locked":
                 mode_value = 0 if bool(value) else 2
                 if not device.isExposureModeSupported_(mode_value):
-                    raise CameraControlApplyError(
-                        "The camera cannot switch exposure lock state."
-                    )
+                    if not bool(value) and device.isExposureModeSupported_(1):
+                        mode_value = 1
+                    else:
+                        raise CameraControlApplyError(
+                            "The camera cannot switch exposure lock state."
+                        )
                 device.setExposureMode_(mode_value)
+                return
+            if control_id == "manual_exposure_time":
+                exposure_time = _safe_float(value)
+                if exposure_time is None:
+                    raise CameraControlApplyError(
+                        "Manual exposure time must be numeric."
+                    )
+                min_exposure = self._cmtime_seconds(
+                    getattr(active_format, "minExposureDuration", None)
+                )
+                max_exposure = self._cmtime_seconds(
+                    getattr(active_format, "maxExposureDuration", None)
+                )
+                if min_exposure is None or min_exposure <= 0:
+                    min_exposure = 0.0001
+                if max_exposure is None or max_exposure <= min_exposure:
+                    max_exposure = max(1.0, min_exposure * 1000)
+                bounded_time = max(
+                    min_exposure,
+                    min(max_exposure, exposure_time),
+                )
+                duration_reference = _call_or_value(
+                    getattr(device, "exposureDuration", None)
+                )
+                if self._cmtime_seconds(duration_reference) is None:
+                    duration_reference = getattr(
+                        active_format,
+                        "minExposureDuration",
+                        None,
+                    )
+                if duration_reference is None:
+                    raise CameraControlApplyError(
+                        "Manual exposure timing is unavailable."
+                    )
+                iso_value = _safe_float(
+                    _call_or_value(getattr(device, "ISO", None))
+                )
+                if iso_value is None or iso_value <= 0:
+                    iso_value = _safe_float(
+                        getattr(active_format, "minISO", None)
+                    )
+                if iso_value is None or iso_value <= 0:
+                    iso_value = 100.0
+                set_custom_exposure = getattr(
+                    device,
+                    "setExposureModeCustomWithDuration_ISO_"
+                    "completionHandler_",
+                )
+                set_custom_exposure(
+                    self._cmtime_from_seconds(
+                        bounded_time,
+                        reference=duration_reference,
+                    ),
+                    iso_value,
+                    completion,
+                )
+                return
+            if control_id == "manual_iso_sensitivity":
+                iso_value = _safe_float(value)
+                if iso_value is None:
+                    raise CameraControlApplyError(
+                        "Manual ISO sensitivity must be numeric."
+                    )
+                min_iso = _safe_float(getattr(active_format, "minISO", None))
+                max_iso = _safe_float(getattr(active_format, "maxISO", None))
+                if min_iso is None or min_iso <= 0:
+                    min_iso = 100.0
+                if max_iso is None or max_iso <= min_iso:
+                    max_iso = max(1000.0, min_iso * 8)
+                bounded_iso = max(min_iso, min(max_iso, iso_value))
+                duration_reference = _call_or_value(
+                    getattr(device, "exposureDuration", None)
+                )
+                if self._cmtime_seconds(duration_reference) is None:
+                    duration_reference = getattr(
+                        active_format,
+                        "minExposureDuration",
+                        None,
+                    )
+                if duration_reference is None:
+                    raise CameraControlApplyError(
+                        "Manual ISO control timing is unavailable."
+                    )
+                duration_seconds = self._cmtime_seconds(duration_reference)
+                if duration_seconds is None or duration_seconds <= 0:
+                    duration_seconds = 0.001
+                set_custom_exposure = getattr(
+                    device,
+                    "setExposureModeCustomWithDuration_ISO_"
+                    "completionHandler_",
+                )
+                set_custom_exposure(
+                    self._cmtime_from_seconds(
+                        duration_seconds,
+                        reference=duration_reference,
+                    ),
+                    bounded_iso,
+                    completion,
+                )
+                return
+            if control_id == "backlight_compensation":
+                compensation = _safe_float(value)
+                if compensation is None:
+                    raise CameraControlApplyError(
+                        "Backlight compensation must be numeric."
+                    )
+                min_bias = _safe_float(
+                    _call_or_value(device.minExposureTargetBias)
+                )
+                max_bias = _safe_float(
+                    _call_or_value(device.maxExposureTargetBias)
+                )
+                if min_bias is not None and max_bias is not None:
+                    compensation = max(min_bias, min(max_bias, compensation))
+                device.setExposureTargetBias_completionHandler_(
+                    compensation,
+                    completion,
+                )
+                return
+            if control_id == "focus_auto":
+                locked_supported = bool(device.isFocusModeSupported_(0))
+                auto_mode = 2 if device.isFocusModeSupported_(2) else 1
+                if bool(value):
+                    if auto_mode == 2 and not device.isFocusModeSupported_(2):
+                        raise CameraControlApplyError(
+                            "The camera cannot switch focus to auto."
+                        )
+                    if auto_mode == 1 and not device.isFocusModeSupported_(1):
+                        raise CameraControlApplyError(
+                            "The camera cannot switch focus to auto."
+                        )
+                    device.setFocusMode_(auto_mode)
+                    return
+                if not locked_supported:
+                    raise CameraControlApplyError(
+                        "The camera cannot lock focus manually."
+                    )
+                device.setFocusMode_(0)
+                return
+            if control_id == "focus_distance":
+                focus_distance = _safe_float(value)
+                if focus_distance is None:
+                    raise CameraControlApplyError(
+                        "Focus distance must be numeric."
+                    )
+                if not device.isFocusModeSupported_(0):
+                    raise CameraControlApplyError(
+                        "The camera cannot lock focus manually."
+                    )
+                bounded_value = max(0.0, min(1.0, focus_distance))
+                device.setFocusModeLockedWithLensPosition_completionHandler_(
+                    bounded_value,
+                    completion,
+                )
+                return
+            if control_id == "white_balance_automatic":
+                locked_supported = bool(device.isWhiteBalanceModeSupported_(0))
+                auto_mode = 2 if device.isWhiteBalanceModeSupported_(2) else 1
+                if bool(value):
+                    if (
+                        auto_mode == 2
+                        and not device.isWhiteBalanceModeSupported_(2)
+                    ):
+                        raise CameraControlApplyError(
+                            "The camera cannot switch white balance to auto."
+                        )
+                    if (
+                        auto_mode == 1
+                        and not device.isWhiteBalanceModeSupported_(1)
+                    ):
+                        raise CameraControlApplyError(
+                            "The camera cannot switch white balance to auto."
+                        )
+                    device.setWhiteBalanceMode_(auto_mode)
+                    return
+                if not locked_supported:
+                    raise CameraControlApplyError(
+                        "The camera cannot lock white balance manually."
+                    )
+                device.setWhiteBalanceMode_(0)
+                return
+            if control_id == "white_balance_temperature":
+                temperature = _safe_float(value)
+                if temperature is None:
+                    raise CameraControlApplyError(
+                        "White balance temperature must be numeric."
+                    )
+                if temperature_tint_values is None:
+                    (
+                        temperature_tint_values,
+                        current_temperature,
+                        current_tint,
+                    ) = self._white_balance_temperature_tint_values(device)
+                if temperature_tint_values is None:
+                    raise CameraControlApplyError(
+                        "White balance temperature is unavailable."
+                    )
+                bounded_temperature = max(2000.0, min(10000.0, temperature))
+                tint = current_tint if current_tint is not None else 0.0
+                temperature_tint = type(temperature_tint_values)(
+                    bounded_temperature,
+                    tint,
+                )
+                set_white_balance_temperature = getattr(
+                    device,
+                    "setWhiteBalanceModeLockedWithDeviceWhiteBalance"
+                    "TemperatureAndTintValues_"
+                    "completionHandler_",
+                )
+                set_white_balance_temperature(
+                    temperature_tint,
+                    completion,
+                )
+                return
+            if control_id == "flash_mode":
+                mode_value = self._mode_value(
+                    str(value),
+                    _AVFOUNDATION_FLASH_MODE_SPECS,
+                )
+                if mode_value is None:
+                    raise CameraControlApplyError(
+                        "Unsupported flash mode selection."
+                    )
+                if not device.isFlashModeSupported_(mode_value):
+                    raise CameraControlApplyError(
+                        "The camera does not support that flash mode."
+                    )
+                device.setFlashMode_(mode_value)
+                return
+            if control_id == "torch_mode":
+                mode_value = self._mode_value(
+                    str(value),
+                    _AVFOUNDATION_TORCH_MODE_SPECS,
+                )
+                if mode_value is None:
+                    raise CameraControlApplyError(
+                        "Unsupported torch mode selection."
+                    )
+                if not device.isTorchModeSupported_(mode_value):
+                    raise CameraControlApplyError(
+                        "The camera does not support that torch mode."
+                    )
+                device.setTorchMode_(mode_value)
+                return
+            if control_id == "smooth_auto_focus":
+                device.setSmoothAutoFocusEnabled_(bool(value))
+                return
+            if control_id == "video_hdr_automatic":
+                device.setAutomaticallyAdjustsVideoHDREnabled_(bool(value))
+                return
+            if control_id == "restore_auto_exposure":
+                auto_mode = 2 if device.isExposureModeSupported_(2) else 1
+                if not device.isExposureModeSupported_(auto_mode):
+                    raise CameraControlApplyError(
+                        "The camera cannot restore automatic exposure."
+                    )
+                device.setExposureMode_(auto_mode)
                 return
             if control_id == "zoom_factor":
                 zoom_value = _safe_float(value)
@@ -3129,8 +3946,8 @@ class AvFoundationCameraControlBackend:
             )
         self.set_control_value(
             descriptor,
-            "exposure_mode",
-            "continuous_auto",
+            "restore_auto_exposure",
+            True,
         )
 
 

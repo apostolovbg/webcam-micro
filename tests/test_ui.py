@@ -63,6 +63,8 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("toggleable, detachable dock", combined_body)
         self.assertIn("detachable dock", combined_body)
         self.assertIn("dock, float, hide, and restore", combined_body)
+        self.assertIn("visible restore action", combined_body)
+        self.assertIn("spinboxes", combined_body)
         self.assertIn("one column", combined_body)
         self.assertIn("two columns", combined_body)
         self.assertIn("compact structured status bar", combined_body)
@@ -93,6 +95,7 @@ class ShellSpecTest(unittest.TestCase):
         self.assertEqual(
             (
                 "Controls",
+                "Restore Dock",
                 "Refresh",
                 "Open",
                 "Fit",
@@ -126,8 +129,12 @@ class ShellSpecTest(unittest.TestCase):
         fullscreen_toggle_source = inspect.getsource(
             PreviewApplication._set_fullscreen
         )
+        actions_source = inspect.getsource(PreviewApplication._build_actions)
         dock_source = inspect.getsource(
             PreviewApplication._build_controls_dock
+        )
+        dock_button_source = inspect.getsource(
+            PreviewApplication._make_controls_dock_action_button
         )
         controls_source = inspect.getsource(
             PreviewApplication._rebuild_controls_widgets
@@ -177,6 +184,9 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("add_text_tab", diagnostics_source)
         self.assertNotIn("_workspace_notes", fullscreen_toggle_source)
         self.assertIn("ResizeAwareControlsWidget", dock_source)
+        self.assertIn("_controls_dock_actions_row", dock_source)
+        self.assertIn("QToolButton", dock_button_source)
+        self.assertIn("_make_controls_dock_action_button", actions_source)
         self.assertIn("_group_controls_for_surface", controls_source)
         self.assertIn("_controls_surface_column_count", controls_source)
         self.assertIn("_build_controls_section_widget", controls_source)
@@ -764,6 +774,12 @@ class ShellSpecTest(unittest.TestCase):
                 value=0.5,
             ),
             CameraControl(
+                control_id="smooth_auto_focus",
+                label="Smooth Auto Focus",
+                kind="boolean",
+                value=True,
+            ),
+            CameraControl(
                 control_id="white_balance_automatic",
                 label="White Balance Automatic",
                 kind="boolean",
@@ -804,6 +820,12 @@ class ShellSpecTest(unittest.TestCase):
                 label="Saturation",
                 kind="numeric",
                 value=128,
+            ),
+            CameraControl(
+                control_id="video_hdr_automatic",
+                label="Automatic Video HDR",
+                kind="boolean",
+                value=True,
             ),
             CameraControl(
                 control_id="zoom_factor",
@@ -859,7 +881,10 @@ class ShellSpecTest(unittest.TestCase):
                         "manual_iso_sensitivity",
                     ),
                 ),
-                ("Focus", ("focus_auto", "focus_distance")),
+                (
+                    "Focus",
+                    ("focus_auto", "focus_distance", "smooth_auto_focus"),
+                ),
                 (
                     "White Balance",
                     ("white_balance_automatic", "white_balance_temperature"),
@@ -873,7 +898,10 @@ class ShellSpecTest(unittest.TestCase):
                         "activity_led",
                     ),
                 ),
-                ("Color/Image Quality", ("saturation",)),
+                (
+                    "Color/Image Quality",
+                    ("saturation", "video_hdr_automatic"),
+                ),
                 ("Zoom", ("zoom_factor",)),
                 ("Source Info", ("active_format",)),
                 ("Actions", ("restore_auto_exposure",)),
@@ -939,6 +967,7 @@ class ShellSpecTest(unittest.TestCase):
         self.assertEqual(
             (
                 "Controls",
+                "Restore Dock",
                 "Still",
                 "Record",
                 "Preferences",
@@ -1298,12 +1327,16 @@ class ShellSpecTest(unittest.TestCase):
             PreviewApplication._open_diagnostics
         )
 
-        self.assertIn("def sync_field", numeric_builder_source)
+        self.assertNotIn("def sync_field", numeric_builder_source)
         self.assertIn("def sync_slider", numeric_builder_source)
         self.assertIn("def handle_slider_change", numeric_builder_source)
         self.assertIn("def handle_slider_commit", numeric_builder_source)
-        self.assertIn("def handle_field_commit", numeric_builder_source)
-        self.assertIn("def handle_step", numeric_builder_source)
+        self.assertIn("def sync_spinbox", numeric_builder_source)
+        self.assertIn("def handle_spinbox_change", numeric_builder_source)
+        self.assertIn("QSpinBox", numeric_builder_source)
+        self.assertIn("QDoubleSpinBox", numeric_builder_source)
+        self.assertNotIn("def handle_field_commit", numeric_builder_source)
+        self.assertNotIn("def handle_step", numeric_builder_source)
         self.assertIn("def choose_directory", preferences_source)
         self.assertIn("Named Presets", preferences_source)
         self.assertIn("Save Current", preferences_source)

@@ -66,7 +66,8 @@ complete for the current release path.
 - Windowed workspace: the main shell keeps the preview central while the
   menu bar, toolbar, and status bar expose the primary microscope
   actions, and the controls dock can dock, float, hide, and restore
-  without taking the preview off center.
+  without taking the preview off center. A visible Restore Dock action
+  keeps detached controls easy to reattach.
 - Fullscreen workspace: the preview expands to the full screen and the
   command surface collapses into a compact overlay with safe exit paths.
 - Preview and framing: live preview supports fit, fill, and centered crop
@@ -78,13 +79,16 @@ complete for the current release path.
   Balance, Light/Flicker, Color/Image Quality, Zoom, Source Info,
   Actions, and Other Controls families across supported OSes with a
   one-column default layout that widens to two columns on roomy docks.
-  Qt Multimedia now surfaces backlight compensation, manual exposure time
-  and ISO, focus auto and distance, white balance automatic and
+  Qt Multimedia now surfaces backlight compensation, manual exposure
+  time and ISO, focus auto and distance, white balance automatic and
   temperature, flash or torch, and source-format details when the device
-  reports them. On Linux, V4L2 adds power line frequency, brightness,
-  contrast, saturation, hue, gamma, gain, sharpness, lamp, illumination,
-  activity LED, and vendor-specific extension controls when the camera
-  reports them.
+  reports them. On macOS, including Intel Macs, AVFoundation adds
+  exposure mode, manual exposure time and ISO, backlight compensation,
+  focus, white balance, flash, torch, smooth autofocus, automatic video
+  HDR, and zoom when the camera reports them. On Linux, V4L2 adds power
+  line frequency, brightness, contrast, saturation, hue, gamma, gain,
+  sharpness, lamp, illumination, activity LED, and vendor-specific
+  extension controls when the camera reports them.
 - Capture and recording: still images save quietly to the configured folder
   with the current capture framing, and recordings use native controls with
   platform-supported containers.

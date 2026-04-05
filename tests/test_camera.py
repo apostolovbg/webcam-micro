@@ -63,6 +63,7 @@ class CameraContractTest(unittest.TestCase):
         self.assertIn("Qt Multimedia", plan.first_device_backend_target)
         self.assertTrue(any("newest frame" in note for note in plan.notes))
         self.assertTrue(any("Qt Multimedia" in note for note in plan.notes))
+        self.assertTrue(any("AVFoundation" in note for note in plan.notes))
         self.assertTrue(any("Linux V4L2" in note for note in plan.notes))
         self.assertTrue(
             any("macOS, Windows, and Linux" in note for note in plan.notes)
@@ -786,14 +787,60 @@ class CameraContractTest(unittest.TestCase):
 
     @mock.patch("webcam_micro.camera._load_avfoundation_modules")
     @mock.patch("webcam_micro.camera.sys.platform", "darwin")
-    def test_avfoundation_control_surface_hides_backend_clutter(
+    def test_avfoundation_control_surface_exposes_native_mac_controls(
         self,
         load_modules: mock.MagicMock,
     ) -> None:
-        """Assert the macOS control surface keeps backend clutter hidden."""
+        """Assert the macOS control surface exposes native controls."""
+
+        class FakeCMTime:
+            """Provide a minimal CMTime-compatible structure."""
+
+            def __init__(
+                self,
+                value: int,
+                timescale: int,
+                *_unused: object,
+            ) -> None:
+                """Store the CMTime fields used by the backend."""
+
+                self.field_0 = value
+                self.field_1 = timescale
+
+        class FakeTemperatureTintValues:
+            """Provide a minimal white-balance temperature/tint struct."""
+
+            def __init__(self, temperature: float, tint: float) -> None:
+                """Store the white-balance values used by the backend."""
+
+                self.field_0 = temperature
+                self.field_1 = tint
+
+        class FakeActiveFormat:
+            """Expose the AVFoundation format metadata used by the backend."""
+
+            def __init__(self) -> None:
+                """Store one stable active-format snapshot."""
+
+                self.minExposureDuration = FakeCMTime(1, 120)
+                self.maxExposureDuration = FakeCMTime(1, 2)
+                self.minISO = 80.0
+                self.maxISO = 640.0
+
+            def __str__(self) -> str:
+                """Return a readable active-format summary."""
+
+                return "1920x1080 30 FPS (MJPEG)"
 
         class FakeDevice:
-            """Provide the minimum AVFoundation surface for the backend."""
+            """Provide the AVFoundation surface used by the backend."""
+
+            def __init__(self) -> None:
+                """Store the current test-double state and call log."""
+
+                self.calls: list[tuple[object, ...]] = []
+                self._active_format = FakeActiveFormat()
+                self._white_balance_gains = object()
 
             def localizedName(self) -> str:
                 """Return the device name used for descriptor matching."""
@@ -801,20 +848,117 @@ class CameraContractTest(unittest.TestCase):
                 return "Microscope Camera"
 
             def uniqueID(self) -> str:
-                """Return the device identifier used for descriptor
-                matching."""
+                """Return the device identifier used for matching."""
 
                 return "camera-1"
 
             def isExposureModeSupported_(self, mode_value: int) -> bool:
                 """Report support for the writable exposure modes."""
 
-                return mode_value in {0, 2}
+                return mode_value in {0, 1, 2, 3}
 
             def exposureMode(self) -> int:
                 """Return the current writable exposure mode."""
 
                 return 2
+
+            def activeFormat(self) -> FakeActiveFormat:
+                """Return the current active camera format."""
+
+                return self._active_format
+
+            def exposureDuration(self) -> FakeCMTime:
+                """Return the current exposure duration."""
+
+                return FakeCMTime(1, 60)
+
+            def ISO(self) -> float:
+                """Return the current ISO value."""
+
+                return 160.0
+
+            def minExposureTargetBias(self) -> float:
+                """Return the minimum exposure compensation."""
+
+                return -4.0
+
+            def maxExposureTargetBias(self) -> float:
+                """Return the maximum exposure compensation."""
+
+                return 4.0
+
+            def exposureTargetBias(self) -> float:
+                """Return the current exposure compensation."""
+
+                return 0.5
+
+            def isFocusModeSupported_(self, mode_value: int) -> bool:
+                """Report support for the writable focus modes."""
+
+                return mode_value in {0, 1, 2}
+
+            def focusMode(self) -> int:
+                """Return the current focus mode."""
+
+                return 2
+
+            def lensPosition(self) -> float:
+                """Return the current manual lens position."""
+
+                return 0.25
+
+            def isWhiteBalanceModeSupported_(self, mode_value: int) -> bool:
+                """Report support for the writable white-balance modes."""
+
+                return mode_value in {0, 1, 2}
+
+            def whiteBalanceMode(self) -> int:
+                """Return the current white-balance mode."""
+
+                return 2
+
+            def deviceWhiteBalanceGains(self) -> object:
+                """Return one white-balance gains snapshot."""
+
+                return self._white_balance_gains
+
+            def temperatureAndTintValuesForDeviceWhiteBalanceGains_(
+                self,
+                gains: object,
+            ) -> FakeTemperatureTintValues:
+                """Convert gains into one temperature/tint structure."""
+
+                return FakeTemperatureTintValues(3000.0, 0.0)
+
+            def isFlashModeSupported_(self, mode_value: int) -> bool:
+                """Report support for the writable flash modes."""
+
+                return mode_value in {0, 1, 2}
+
+            def flashMode(self) -> int:
+                """Return the current flash mode."""
+
+                return 2
+
+            def isTorchModeSupported_(self, mode_value: int) -> bool:
+                """Report support for the writable torch modes."""
+
+                return mode_value in {0, 1, 2}
+
+            def torchMode(self) -> int:
+                """Return the current torch mode."""
+
+                return 2
+
+            def isSmoothAutoFocusEnabled(self) -> bool:
+                """Return whether smooth autofocus is enabled."""
+
+                return True
+
+            def automaticallyAdjustsVideoHDREnabled(self) -> bool:
+                """Return whether automatic video HDR is enabled."""
+
+                return False
 
             def minAvailableVideoZoomFactor(self) -> float:
                 """Return the minimum zoom factor."""
@@ -831,11 +975,6 @@ class CameraContractTest(unittest.TestCase):
 
                 return 2.0
 
-            def activeFormat(self) -> str:
-                """Return one readable source-mode summary."""
-
-                return "1920x1080"
-
             def lockForConfiguration_(self, _error) -> bool:
                 """Pretend the device can be configured."""
 
@@ -849,21 +988,112 @@ class CameraContractTest(unittest.TestCase):
             def setExposureMode_(self, mode_value: int) -> None:
                 """Accept exposure updates in the test double."""
 
-                return None
+                self.calls.append(("setExposureMode", mode_value))
+
+            def setExposureModeCustomWithDuration_ISO_completionHandler_(
+                self,
+                duration: FakeCMTime,
+                iso_value: float,
+                completion: object,
+            ) -> None:
+                """Accept custom exposure updates in the test double."""
+
+                self.calls.append(
+                    (
+                        "setExposureModeCustom",
+                        round(duration.field_0 / duration.field_1, 6),
+                        iso_value,
+                    )
+                )
+
+            def setExposureTargetBias_completionHandler_(
+                self,
+                compensation: float,
+                completion: object,
+            ) -> None:
+                """Accept exposure-compensation updates."""
+
+                self.calls.append(("setExposureTargetBias", compensation))
+
+            def setFocusMode_(self, mode_value: int) -> None:
+                """Accept focus updates in the test double."""
+
+                self.calls.append(("setFocusMode", mode_value))
+
+            def setFocusModeLockedWithLensPosition_completionHandler_(
+                self,
+                position: float,
+                completion: object,
+            ) -> None:
+                """Accept manual focus updates in the test double."""
+
+                self.calls.append(("setFocusDistance", position))
+
+            def setWhiteBalanceMode_(self, mode_value: int) -> None:
+                """Accept white-balance updates in the test double."""
+
+                self.calls.append(("setWhiteBalanceMode", mode_value))
+
+            def set_white_balance_temperature(
+                self,
+                values: FakeTemperatureTintValues,
+                completion: object,
+            ) -> None:
+                """Accept manual white-balance updates."""
+
+                self.calls.append(
+                    (
+                        "setWhiteBalanceTemperature",
+                        values.field_0,
+                        values.field_1,
+                    )
+                )
+
+            locals()[
+                "setWhiteBalanceModeLockedWithDeviceWhiteBalanceTemperatureAnd"
+                "TintValues_completionHandler_"
+            ] = set_white_balance_temperature
+
+            def setFlashMode_(self, mode_value: int) -> None:
+                """Accept flash updates in the test double."""
+
+                self.calls.append(("setFlashMode", mode_value))
+
+            def setTorchMode_(self, mode_value: int) -> None:
+                """Accept torch updates in the test double."""
+
+                self.calls.append(("setTorchMode", mode_value))
+
+            def setSmoothAutoFocusEnabled_(self, enabled: bool) -> None:
+                """Accept smooth-autofocus updates."""
+
+                self.calls.append(("setSmoothAutoFocusEnabled", enabled))
+
+            def setAutomaticallyAdjustsVideoHDREnabled_(
+                self,
+                enabled: bool,
+            ) -> None:
+                """Accept automatic HDR updates."""
+
+                self.calls.append(
+                    ("setAutomaticallyAdjustsVideoHDREnabled", enabled)
+                )
 
             def setVideoZoomFactor_(self, zoom_value: float) -> None:
                 """Accept zoom updates in the test double."""
 
-                return None
+                self.calls.append(("setVideoZoomFactor", zoom_value))
 
         class FakeCaptureDeviceClass:
             """Return one fake device for the macOS control backend."""
+
+            _device = FakeDevice()
 
             @staticmethod
             def devicesWithMediaType_(media_type: object) -> tuple[FakeDevice]:
                 """Return the fake device list for the selected media type."""
 
-                return (FakeDevice(),)
+                return (FakeCaptureDeviceClass._device,)
 
         load_modules.return_value = (FakeCaptureDeviceClass, object())
         backend = AvFoundationCameraControlBackend()
@@ -883,14 +1113,93 @@ class CameraContractTest(unittest.TestCase):
             (
                 "exposure_mode",
                 "exposure_locked",
+                "manual_exposure_time",
+                "manual_iso_sensitivity",
+                "backlight_compensation",
+                "focus_auto",
+                "focus_distance",
+                "white_balance_automatic",
+                "white_balance_temperature",
+                "flash_mode",
+                "torch_mode",
+                "smooth_auto_focus",
+                "video_hdr_automatic",
                 "zoom_factor",
                 "active_format",
                 "restore_auto_exposure",
             ),
             control_ids,
         )
+        controls_by_id = {
+            control.control_id: control
+            for control in backend.list_controls(descriptor)
+        }
+        self.assertEqual(
+            "numeric", controls_by_id["manual_exposure_time"].kind
+        )
+        self.assertEqual(
+            "numeric", controls_by_id["manual_iso_sensitivity"].kind
+        )
+        self.assertEqual(
+            "numeric", controls_by_id["backlight_compensation"].kind
+        )
+        self.assertEqual("boolean", controls_by_id["focus_auto"].kind)
+        self.assertEqual("numeric", controls_by_id["focus_distance"].kind)
+        self.assertEqual(
+            "boolean", controls_by_id["white_balance_automatic"].kind
+        )
+        self.assertEqual(
+            "numeric", controls_by_id["white_balance_temperature"].kind
+        )
+        self.assertEqual("boolean", controls_by_id["smooth_auto_focus"].kind)
+        self.assertEqual("boolean", controls_by_id["video_hdr_automatic"].kind)
+        self.assertEqual("read_only", controls_by_id["active_format"].kind)
+        self.assertEqual(
+            "action", controls_by_id["restore_auto_exposure"].kind
+        )
         self.assertNotIn("control_backend", control_ids)
         self.assertNotIn("low_light_boost_support", control_ids)
+
+        device = FakeCaptureDeviceClass._device
+        device.calls.clear()
+        backend.set_control_value(descriptor, "exposure_locked", True)
+        backend.set_control_value(descriptor, "manual_exposure_time", 0.05)
+        backend.set_control_value(descriptor, "manual_iso_sensitivity", 200)
+        backend.set_control_value(descriptor, "backlight_compensation", 1.5)
+        backend.set_control_value(descriptor, "focus_auto", False)
+        backend.set_control_value(descriptor, "focus_distance", 0.25)
+        backend.set_control_value(descriptor, "white_balance_automatic", False)
+        backend.set_control_value(
+            descriptor,
+            "white_balance_temperature",
+            5000,
+        )
+        backend.set_control_value(descriptor, "flash_mode", "on")
+        backend.set_control_value(descriptor, "torch_mode", "auto")
+        backend.set_control_value(descriptor, "smooth_auto_focus", False)
+        backend.set_control_value(descriptor, "video_hdr_automatic", True)
+        backend.set_control_value(descriptor, "zoom_factor", 3.0)
+        backend.set_control_value(descriptor, "restore_auto_exposure", True)
+
+        self.assertEqual(
+            [
+                ("setExposureMode", 0),
+                ("setExposureModeCustom", 0.05, 160.0),
+                ("setExposureModeCustom", 0.016667, 200.0),
+                ("setExposureTargetBias", 1.5),
+                ("setFocusMode", 0),
+                ("setFocusDistance", 0.25),
+                ("setWhiteBalanceMode", 0),
+                ("setWhiteBalanceTemperature", 5000.0, 0.0),
+                ("setFlashMode", 1),
+                ("setTorchMode", 2),
+                ("setSmoothAutoFocusEnabled", False),
+                ("setAutomaticallyAdjustsVideoHDREnabled", True),
+                ("setVideoZoomFactor", 3.0),
+                ("setExposureMode", 2),
+            ],
+            device.calls,
+        )
 
     def test_recording_container_helpers_track_supported_formats(self) -> None:
         """Assert recording helpers expose only supported video formats."""

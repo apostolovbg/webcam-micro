@@ -162,6 +162,7 @@ CONTROL_SURFACE_SECTION_KEYWORDS = (
             "hue",
             "gamma",
             "sharpness",
+            "hdr",
             "color profile",
             "color_profile",
         ),
@@ -216,17 +217,19 @@ def build_shell_spec() -> ShellSpec:
             "A native desktop menu bar and toolbar keep the primary command "
             "surface close to the preview workspace, camera controls live "
             "in a toggleable, detachable dock that can dock, float, hide, "
-            "and restore without stealing preview space, the dock defaults "
-            "to one column and widens to two columns on roomy layouts, "
-            "still capture saves quietly to the configured folder, and "
-            "camera controls are grouped into stable Exposure, Focus, "
-            "White Balance, Light/Flicker, Color/Image Quality, Zoom, "
-            "Source Info, Actions, and Other Controls sections while "
-            "unsupported families stay out of the main surface. A tighter "
-            "preview cadence keeps the newest frame close to live motion "
-            "while native dialogs handle preferences, diagnostics, "
-            "recording start or stop flows, named presets, and a compact "
-            "structured status bar.",
+            "and restore without stealing preview space, the dock keeps a "
+            "visible restore action for reattaching detached controls, the "
+            "dock defaults to one column and widens to two columns on "
+            "roomy layouts, still capture saves quietly to the configured "
+            "folder, numeric controls use sliders with spinboxes and "
+            "min/mid/max labels, and camera controls are grouped into "
+            "stable Exposure, Focus, White Balance, Light/Flicker, "
+            "Color/Image Quality, Zoom, Source Info, Actions, and Other "
+            "Controls sections while unsupported families stay out of the "
+            "main surface. A tighter preview cadence keeps the newest "
+            "frame close to live motion while native dialogs handle "
+            "preferences, diagnostics, recording start or stop flows, "
+            "named presets, and a compact structured status bar.",
         ),
         command_sections=(
             "Menu Bar",
@@ -237,6 +240,7 @@ def build_shell_spec() -> ShellSpec:
         ),
         toolbar_actions=(
             "Controls",
+            "Restore Dock",
             "Refresh",
             "Open",
             "Fit",
@@ -328,6 +332,7 @@ def build_fullscreen_surface_actions(*, expanded: bool) -> tuple[str, ...]:
     if expanded:
         return (
             "Controls",
+            "Restore Dock",
             "Still",
             "Record",
             "Preferences",
@@ -1109,7 +1114,9 @@ class PreviewApplication:
         self._controls_notice_label = None
         self._controls_body_widget = None
         self._controls_body_layout = None
+        self._controls_dock_actions_row = None
         self._toggle_controls_action = None
+        self._restore_controls_action = None
         self._close_camera_action = None
         self._fit_action = None
         self._fill_action = None
@@ -1285,6 +1292,13 @@ class PreviewApplication:
         self._controls_notice_label.setWordWrap(True)
         dock_layout.addWidget(self._controls_notice_label)
 
+        dock_action_row = QtWidgets.QHBoxLayout()
+        dock_action_row.setContentsMargins(0, 0, 0, 0)
+        dock_action_row.setSpacing(8)
+        dock_action_row.addStretch(1)
+        self._controls_dock_actions_row = dock_action_row
+        dock_layout.addLayout(dock_action_row)
+
         scroll_area = QtWidgets.QScrollArea()
         scroll_area.setWidgetResizable(True)
         self._controls_body_widget = ResizeAwareControlsWidget(
@@ -1320,12 +1334,18 @@ class PreviewApplication:
         )
 
         self._restore_controls_action = QtGui.QAction(
-            "Restore Controls Dock",
+            "Restore Dock",
             self._window,
         )
         self._restore_controls_action.triggered.connect(
             self._restore_controls_dock
         )
+        if self._controls_dock_actions_row is not None:
+            self._controls_dock_actions_row.addWidget(
+                self._make_controls_dock_action_button(
+                    self._restore_controls_action
+                )
+            )
 
         self._refresh_action = QtGui.QAction("Refresh", self._window)
         self._refresh_action.setShortcut(self._qt_gui.QKeySequence("F5"))
@@ -1467,6 +1487,7 @@ class PreviewApplication:
         toolbar.setMovable(False)
         self._window_toolbar = toolbar
         toolbar.addAction(self._toggle_controls_action)
+        toolbar.addAction(self._restore_controls_action)
         toolbar.addAction(self._refresh_action)
 
         self._camera_combo = QtWidgets.QComboBox()
@@ -1789,6 +1810,17 @@ class PreviewApplication:
         button.clicked.connect(handler)
         return button
 
+    def _make_controls_dock_action_button(self, action):
+        """Return one controls-dock button bound to a shared action."""
+
+        button = self._qt_widgets.QToolButton(self._controls_dock)
+        button.setToolButtonStyle(
+            self._qt_core.Qt.ToolButtonStyle.ToolButtonTextOnly
+        )
+        button.setAutoRaise(True)
+        button.setDefaultAction(action)
+        return button
+
     def _rebuild_fullscreen_surface(self) -> None:
         """Refresh the fullscreen command surface for its current state."""
 
@@ -1797,6 +1829,11 @@ class PreviewApplication:
         action_buttons = {
             "Controls": lambda: self._make_fullscreen_surface_action_button(
                 self._toggle_controls_action
+            ),
+            "Restore Dock": lambda: (
+                self._make_fullscreen_surface_action_button(
+                    self._restore_controls_action
+                )
             ),
             "Still": lambda: self._make_fullscreen_surface_action_button(
                 self._still_action
@@ -2206,11 +2243,10 @@ class PreviewApplication:
             "action": self._build_action_control,
         }
 
-        container = QtWidgets.QWidget()
+        container = QtWidgets.QGroupBox(heading)
         layout = QtWidgets.QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(8)
-        layout.addWidget(self._controls_section_heading(heading))
 
         rendered_controls = 0
         for control in controls:
@@ -2333,7 +2369,7 @@ class PreviewApplication:
         container = QtWidgets.QWidget()
         container_layout = QtWidgets.QVBoxLayout(container)
         container_layout.setContentsMargins(0, 0, 0, 0)
-        container_layout.setSpacing(8)
+        container_layout.setSpacing(6)
 
         label = QtWidgets.QLabel(control.label)
         container_layout.addWidget(label)
@@ -2351,33 +2387,25 @@ class PreviewApplication:
         slider.setDisabled(disabled)
         slider_row.addWidget(slider, 1)
 
-        editor_column = QtWidgets.QVBoxLayout()
-        editor_column.setContentsMargins(0, 0, 0, 0)
-        editor_column.setSpacing(2)
-
-        value_field = QtWidgets.QLineEdit(
-            format_numeric_control_value(float(control.value), control.step)
-        )
-        value_field.setFixedWidth(96)
-        value_field.setDisabled(disabled)
-        editor_column.addWidget(value_field)
-
-        step_buttons = QtWidgets.QHBoxLayout()
-        step_buttons.setContentsMargins(0, 0, 0, 0)
-        step_buttons.setSpacing(2)
-
-        step_up_button = QtWidgets.QToolButton()
-        step_up_button.setText("^")
-        step_up_button.setDisabled(disabled)
-        step_buttons.addWidget(step_up_button)
-
-        step_down_button = QtWidgets.QToolButton()
-        step_down_button.setText("v")
-        step_down_button.setDisabled(disabled)
-        step_buttons.addWidget(step_down_button)
-
-        editor_column.addLayout(step_buttons)
-        slider_row.addLayout(editor_column)
+        if decimals == 0:
+            spinbox = QtWidgets.QSpinBox()
+            spinbox.setMinimum(int(round(control.min_value)))
+            spinbox.setMaximum(int(round(control.max_value)))
+            spinbox.setSingleStep(max(1, int(round(step))))
+            spinbox.setValue(int(round(float(control.value))))
+        else:
+            spinbox = QtWidgets.QDoubleSpinBox()
+            spinbox.setDecimals(decimals)
+            spinbox.setMinimum(float(control.min_value))
+            spinbox.setMaximum(float(control.max_value))
+            spinbox.setSingleStep(step)
+            spinbox.setValue(float(control.value))
+        spinbox.setKeyboardTracking(False)
+        spinbox.setMinimumWidth(108)
+        if control.unit:
+            spinbox.setSuffix(f" {control.unit}")
+        spinbox.setDisabled(disabled)
+        slider_row.addWidget(spinbox)
         container_layout.addLayout(slider_row)
 
         midpoint = (control.min_value + control.max_value) / 2
@@ -2406,24 +2434,25 @@ class PreviewApplication:
         if details is not None:
             container_layout.addWidget(details)
 
-        # Keep the typed field aligned with slider-driven motion.
-        def sync_field(numeric_value: float) -> None:
-            was_blocked = value_field.blockSignals(True)
-            value_field.setText(
-                format_numeric_control_value(numeric_value, control.step)
-            )
-            value_field.blockSignals(was_blocked)
+        # Keep the spinbox aligned with slider-driven motion.
+        def sync_spinbox(numeric_value: float) -> None:
+            was_blocked = spinbox.blockSignals(True)
+            if decimals == 0:
+                spinbox.setValue(int(round(numeric_value)))
+            else:
+                spinbox.setValue(numeric_value)
+            spinbox.blockSignals(was_blocked)
 
-        # Keep the slider aligned when the field or step buttons change.
+        # Keep the slider aligned when the spinbox changes.
         def sync_slider(numeric_value: float) -> None:
             was_blocked = slider.blockSignals(True)
             slider.setValue(int(round(numeric_value * scale)))
             slider.blockSignals(was_blocked)
 
-        # Mirror live slider motion into the adjacent numeric field.
+        # Mirror live slider motion into the adjacent spinbox.
         def handle_slider_change(raw_value: int) -> None:
             numeric_value = raw_value / scale
-            sync_field(numeric_value)
+            sync_spinbox(numeric_value)
 
         # Apply the current slider value once the user commits the drag.
         def handle_slider_commit() -> None:
@@ -2435,52 +2464,23 @@ class PreviewApplication:
                 status_notice=False,
             )
 
-        # Accept valid typed input and blank out invalid numeric text.
-        def handle_field_commit() -> None:
-            numeric_value = parse_numeric_control_text(
-                value_field.text(),
-                minimum=control.min_value,
-                maximum=control.max_value,
-            )
-            if numeric_value is None:
-                value_field.clear()
-                message = f"{control.label} cleared an invalid value."
-                self._set_controls_notice(message)
-                self._set_status(self._preview_state, notice=message)
-                self._record_diagnostic_event(message)
+        # Apply the spinbox value after the user commits typing or stepping.
+        def handle_spinbox_change(numeric_value: object) -> None:
+            parsed_value = _safe_float(numeric_value)
+            if parsed_value is None:
                 return
-            sync_slider(numeric_value)
-            sync_field(numeric_value)
+            sync_slider(parsed_value)
+            sync_spinbox(parsed_value)
             self._apply_control_value(
                 control.control_id,
-                numeric_value,
-                refresh_surface=False,
-                status_notice=False,
-            )
-
-        # Nudge the value by one declared control step in either direction.
-        def handle_step(direction: int) -> None:
-            numeric_value = slider.value() / scale
-            numeric_value += step * direction
-            numeric_value = min(
-                control.max_value,
-                max(control.min_value, numeric_value),
-            )
-            numeric_value = round(numeric_value, decimals)
-            sync_slider(numeric_value)
-            sync_field(numeric_value)
-            self._apply_control_value(
-                control.control_id,
-                numeric_value,
+                parsed_value,
                 refresh_surface=False,
                 status_notice=False,
             )
 
         slider.valueChanged.connect(handle_slider_change)
         slider.sliderReleased.connect(handle_slider_commit)
-        value_field.editingFinished.connect(handle_field_commit)
-        step_up_button.clicked.connect(lambda: handle_step(1))
-        step_down_button.clicked.connect(lambda: handle_step(-1))
+        spinbox.valueChanged.connect(handle_spinbox_change)
         return container
 
     def _build_boolean_control(self, control: CameraControl):
