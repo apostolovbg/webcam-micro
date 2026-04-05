@@ -110,7 +110,7 @@ in `SPEC.md` and history in `CHANGELOG.md`.
    - the active camera's supported control set appears faithfully and
      persists per camera and per preset
 
-5. [todo] Validate the revised workstation shell across supported
+5. [done] Validate the revised workstation shell across supported
    platforms.
    Goal:
    - keep the new layout and control model stable

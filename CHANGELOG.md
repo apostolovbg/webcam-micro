@@ -61,6 +61,20 @@ Example:
 ## Version 0.1.0b1
 
 - 2026-04-05:
+  Change: Validated the revised workstation shell with the Linux smoke
+    path and the full test suite.
+  Why: Aligned the item 5 validation slice with the governed Qt shell
+    contract and the checks we can run here.
+  Impact: Marked the plan item done and updated the repo and package
+    READMEs to state that validation is covered by automated tests and
+    Linux smoke checks.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  webcam_micro/README.md
+
+- 2026-04-05:
   Change: Expanded the Qt and Linux control backends so light, flicker,
     and vendor-specific camera controls now surface when the device
     reports them.

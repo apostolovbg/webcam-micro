@@ -48,7 +48,8 @@ selection, window layout, current preset name, and per-camera control
 values persist across launches. Image and video output folders live in
 Preferences, and the compact status bar stays structured. User-editable
 defaults, keyboard shortcuts, and named presets are available, while
-broader platform validation remains in progress.
+broader platform validation is covered by automated tests and Linux smoke
+checks here.
 
 ## Alpha Status
 `webcam-micro` is now the official alpha release.
