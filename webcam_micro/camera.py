@@ -3196,6 +3196,8 @@ class AvFoundationCameraControlBackend:
         self._capture_device_class, self._video_media_type = (
             _load_avfoundation_modules()
         )
+        self._pending_configuration_completions: dict[object, Any] = {}
+        self._pending_configuration_completion_lock = threading.Lock()
 
     @property
     def available(self) -> bool:
@@ -3827,6 +3829,45 @@ class AvFoundationCameraControlBackend:
             message = str(error) if error else "Could not lock camera."
             raise CameraControlApplyError(message)
 
+    def _configuration_completion(
+        self,
+        device: Any,
+    ) -> tuple[Any, Callable[[], None]]:
+        """Return one retained Objective-C completion block and releaser."""
+
+        token = object()
+        lock_released = False
+
+        def release() -> None:
+            """Release the device lock and drop the retained block."""
+
+            nonlocal lock_released
+            if lock_released:
+                return
+            lock_released = True
+            with self._pending_configuration_completion_lock:
+                self._pending_configuration_completions.pop(token, None)
+            with contextlib.suppress(Exception):
+                device.unlockForConfiguration()
+
+        def completion_handler(_error: c_void_p = None) -> None:
+            """Release the lock after AVFoundation completes the update."""
+
+            def _release_later() -> None:
+                """Unlock on a Python thread after the callback returns."""
+
+                release()
+
+            try:
+                threading.Thread(target=_release_later, daemon=True).start()
+            except RuntimeError:
+                release()
+
+        completion = wrap_completion_handler(completion_handler)
+        with self._pending_configuration_completion_lock:
+            self._pending_configuration_completions[token] = completion
+        return completion, release
+
     def set_control_value(
         self,
         descriptor: CameraDescriptor,
@@ -3847,17 +3888,12 @@ class AvFoundationCameraControlBackend:
         self._lock_device(device)
         active_format = _call_or_value(getattr(device, "activeFormat", None))
 
-        def completion_handler(_error: c_void_p = None) -> None:
-            """Ignore the AVFoundation completion callback state."""
-
-            return None
-
-        completion = wrap_completion_handler(completion_handler)
         (
             temperature_tint_values,
             current_temperature,
             current_tint,
         ) = self._white_balance_temperature_tint_values(device)
+        defer_unlock = False
         try:
             if control_id == "exposure_mode":
                 mode_value = self._mode_value(
@@ -3898,19 +3934,32 @@ class AvFoundationCameraControlBackend:
                         )
                     if iso_value is None or iso_value <= 0:
                         iso_value = 100.0
+                    completion, release_completion = (
+                        self._configuration_completion(device)
+                    )
                     set_custom_exposure = getattr(
                         device,
                         "setExposureModeCustomWithDuration_ISO_"
                         "completionHandler_",
                     )
-                    set_custom_exposure(
-                        self._cmtime_from_seconds(
-                            duration_seconds,
-                            reference=duration_reference,
-                        ),
-                        iso_value,
-                        completion,
-                    )
+                    try:
+                        set_custom_exposure(
+                            self._cmtime_from_seconds(
+                                duration_seconds,
+                                reference=duration_reference,
+                            ),
+                            iso_value,
+                            completion,
+                        )
+                    except (
+                        AttributeError,
+                        RuntimeError,
+                        TypeError,
+                        ValueError,
+                    ):
+                        release_completion()
+                        raise
+                    defer_unlock = True
                     return
                 device.setExposureMode_(mode_value)
                 return
@@ -3967,19 +4016,32 @@ class AvFoundationCameraControlBackend:
                     )
                 if iso_value is None or iso_value <= 0:
                     iso_value = 100.0
+                completion, release_completion = (
+                    self._configuration_completion(device)
+                )
                 set_custom_exposure = getattr(
                     device,
                     "setExposureModeCustomWithDuration_ISO_"
                     "completionHandler_",
                 )
-                set_custom_exposure(
-                    self._cmtime_from_seconds(
-                        bounded_time,
-                        reference=duration_reference,
-                    ),
-                    iso_value,
-                    completion,
-                )
+                try:
+                    set_custom_exposure(
+                        self._cmtime_from_seconds(
+                            bounded_time,
+                            reference=duration_reference,
+                        ),
+                        iso_value,
+                        completion,
+                    )
+                except (
+                    AttributeError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                ):
+                    release_completion()
+                    raise
+                defer_unlock = True
                 return
             if control_id == "manual_iso_sensitivity":
                 iso_value = _safe_float(value)
@@ -4010,19 +4072,32 @@ class AvFoundationCameraControlBackend:
                 duration_seconds = self._cmtime_seconds(duration_reference)
                 if duration_seconds is None or duration_seconds <= 0:
                     duration_seconds = 0.001
+                completion, release_completion = (
+                    self._configuration_completion(device)
+                )
                 set_custom_exposure = getattr(
                     device,
                     "setExposureModeCustomWithDuration_ISO_"
                     "completionHandler_",
                 )
-                set_custom_exposure(
-                    self._cmtime_from_seconds(
-                        duration_seconds,
-                        reference=duration_reference,
-                    ),
-                    bounded_iso,
-                    completion,
-                )
+                try:
+                    set_custom_exposure(
+                        self._cmtime_from_seconds(
+                            duration_seconds,
+                            reference=duration_reference,
+                        ),
+                        bounded_iso,
+                        completion,
+                    )
+                except (
+                    AttributeError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                ):
+                    release_completion()
+                    raise
+                defer_unlock = True
                 return
             if control_id == "backlight_compensation":
                 backlight_compensation_range = (
@@ -4043,6 +4118,9 @@ class AvFoundationCameraControlBackend:
                         "Backlight compensation must be numeric."
                     )
                 compensation = max(min_bias, min(max_bias, compensation))
+                completion, release_completion = (
+                    self._configuration_completion(device)
+                )
                 try:
                     device.setExposureTargetBias_completionHandler_(
                         compensation,
@@ -4054,10 +4132,12 @@ class AvFoundationCameraControlBackend:
                     TypeError,
                     ValueError,
                 ) as exc:
+                    release_completion()
                     raise CameraControlApplyError(
                         "The camera does not support backlight "
                         "compensation."
                     ) from exc
+                defer_unlock = True
                 return
             if control_id == "focus_auto":
                 locked_supported = bool(device.isFocusModeSupported_(0))
@@ -4090,10 +4170,27 @@ class AvFoundationCameraControlBackend:
                         "The camera cannot lock focus manually."
                     )
                 bounded_value = max(0.0, min(1.0, focus_distance))
-                device.setFocusModeLockedWithLensPosition_completionHandler_(
-                    bounded_value,
-                    completion,
+                completion, release_completion = (
+                    self._configuration_completion(device)
                 )
+                set_focus_mode_locked = getattr(
+                    device,
+                    "setFocusModeLockedWithLensPosition_completionHandler_",
+                )
+                try:
+                    set_focus_mode_locked(
+                        bounded_value,
+                        completion,
+                    )
+                except (
+                    AttributeError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                ):
+                    release_completion()
+                    raise
+                defer_unlock = True
                 return
             if control_id == "white_balance_automatic":
                 locked_supported = bool(device.isWhiteBalanceModeSupported_(0))
@@ -4148,16 +4245,29 @@ class AvFoundationCameraControlBackend:
                     bounded_temperature,
                     tint,
                 )
+                completion, release_completion = (
+                    self._configuration_completion(device)
+                )
                 set_white_balance_temperature = getattr(
                     device,
                     "setWhiteBalanceModeLockedWithDeviceWhiteBalance"
                     "TemperatureAndTintValues_"
                     "completionHandler_",
                 )
-                set_white_balance_temperature(
-                    temperature_tint,
-                    completion,
-                )
+                try:
+                    set_white_balance_temperature(
+                        temperature_tint,
+                        completion,
+                    )
+                except (
+                    AttributeError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                ):
+                    release_completion()
+                    raise
+                defer_unlock = True
                 return
             if control_id == "flash_mode":
                 mode_value = self._mode_value(
@@ -4230,7 +4340,8 @@ class AvFoundationCameraControlBackend:
                 f"Unsupported camera control `{control_id}`."
             )
         finally:
-            device.unlockForConfiguration()
+            if not defer_unlock:
+                device.unlockForConfiguration()
 
     def trigger_control_action(
         self,

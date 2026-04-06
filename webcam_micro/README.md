@@ -106,7 +106,10 @@ complete for the current release path.
 - Diagnostics and status: the shell reports runtime state, recent failures,
   and prototype exit checks in a visible diagnostics dialog and status bar.
 - Platform notes: Qt Multimedia owns the camera and recording stack, while
-  platform and device differences still shape the available controls.
+  platform and device differences still shape the available controls. On
+  macOS, exposure, focus, backlight compensation, and white balance
+  updates now travel through completion-safe AVFoundation reconfiguration
+  so slider-driven control changes stay stable.
 
 ## Installation
 The packaged app supports Python `3.11+`.

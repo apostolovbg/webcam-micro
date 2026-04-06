@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -1469,6 +1470,149 @@ class CameraContractTest(unittest.TestCase):
                 ("setExposureMode", 2),
             ],
             device.calls,
+        )
+
+    @mock.patch("webcam_micro.camera.wrap_completion_handler")
+    @mock.patch("webcam_micro.camera._load_avfoundation_modules")
+    @mock.patch("webcam_micro.camera.sys.platform", "darwin")
+    def test_avfoundation_manual_exposure_keeps_completion_alive(
+        self,
+        load_modules: mock.MagicMock,
+        wrap_completion_handler: mock.MagicMock,
+    ) -> None:
+        """Assert manual exposure releases its lock through completion."""
+
+        class FakeCMTime:
+            """Provide a minimal CMTime-compatible structure."""
+
+            def __init__(
+                self,
+                value: int,
+                timescale: int,
+                *_unused: object,
+            ) -> None:
+                """Store the CMTime fields used by the backend."""
+
+                self.field_0 = value
+                self.field_1 = timescale
+
+        class FakeActiveFormat:
+            """Expose the AVFoundation format metadata used by the backend."""
+
+            def __init__(self) -> None:
+                """Store one stable active-format snapshot."""
+
+                self.minExposureDuration = FakeCMTime(1, 120)
+                self.maxExposureDuration = FakeCMTime(1, 2)
+                self.minISO = 80.0
+                self.maxISO = 640.0
+
+        class FakeDevice:
+            """Provide the minimal AVFoundation surface used by the backend."""
+
+            def __init__(self) -> None:
+                """Store the current test-double state and call log."""
+
+                self.calls: list[tuple[object, ...]] = []
+                self._active_format = FakeActiveFormat()
+                self._locked = False
+                self._unlock_event = threading.Event()
+
+            def localizedName(self) -> str:
+                """Return the device name used for descriptor matching."""
+
+                return "Microscope Camera"
+
+            def uniqueID(self) -> str:
+                """Return the device identifier used for matching."""
+
+                return "camera-1"
+
+            def activeFormat(self) -> FakeActiveFormat:
+                """Return the current active camera format."""
+
+                return self._active_format
+
+            def exposureDuration(self) -> FakeCMTime:
+                """Return the current exposure duration."""
+
+                return FakeCMTime(1, 60)
+
+            def ISO(self) -> float:
+                """Return the current ISO sensitivity."""
+
+                return 160.0
+
+            def deviceWhiteBalanceGains(self) -> object:
+                """Return an unused white-balance placeholder."""
+
+                return object()
+
+            def lockForConfiguration_(self, _error) -> bool:
+                """Pretend the device can be configured."""
+
+                self._locked = True
+                self.calls.append(("lock",))
+                return True
+
+            def unlockForConfiguration(self) -> None:
+                """No-op for the fake device."""
+
+                self._locked = False
+                self.calls.append(("unlock",))
+                self._unlock_event.set()
+
+            def setExposureModeCustomWithDuration_ISO_completionHandler_(
+                self,
+                duration: FakeCMTime,
+                iso_value: float,
+                completion: object,
+            ) -> None:
+                """Accept custom exposure updates in the test double."""
+
+                self.calls.append(
+                    (
+                        "setExposureModeCustom",
+                        round(duration.field_0 / duration.field_1, 6),
+                        iso_value,
+                        self._locked,
+                    )
+                )
+                completion(None)
+
+        class FakeCaptureDeviceClass:
+            """Return one fake device for the macOS control backend."""
+
+            _device = FakeDevice()
+
+            @staticmethod
+            def devicesWithMediaType_(media_type: object) -> tuple[FakeDevice]:
+                """Return the fake device list for the selected media type."""
+
+                return (FakeCaptureDeviceClass._device,)
+
+        load_modules.return_value = (FakeCaptureDeviceClass, object())
+        wrap_completion_handler.side_effect = lambda handler: handler
+        backend = AvFoundationCameraControlBackend()
+        descriptor = CameraDescriptor(
+            stable_id="camera-1",
+            display_name="Microscope Camera",
+            backend_name="avfoundation",
+            device_selector="camera-1",
+            native_identifier="camera-1",
+        )
+
+        device = FakeCaptureDeviceClass._device
+        backend.set_control_value(descriptor, "manual_exposure_time", 0.05)
+        self.assertTrue(device._unlock_event.wait(1.0))
+
+        self.assertEqual(
+            [
+                ("lock",),
+                ("setExposureModeCustom", 0.05, 160.0, True),
+                ("unlock",),
+            ],
+            FakeCaptureDeviceClass._device.calls,
         )
 
     @mock.patch("webcam_micro.camera._load_avfoundation_modules")

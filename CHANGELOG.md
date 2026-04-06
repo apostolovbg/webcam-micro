@@ -61,6 +61,21 @@ Example:
 ## Version 0.2.0
 
 - 2026-04-06:
+  Change: Hardened AVFoundation control updates so macOS exposure, focus,
+    backlight compensation, and white balance completions keep the
+    configuration lock alive and release it off the callback thread.
+  Why: Prevented the slider-driven crash that appeared when the completion
+    block released the lock too early on Intel macOS.
+  Impact: Slider and spinbox camera controls now finish AVFoundation
+    reconfiguration without aborting the app.
+  Files:
+  README.md
+  CHANGELOG.md
+  tests/test_camera.py
+  webcam_micro/README.md
+  webcam_micro/camera.py
+
+- 2026-04-06:
   Change: Bumped the repository and package version metadata to 0.2.0.
   Why: Updated the canonical source so the release line advances cleanly
     for the next published slice.
