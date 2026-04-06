@@ -108,10 +108,10 @@ complete for the current release path.
 - Platform notes: Qt Multimedia owns the camera and recording stack, while
   platform and device differences still shape the available controls. On
   macOS, exposure, focus, backlight compensation, and white balance
-  updates now wait for AVFoundation completion on the caller thread
-  before releasing configuration locks, so slider-driven control changes
-  stay stable and the shared error-reporting layer keeps launcher,
-  runtime bootstrap, and camera failures as typed notices and
+  updates now use nil AVFoundation completion handlers and release
+  configuration locks after the setter call returns, so slider-driven
+  control changes stay stable and the shared error-reporting layer keeps
+  launcher, runtime bootstrap, and camera failures as typed notices and
   diagnostics instead of raw tracebacks.
 
 ## Installation

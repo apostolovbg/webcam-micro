@@ -52,6 +52,8 @@ DevCovenant lifecycle and command behavior used by the project.
 
 - 2026-04-04: Release version is sourced from `webcam_micro/VERSION`; the
   alpha shell chrome and package READMEs carry the full legal-owner notice.
+- 2026-04-06: macOS AVFoundation control setters now pass nil completion
+  handlers to avoid Rubicon callback crashes on slider release.
 
 <!-- DEVCOV-WORKFLOW:BEGIN -->
 

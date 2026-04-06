@@ -61,6 +61,26 @@ Example:
 ## Version 0.2.0
 
 - 2026-04-06:
+  Change: Removed Python completion callbacks from the macOS camera
+    configuration path so manual exposure, ISO, focus, white balance,
+    and backlight updates pass a nil AVFoundation completion handler.
+  Why: The Rubicon-backed completion callbacks were aborting on macOS
+    when the user released exposure and ISO sliders.
+  Impact: Camera control updates now avoid the callback crash path and
+    release the configuration lock without invoking Python from the
+    AVFoundation completion bridge.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  CONTRIBUTING.md
+  PLAN.md
+  README.md
+  SPEC.md
+  tests/test_camera.py
+  webcam_micro/camera.py
+  webcam_micro/README.md
+
+- 2026-04-06:
   Change: Introduced a shared error-reporting layer and typed app error
     base so launcher, runtime bootstrap, and camera failures stay
     structured instead of raw.

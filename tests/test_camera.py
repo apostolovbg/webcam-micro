@@ -56,6 +56,8 @@ def _identity_completion_handler(handler: object) -> object:
 def _invoke_completion(completion: object) -> None:
     """Invoke a Rubicon block or plain callback used by the test doubles."""
 
+    if completion is None:
+        return
     callback = getattr(completion, "func", completion)
     callback(None)
 
@@ -1498,12 +1500,12 @@ class CameraContractTest(unittest.TestCase):
     @mock.patch("webcam_micro.camera.wrap_completion_handler")
     @mock.patch("webcam_micro.camera._load_avfoundation_modules")
     @mock.patch("webcam_micro.camera.sys.platform", "darwin")
-    def test_avfoundation_manual_exposure_keeps_completion_alive(
+    def test_avfoundation_manual_exposure_uses_nil_completion_handler(
         self,
         load_modules: mock.MagicMock,
         wrap_completion_handler: mock.MagicMock,
     ) -> None:
-        """Assert manual exposure releases its lock through completion."""
+        """Assert manual exposure avoids a Python completion callback."""
 
         class FakeCMTime:
             """Provide a minimal CMTime-compatible structure."""
@@ -1593,6 +1595,7 @@ class CameraContractTest(unittest.TestCase):
             ) -> None:
                 """Accept custom exposure updates in the test double."""
 
+                assert completion is None
                 self.calls.append(
                     (
                         "setExposureModeCustom",

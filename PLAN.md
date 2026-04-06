@@ -47,6 +47,8 @@ in `SPEC.md` and history in `CHANGELOG.md`.
 - Treat control discovery, widget typing, and backend-specific capability
   bridges as product work, not ad-hoc exceptions.
 - Keep live camera controls separate from capture settings and status text.
+- Keep macOS AVFoundation control writes callback-free so slider-release
+  commits do not abort through Rubicon.
 - Prefer stable control families and predictable layout over ad-hoc polish.
 - Preserve the alpha delivery history in `CHANGELOG.md`; do not carry it
   forward here.

@@ -549,6 +549,10 @@ settings dialog with a preview bolted onto it.
   behavior across platforms, so the product cannot assume identical control
   surfaces across all devices and platforms.
 
+- Constraint: on macOS, slider-backed AVFoundation control setters must
+  release their configuration lock after the setter call returns and must
+  not depend on Python-side completion callbacks for correctness.
+
 - Assumption: the active camera/backend will usually expose at least a
   meaningful subset of controls and source modes sufficient for microscope
   preview and capture, but the exact set may vary widely by device. Some

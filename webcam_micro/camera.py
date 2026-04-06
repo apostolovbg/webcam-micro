@@ -14,7 +14,7 @@ import subprocess
 import sys
 import threading
 from collections import deque
-from ctypes import c_bool, c_void_p
+from ctypes import c_bool
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Protocol
@@ -3839,11 +3839,12 @@ class AvFoundationCameraControlBackend:
         self,
         device: Any,
     ) -> tuple[Any, Callable[[], None], threading.Event]:
-        """Return one retained completion block, releaser, and wait flag."""
+        """Return one retained release hook and a no-op wait flag."""
 
         token = object()
         lock_released = False
         completed = threading.Event()
+        completed.set()
 
         def release() -> None:
             """Release the device lock and drop the retained block."""
@@ -3857,15 +3858,9 @@ class AvFoundationCameraControlBackend:
             with contextlib.suppress(Exception):
                 device.unlockForConfiguration()
 
-        def completion_handler(_error: c_void_p = None) -> None:
-            """Release the lock after AVFoundation completes the update."""
-
-            completed.set()
-
-        completion = wrap_completion_handler(completion_handler)
         with self._pending_configuration_completion_lock:
-            self._pending_configuration_completions[token] = completion
-        return completion, release, completed
+            self._pending_configuration_completions[token] = None
+        return None, release, completed
 
     def set_control_value(
         self,
