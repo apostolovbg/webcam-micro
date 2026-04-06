@@ -1,7 +1,7 @@
 # Development Plan
 **Doc ID:** PLAN
 **Doc Type:** plan
-**Project Version:** 0.1.0b1
+**Project Version:** 0.2.0
 **Project Stage:** alpha
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only

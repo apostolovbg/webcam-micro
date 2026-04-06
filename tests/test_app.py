@@ -70,7 +70,7 @@ class ApplicationEntryPointTest(unittest.TestCase):
             (repo_root / "pyproject.toml").read_text(encoding="utf-8")
         )
 
-        self.assertEqual("0.1.0b1", payload["project"]["version"])
+        self.assertEqual("0.2.0", payload["project"]["version"])
         self.assertEqual(
             {
                 "file": "webcam_micro/README.md",

@@ -1,8 +1,8 @@
 # Contributing
 **Doc ID:** CONTRIBUTING
 **Doc Type:** contributing-guide
-**Project Version:** 0.1.0b1
-**Last Updated:** 2026-04-05
+**Project Version:** 0.2.0
+**Last Updated:** 2026-04-06
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->

@@ -1,7 +1,7 @@
 # Changelog
 **Doc ID:** CHANGELOG
 **Doc Type:** changelog
-**Project Version:** 0.1.0b1
+**Project Version:** 0.2.0
 **Project Stage:** alpha
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
@@ -57,6 +57,27 @@ Example:
 <!-- DEVCOV:END -->
 
 ## Log changes here
+
+## Version 0.2.0
+
+- 2026-04-06:
+  Change: Bumped the repository and package version metadata to 0.2.0.
+  Why: Updated the canonical source so the release line advances cleanly
+    for the next published slice.
+  Impact: Aligns the package manifest, version source file, and
+    version-bearing docs on 0.2.0.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  CONTRIBUTING.md
+  PLAN.md
+  README.md
+  SPEC.md
+  devcovenant/registry/registry.yaml
+  pyproject.toml
+  tests/test_app.py
+  webcam_micro/README.md
+  webcam_micro/VERSION
 
 ## Version 0.1.0b1
 
