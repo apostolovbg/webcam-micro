@@ -1294,6 +1294,11 @@ class CameraContractTest(unittest.TestCase):
 
                 return True
 
+            def isSmoothAutoFocusSupported(self) -> bool:
+                """Report support for smooth autofocus."""
+
+                return True
+
             def automaticallyAdjustsVideoHDREnabled(self) -> bool:
                 """Return whether automatic video HDR is enabled."""
 
@@ -1549,6 +1554,241 @@ class CameraContractTest(unittest.TestCase):
             ],
             device.calls,
         )
+
+    @mock.patch("webcam_micro.camera._load_avfoundation_modules")
+    @mock.patch("webcam_micro.camera.sys.platform", "darwin")
+    def test_avfoundation_exposure_lock_visible_without_continuous_auto(
+        self,
+        load_modules: mock.MagicMock,
+    ) -> None:
+        """Assert exposure lock stays visible when only auto is supported."""
+
+        class FakeActiveFormat:
+            """Expose the AVFoundation format metadata used by the backend."""
+
+            def __str__(self) -> str:
+                """Return a readable active-format summary."""
+
+                return "1920x1080 30 FPS (MJPEG)"
+
+        class FakeDevice:
+            """Provide the AVFoundation surface used by the backend."""
+
+            def __init__(self) -> None:
+                """Store the current test-double state and call log."""
+
+                self.calls: list[tuple[object, ...]] = []
+                self._active_format = FakeActiveFormat()
+
+            def localizedName(self) -> str:
+                """Return the device name used for descriptor matching."""
+
+                return "Microscope Camera"
+
+            def uniqueID(self) -> str:
+                """Return the device identifier used for matching."""
+
+                return "camera-lock-only-auto"
+
+            def isExposureModeSupported_(self, mode_value: int) -> bool:
+                """Report support for lock and auto exposure modes only."""
+
+                return mode_value in {0, 1}
+
+            def exposureMode(self) -> int:
+                """Return the current writable exposure mode."""
+
+                return 1
+
+            def activeFormat(self) -> FakeActiveFormat:
+                """Return the current active camera format."""
+
+                return self._active_format
+
+            def minExposureTargetBias(self) -> float:
+                """Return the minimum exposure compensation."""
+
+                return -4.0
+
+            def maxExposureTargetBias(self) -> float:
+                """Return the maximum exposure compensation."""
+
+                return 4.0
+
+            def exposureTargetBias(self) -> float:
+                """Return the current exposure compensation."""
+
+                return 0.5
+
+            def minAvailableVideoZoomFactor(self) -> float:
+                """Return the minimum zoom factor."""
+
+                return 1.0
+
+            def maxAvailableVideoZoomFactor(self) -> float:
+                """Return the maximum zoom factor."""
+
+                return 2.0
+
+            def videoZoomFactor(self) -> float:
+                """Return the current zoom factor."""
+
+                return 1.0
+
+            def lockForConfiguration_(self, _error) -> bool:
+                """Pretend the device can be configured."""
+
+                return True
+
+            def unlockForConfiguration(self) -> None:
+                """No-op for the fake device."""
+
+                return None
+
+            def setExposureMode_(self, mode_value: int) -> None:
+                """Record exposure-mode updates."""
+
+                self.calls.append(("setExposureMode", mode_value))
+
+        class FakeCaptureDeviceClass:
+            """Return one fake device for the macOS control backend."""
+
+            _device = FakeDevice()
+
+            @staticmethod
+            def devicesWithMediaType_(media_type: object) -> tuple[FakeDevice]:
+                """Return the fake device list for the selected media type."""
+
+                return (FakeCaptureDeviceClass._device,)
+
+        load_modules.return_value = (FakeCaptureDeviceClass, object())
+        backend = AvFoundationCameraControlBackend()
+        descriptor = CameraDescriptor(
+            stable_id="camera-lock-only-auto",
+            display_name="Microscope Camera",
+            backend_name="avfoundation",
+            device_selector="camera-lock-only-auto",
+            native_identifier="camera-lock-only-auto",
+        )
+
+        control_ids = tuple(
+            control.control_id for control in backend.list_controls(descriptor)
+        )
+
+        self.assertIn("exposure_locked", control_ids)
+        self.assertIn("restore_auto_exposure", control_ids)
+
+    @mock.patch("webcam_micro.camera._load_avfoundation_modules")
+    @mock.patch("webcam_micro.camera.sys.platform", "darwin")
+    def test_avfoundation_skips_unsupported_smooth_auto_focus(
+        self,
+        load_modules: mock.MagicMock,
+    ) -> None:
+        """Assert unsupported smooth autofocus stays hidden on macOS."""
+
+        class FakeActiveFormat:
+            """Expose the AVFoundation format metadata used by the backend."""
+
+            def __str__(self) -> str:
+                """Return a readable active-format summary."""
+
+                return "1920x1080 30 FPS (MJPEG)"
+
+        class FakeDevice:
+            """Provide the AVFoundation surface used by the backend."""
+
+            def __init__(self) -> None:
+                """Store the current test-double state and call log."""
+
+                self.calls: list[tuple[object, ...]] = []
+                self._active_format = FakeActiveFormat()
+
+            def localizedName(self) -> str:
+                """Return the device name used for descriptor matching."""
+
+                return "Microscope Camera"
+
+            def uniqueID(self) -> str:
+                """Return the device identifier used for matching."""
+
+                return "camera-no-smooth-autofocus"
+
+            def isExposureModeSupported_(self, mode_value: int) -> bool:
+                """Report support only for plain auto exposure."""
+
+                return mode_value == 1
+
+            def exposureMode(self) -> int:
+                """Return the current writable exposure mode."""
+
+                return 1
+
+            def activeFormat(self) -> FakeActiveFormat:
+                """Return the current active camera format."""
+
+                return self._active_format
+
+            def minAvailableVideoZoomFactor(self) -> float:
+                """Return the minimum zoom factor."""
+
+                return 1.0
+
+            def maxAvailableVideoZoomFactor(self) -> float:
+                """Return the maximum zoom factor."""
+
+                return 2.0
+
+            def videoZoomFactor(self) -> float:
+                """Return the current zoom factor."""
+
+                return 1.0
+
+            def lockForConfiguration_(self, _error) -> bool:
+                """Pretend the device can be configured."""
+
+                return True
+
+            def unlockForConfiguration(self) -> None:
+                """No-op for the fake device."""
+
+                return None
+
+            def isSmoothAutoFocusEnabled(self) -> bool:
+                """Fail if unsupported smooth autofocus is probed."""
+
+                raise AssertionError("unsupported smooth autofocus was probed")
+
+            def setSmoothAutoFocusEnabled_(self, enabled: bool) -> None:
+                """Record smooth-autofocus updates if they were ever routed."""
+
+                self.calls.append(("setSmoothAutoFocusEnabled", enabled))
+
+        class FakeCaptureDeviceClass:
+            """Return one fake device for the macOS control backend."""
+
+            _device = FakeDevice()
+
+            @staticmethod
+            def devicesWithMediaType_(media_type: object) -> tuple[FakeDevice]:
+                """Return the fake device list for the selected media type."""
+
+                return (FakeCaptureDeviceClass._device,)
+
+        load_modules.return_value = (FakeCaptureDeviceClass, object())
+        backend = AvFoundationCameraControlBackend()
+        descriptor = CameraDescriptor(
+            stable_id="camera-no-smooth-autofocus",
+            display_name="Microscope Camera",
+            backend_name="avfoundation",
+            device_selector="camera-no-smooth-autofocus",
+            native_identifier="camera-no-smooth-autofocus",
+        )
+
+        control_ids = tuple(
+            control.control_id for control in backend.list_controls(descriptor)
+        )
+
+        self.assertNotIn("smooth_auto_focus", control_ids)
 
     @mock.patch("webcam_micro.camera.wrap_completion_handler")
     @mock.patch("webcam_micro.camera._load_avfoundation_modules")

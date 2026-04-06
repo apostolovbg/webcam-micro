@@ -64,8 +64,10 @@ SETTINGS_SHORTCUT_PREFIX = "shortcuts/"
 BUILTIN_CONTROL_DEFAULT_VALUES = {
     "brightness": 0,
     "contrast": 20,
+    "contrast_auto": False,
     "saturation": 128,
     "hue": 0,
+    "hue_auto": False,
     "white_balance_automatic": False,
     "gamma": 72,
     "gain": 20,
@@ -117,6 +119,34 @@ CONTROL_SURFACE_SECTION_BY_CONTROL_ID = {
     "white_balance_automatic": "User Controls",
     "white_balance_temperature": "User Controls",
 }
+SOFTWARE_CONTROL_ROWS = (
+    ("brightness", "Brightness", None, -100.0, 100.0, 1.0),
+    ("contrast", "Contrast", "contrast_auto", 0.0, 255.0, 1.0),
+    ("hue", "Hue", "hue_auto", -180.0, 180.0, 1.0),
+    ("saturation", "Saturation", None, 0.0, 255.0, 1.0),
+    ("sharpness", "Sharpness", None, 0.0, 255.0, 1.0),
+    ("gamma", "Gamma", None, 1.0, 255.0, 1.0),
+)
+SOFTWARE_CONTROL_DETAILS = "Software-side adjustment managed by the shell."
+SOFTWARE_CONTROL_AUTO_DETAILS = "Locks the paired software-side adjustment."
+SOFTWARE_CONTROL_IDS = {
+    "brightness",
+    "contrast",
+    "contrast_auto",
+    "hue",
+    "hue_auto",
+    "saturation",
+    "sharpness",
+    "gamma",
+}
+SOFTWARE_CONTROL_AUTO_BY_VALUE = {
+    "contrast": "contrast_auto",
+    "hue": "hue_auto",
+}
+SOFTWARE_CONTROL_VALUE_BY_AUTO = {
+    "contrast_auto": "contrast",
+    "hue_auto": "hue",
+}
 CONTROL_SURFACE_SECTION_ORDER = (
     "Camera Controls",
     "User Controls",
@@ -167,8 +197,9 @@ def build_shell_spec() -> ShellSpec:
             "Exposure and Focus use slider-plus-spinbox rows with Auto "
             "checkboxes when the camera reports them, Light uses on/off "
             "and level subcontrols when available, the User Controls "
-            "section carries Backlight compensation, Brightness, Contrast, "
-            "Hue, Saturation, Sharpness, Gamma, and White balance, and "
+            "section carries Backlight compensation, White balance, and "
+            "shell-managed Brightness, Contrast, Hue, Saturation, Sharpness, "
+            "and Gamma adjustments, and "
             "Reset to Defaults sits at the bottom of the User Controls "
             "section. A tighter preview cadence keeps the newest "
             "frame close to live motion while native dialogs handle "
@@ -758,6 +789,15 @@ def _group_controls_for_surface(
     return tuple(grouped_sections)
 
 
+def _software_control_value_key(
+    descriptor: CameraDescriptor,
+    control_id: str,
+) -> str:
+    """Return one persisted value key for a software-side control."""
+
+    return _camera_control_setting_key(descriptor.stable_id, control_id)
+
+
 def _persisted_control_value(
     control: CameraControl,
     value: object,
@@ -976,6 +1016,7 @@ class PreviewApplication:
         self._selected_camera_id: str | None = None
         self._active_controls: tuple[CameraControl, ...] = ()
         self._controls_by_id: dict[str, CameraControl] = {}
+        self._software_control_ids: set[str] = set()
         self._latest_frame: PreviewFrame | None = None
         self._last_frame_number = -1
         self._closed = False
@@ -1674,6 +1715,15 @@ class PreviewApplication:
             value = _persisted_control_value(control, raw_value)
             if value is None:
                 continue
+            if control.control_id in self._software_control_ids:
+                self._settings.setValue(
+                    _camera_control_setting_key(
+                        descriptor.stable_id,
+                        control.control_id,
+                    ),
+                    value,
+                )
+                continue
             try:
                 self._backend.set_control_value(
                     descriptor,
@@ -2180,6 +2230,85 @@ class PreviewApplication:
             enabled=False,
             details="This control is unavailable on the active camera.",
         )
+
+    def _software_control_value(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+    ) -> object | None:
+        """Return one persisted shell-side control value."""
+
+        value = self._settings.value(
+            _software_control_value_key(descriptor, control_id)
+        )
+        if value is None:
+            value = self._settings.value(
+                _control_default_setting_key(control_id)
+            )
+        if value is None:
+            value = BUILTIN_CONTROL_DEFAULT_VALUES.get(control_id)
+        return value
+
+    def _software_controls_for_descriptor(
+        self,
+        descriptor: CameraDescriptor,
+        existing_control_ids: set[str],
+    ) -> tuple[CameraControl, ...]:
+        """Return shell-managed color controls missing from the backend."""
+
+        controls: list[CameraControl] = []
+        for (
+            value_id,
+            label,
+            auto_id,
+            min_value,
+            max_value,
+            step,
+        ) in SOFTWARE_CONTROL_ROWS:
+            if value_id in existing_control_ids:
+                continue
+            if auto_id is not None and auto_id in existing_control_ids:
+                continue
+            raw_value = _safe_float(
+                self._software_control_value(descriptor, value_id)
+            )
+            if raw_value is None:
+                raw_value = _safe_float(
+                    BUILTIN_CONTROL_DEFAULT_VALUES.get(value_id)
+                )
+            if raw_value is None:
+                raw_value = min_value
+            value = max(min_value, min(max_value, raw_value))
+            controls.append(
+                CameraControl(
+                    control_id=value_id,
+                    label=label,
+                    kind="numeric",
+                    value=value,
+                    min_value=min_value,
+                    max_value=max_value,
+                    step=step,
+                    details=SOFTWARE_CONTROL_DETAILS,
+                )
+            )
+            if auto_id is None:
+                continue
+            auto_value = _settings_bool(
+                self._software_control_value(descriptor, auto_id),
+                default=bool(
+                    BUILTIN_CONTROL_DEFAULT_VALUES.get(auto_id, False)
+                ),
+            )
+            controls.append(
+                CameraControl(
+                    control_id=auto_id,
+                    label=f"{label} Auto",
+                    kind="boolean",
+                    value=auto_value,
+                    details=SOFTWARE_CONTROL_AUTO_DETAILS,
+                )
+            )
+        return tuple(controls)
 
     def _clear_layout(self, layout) -> None:
         """Remove all child widgets from one layout."""
@@ -2792,6 +2921,7 @@ class PreviewApplication:
         if descriptor is None:
             self._active_controls = ()
             self._controls_by_id = {}
+            self._software_control_ids = set()
             self._set_controls_notice(
                 notice
                 or "Select and open a camera to inspect camera controls."
@@ -2805,9 +2935,19 @@ class PreviewApplication:
             report = build_error_report(exc)
             self._active_controls = ()
             self._controls_by_id = {}
+            self._software_control_ids = set()
             self._set_controls_notice(report.display_message)
             self._record_diagnostic_event(report.diagnostic_message)
         else:
+            software_controls = self._software_controls_for_descriptor(
+                descriptor,
+                {control.control_id for control in controls},
+            )
+            if software_controls:
+                controls = controls + software_controls
+            self._software_control_ids = {
+                control.control_id for control in software_controls
+            }
             self._active_controls = controls
             self._controls_by_id = {
                 control.control_id: control for control in controls
@@ -2841,20 +2981,29 @@ class PreviewApplication:
         control = self._controls_by_id.get(control_id)
         if descriptor is None or control is None:
             return
-        try:
-            self._backend.set_control_value(descriptor, control_id, value)
-        except CameraControlApplyError as exc:
-            report = build_error_report(exc)
-            self._set_controls_notice(report.display_message)
-            self._set_status(
-                self._preview_state,
-                notice=report.display_message,
-            )
-            self._record_diagnostic_event(report.diagnostic_message)
-            return
+        value_to_store = value
+        if control_id in self._software_control_ids:
+            stored_value = _persisted_control_value(control, value)
+            if stored_value is None:
+                raise CameraControlApplyError(
+                    f"{control.label} must use a valid value."
+                )
+            value_to_store = stored_value
+        else:
+            try:
+                self._backend.set_control_value(descriptor, control_id, value)
+            except CameraControlApplyError as exc:
+                report = build_error_report(exc)
+                self._set_controls_notice(report.display_message)
+                self._set_status(
+                    self._preview_state,
+                    notice=report.display_message,
+                )
+                self._record_diagnostic_event(report.diagnostic_message)
+                return
         self._settings.setValue(
             _camera_control_setting_key(descriptor.stable_id, control_id),
-            value,
+            value_to_store,
         )
         message = f"Updated {control.label}."
         self._set_controls_notice(message)
@@ -2897,6 +3046,19 @@ class PreviewApplication:
             if stored_camera_value is not None:
                 value = stored_camera_value
             if value is None:
+                continue
+            if control.control_id in self._software_control_ids:
+                stored_value = _persisted_control_value(control, value)
+                if stored_value is None:
+                    continue
+                self._settings.setValue(
+                    _camera_control_setting_key(
+                        descriptor.stable_id,
+                        control.control_id,
+                    ),
+                    stored_value,
+                )
+                applied_controls.append(control.control_id)
                 continue
             try:
                 self._backend.set_control_value(

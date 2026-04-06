@@ -61,6 +61,28 @@ Example:
 ## Version 0.2.0
 
 - 2026-04-06:
+  Change: Added shell-managed brightness, contrast, hue, saturation,
+    sharpness, and gamma rows to User Controls and guarded the macOS
+    exposure-lock and smooth-autofocus paths.
+  Why: Documented that the color-adjustment rows are shell-owned because
+    the camera backend does not expose them, and prevented unsupported
+    AVFoundation selectors from reaching native writes.
+  Impact: Surfaced the missing adjustments through the shell path while
+    keeping unsupported native writes out of the crash path.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  CONTRIBUTING.md
+  PLAN.md
+  README.md
+  SPEC.md
+  tests/test_camera.py
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/camera.py
+  webcam_micro/ui.py
+
+- 2026-04-06:
   Change: Routed macOS exposure, ISO, backlight, focus, and white-balance
     control writes through Qt Multimedia first, and made AVFoundation
     fail closed on unsupported custom-exposure paths.

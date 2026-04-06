@@ -3479,6 +3479,17 @@ class AvFoundationCameraControlBackend:
         except (AttributeError, RuntimeError, TypeError, ValueError):
             return False
 
+    def _smooth_auto_focus_supported(self, device: Any) -> bool:
+        """Return whether the device can safely use smooth autofocus."""
+
+        support_method = getattr(device, "isSmoothAutoFocusSupported", None)
+        if support_method is None:
+            return False
+        try:
+            return bool(support_method())
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            return False
+
     def list_controls(
         self, descriptor: CameraDescriptor
     ) -> tuple[CameraControl, ...]:
@@ -3515,15 +3526,18 @@ class AvFoundationCameraControlBackend:
                     ),
                 )
             )
-            supports_lock_toggle = (
+            supports_lock_toggle = _choice_for_value(
+                exposure_choices,
+                "locked",
+            ) is not None and (
                 _choice_for_value(
                     exposure_choices,
-                    "locked",
+                    "continuous_auto",
                 )
                 is not None
-                and _choice_for_value(
+                or _choice_for_value(
                     exposure_choices,
-                    "continuous_auto",
+                    "auto",
                 )
                 is not None
             )
@@ -3806,17 +3820,22 @@ class AvFoundationCameraControlBackend:
                 )
             )
 
-        if hasattr(device, "isSmoothAutoFocusEnabled") and hasattr(
+        if self._smooth_auto_focus_supported(device) and hasattr(
             device, "setSmoothAutoFocusEnabled_"
         ):
+            current_smooth_auto_focus = False
+            try:
+                current_smooth_auto_focus = bool(
+                    _call_or_value(device.isSmoothAutoFocusEnabled)
+                )
+            except (AttributeError, RuntimeError, TypeError, ValueError):
+                current_smooth_auto_focus = False
             controls.append(
                 CameraControl(
                     control_id="smooth_auto_focus",
                     label="Smooth Auto Focus",
                     kind="boolean",
-                    value=bool(
-                        _call_or_value(device.isSmoothAutoFocusEnabled)
-                    ),
+                    value=current_smooth_auto_focus,
                     details="Smooth autofocus assistance when supported.",
                 )
             )
@@ -4391,7 +4410,19 @@ class AvFoundationCameraControlBackend:
                 device.setTorchMode_(mode_value)
                 return
             if control_id == "smooth_auto_focus":
-                device.setSmoothAutoFocusEnabled_(bool(value))
+                if not self._smooth_auto_focus_supported(device):
+                    raise CameraControlApplyError(
+                        "The camera does not support smooth autofocus."
+                    )
+                try:
+                    device.setSmoothAutoFocusEnabled_(bool(value))
+                except (
+                    AttributeError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                ) as exc:
+                    raise CameraControlApplyError(str(exc)) from exc
                 return
             if control_id == "video_hdr_automatic":
                 device.setAutomaticallyAdjustsVideoHDREnabled_(bool(value))

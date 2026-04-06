@@ -52,6 +52,10 @@ DevCovenant lifecycle and command behavior used by the project.
 
 - 2026-04-04: Release version is sourced from `webcam_micro/VERSION`; the
   alpha shell chrome and package READMEs carry the full legal-owner notice.
+- 2026-04-06: User Controls keep shell-managed brightness, contrast, hue,
+  saturation, sharpness, and gamma rows visible even when the camera
+  backend lacks matching setters; backlight compensation and white
+  balance remain camera-owned rows when exposed.
 - 2026-04-06: macOS camera controls now prefer the Qt Multimedia
   backend for exposure, ISO, backlight, focus, and white balance when
   those setters are available; AVFoundation remains fallback and must

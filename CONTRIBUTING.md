@@ -61,5 +61,7 @@ across DevCovenant refresh and upgrade runs.
   alpha work.
 - When validating macOS camera controls, exercise the Qt-backed
   exposure, ISO, focus, white balance, and backlight path after a fresh
-  reinstall, and confirm unsupported AVFoundation custom-exposure
-  writes fail closed.
+  reinstall, and confirm the shell-managed brightness, contrast, hue,
+  saturation, sharpness, and gamma rows still appear in User Controls.
+  Confirm unsupported AVFoundation custom-exposure writes fail closed and
+  smooth autofocus stays gated by native support.

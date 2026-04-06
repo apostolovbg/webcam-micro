@@ -357,21 +357,23 @@ settings dialog with a preview bolted onto it.
   controls and must not fail simply because some expected controls are absent.
 
 - The product must support common microscope-relevant controls where
-  exposed, including brightness, contrast, saturation, hue, gamma, gain,
-  sharpness, backlight compensation, power line frequency, AC flicker
-  compensation, white balance automatic control, white balance
+  exposed, including backlight compensation, power line frequency, AC
+  flicker compensation, white balance automatic control, white balance
   temperature, exposure automatic and manual controls, focus automatic and
   manual controls, zoom controls, color profile controls, and vendor-
-  specific extension controls.
+  specific extension controls, plus shell-managed brightness, contrast,
+  saturation, hue, gamma, and sharpness adjustments.
 
 - Camera-native controls must include light controls with on/off and level
   subcontrols when exposed, and unsupported subcontrols must disable cleanly
   rather than present fake values.
 
-- The user-controls section must include backlight compensation, brightness,
-  contrast, hue, saturation, sharpness, gamma, and white balance when the
-  active camera exposes them, with slider+spinbox widgets and Auto toggles
-  on contrast, hue, and white balance wherever the backend exposes them.
+- The user-controls section must always include shell-managed brightness,
+  contrast, hue, saturation, sharpness, and gamma rows with
+  slider+spinbox widgets, must keep backlight compensation and white
+  balance where the active camera exposes them, and must provide Auto
+  toggles on contrast and hue in the shell and on white balance wherever
+  the backend exposes it.
 
 - The user-controls section must place a Reset to Defaults button at the
   bottom.
@@ -588,10 +590,11 @@ settings dialog with a preview bolted onto it.
   compensation, zoom, and any activity LED or vendor-specific control that
   the active camera exposes.
 
-- A user can adjust backlight compensation, brightness, contrast, hue,
-  saturation, sharpness, gamma, and white balance through slider+spinbox
-  widgets, with Auto toggles on contrast, hue, and white balance when the
-  camera exposes them.
+- A user can adjust backlight compensation and white balance through
+  slider+spinbox widgets when the camera exposes them, and can adjust
+  shell-managed brightness, contrast, hue, saturation, sharpness, and
+  gamma through slider+spinbox widgets, with Auto toggles on contrast and
+  hue in the shell and on white balance when the camera exposes it.
 
 - A user on any platform can enter fullscreen mode, use the fullscreen
   command surface in expanded and collapsed states, exit fullscreen safely,

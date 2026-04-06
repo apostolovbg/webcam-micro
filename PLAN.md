@@ -142,15 +142,16 @@ in `SPEC.md` and history in `CHANGELOG.md`.
    - render light as an on/off checkbox when exposed, plus a level
      slider when exposed; any missing on/off or level subcontrol must be
      disabled cleanly
-   - keep backlight compensation, brightness, contrast, hue, saturation,
-     sharpness, gamma, and white balance in the user-controls section,
-     with slider+spinbox widgets for each and Auto checkboxes on
-     contrast, hue, and white balance when exposed
+   - keep backlight compensation and white balance in the user-controls
+     section when the active camera exposes them, and always surface
+     shell-managed brightness, contrast, hue, saturation, sharpness, and
+     gamma rows with slider+spinbox widgets, with Auto checkboxes on
+     contrast and hue in the shell
    - place the reset-to-defaults button at the bottom of the user-
      controls section
    Done when:
-   - the pane cleanly separates camera-native controls from software-
-     side adjustments and preserves the auto/disabled behavior for
+   - the pane cleanly separates camera-native controls from shell-
+     managed adjustments and preserves the auto/disabled behavior for
      paired controls
 
 ## Exit Criteria

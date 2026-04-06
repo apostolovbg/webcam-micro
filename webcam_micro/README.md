@@ -80,10 +80,11 @@ complete for the current release path.
   checkboxes when the camera reports them, and Light as an on/off
   checkbox plus a level slider when exposed. When Auto is enabled, the
   paired numeric control stays visible, greys out, and tracks the auto
-  value. User Controls expose Backlight compensation, Brightness,
-  Contrast, Hue, Saturation, Sharpness, Gamma, and White balance, with
-  Auto checkboxes on Contrast, Hue, and White balance when the backend
-  exposes them, and a Reset to Defaults button at the bottom.
+  value. User Controls expose Backlight compensation and White balance
+  when the camera exposes them plus shell-managed Brightness, Contrast,
+  Hue, Saturation, Sharpness, and Gamma rows, Contrast and Hue keep
+  Auto checkboxes in the shell, and a Reset to Defaults button sits at
+  the bottom.
 - The active backend still exposes numeric, boolean, enum, read-only,
   and action controls when the device supports them. Qt Multimedia now
   surfaces backlight compensation, manual exposure time and ISO, focus
@@ -93,10 +94,12 @@ complete for the current release path.
   ownership of exposure, ISO, backlight, focus, and white balance when
   those setters are available, while AVFoundation remains a fallback
   for native-only gaps and rejects unsupported custom-exposure writes
-  instead of crashing. On Linux, V4L2 adds power line frequency,
-  brightness, contrast, saturation, hue, gamma, gain, sharpness, lamp,
-  illumination, activity LED, and vendor-specific extension controls
-  when the camera reports them.
+  instead of crashing. The User Controls section also keeps shell-managed
+  Brightness, Contrast, Hue, Saturation, Sharpness, and Gamma rows
+  visible even when the camera backend lacks matching setters. On Linux,
+  V4L2 adds power line frequency, brightness, contrast, saturation, hue,
+  gamma, gain, sharpness, lamp, illumination, activity LED, and
+  vendor-specific extension controls when the camera reports them.
 - Capture and recording: still images save quietly to the configured folder
   with the current capture framing, and recordings use native controls with
   platform-supported containers.

@@ -21,6 +21,7 @@ from webcam_micro.ui import (
     RenderedPreview,
     RuntimeStatus,
     ShellSpec,
+    _camera_control_setting_key,
     _control_default_setting_key,
     _controls_surface_column_count,
     _directory_setting_path,
@@ -1370,6 +1371,225 @@ class ShellSpecTest(unittest.TestCase):
         self.assertEqual({}, _named_presets_from_value("not json"))
         self.assertEqual({}, _named_presets_from_value(""))
 
+    def test_software_controls_for_descriptor_builds_shell_side_rows(
+        self,
+    ) -> None:
+        """Assert shell-managed controls fill the missing color rows."""
+
+        class FakeSettings:
+            """Store settings values for the software-control helper."""
+
+            def __init__(self) -> None:
+                """Initialize the settings value cache."""
+
+                self.values: dict[str, object] = {}
+
+            def value(self, key: str) -> object | None:
+                """Return one stored settings value."""
+
+                return self.values.get(key)
+
+        class FakeShell:
+            """Expose only the settings surface used by the helper."""
+
+            def __init__(self) -> None:
+                """Initialize the fake settings store."""
+
+                self._settings = FakeSettings()
+
+            def _software_control_value(
+                self,
+                descriptor: CameraDescriptor,
+                control_id: str,
+            ) -> object | None:
+                """Return the stored shell-side control value."""
+
+                return self._settings.value(
+                    _camera_control_setting_key(
+                        descriptor.stable_id,
+                        control_id,
+                    )
+                )
+
+        descriptor = CameraDescriptor(
+            stable_id="camera-1",
+            display_name="Camera 1",
+            backend_name="qt_multimedia",
+            device_selector="camera-1",
+        )
+        shell = FakeShell()
+        shell._settings.values[
+            _camera_control_setting_key(descriptor.stable_id, "brightness")
+        ] = 17
+        shell._settings.values[
+            _camera_control_setting_key(descriptor.stable_id, "contrast_auto")
+        ] = True
+
+        controls = PreviewApplication._software_controls_for_descriptor(
+            shell,
+            descriptor,
+            set(),
+        )
+
+        self.assertEqual(
+            (
+                "brightness",
+                "contrast",
+                "contrast_auto",
+                "hue",
+                "hue_auto",
+                "saturation",
+                "sharpness",
+                "gamma",
+            ),
+            tuple(control.control_id for control in controls),
+        )
+        self.assertEqual(
+            17.0,
+            next(
+                control.value
+                for control in controls
+                if control.control_id == "brightness"
+            ),
+        )
+        self.assertTrue(
+            next(
+                control.value
+                for control in controls
+                if control.control_id == "contrast_auto"
+            )
+        )
+        self.assertEqual(
+            "Software-side adjustment managed by the shell.",
+            next(
+                control.details
+                for control in controls
+                if control.control_id == "gamma"
+            ),
+        )
+
+    def test_apply_control_value_stores_shell_side_controls_without_backend(
+        self,
+    ) -> None:
+        """Assert shell-side controls persist without touching the backend."""
+
+        class FakeSettings:
+            """Store settings values for the control-application path."""
+
+            def __init__(self) -> None:
+                """Initialize the settings value cache."""
+
+                self.values: dict[str, object] = {}
+
+            def value(self, key: str) -> object | None:
+                """Return one stored settings value."""
+
+                return self.values.get(key)
+
+            def setValue(self, key: str, value: object) -> None:
+                """Store one settings value."""
+
+                self.values[key] = value
+
+        class FakeBackend:
+            """Fail if the software-side control path reaches the backend."""
+
+            def set_control_value(
+                self,
+                descriptor: CameraDescriptor,
+                control_id: str,
+                value: object,
+            ) -> None:
+                """Reject any backend routing for software controls."""
+
+                raise AssertionError("backend should not receive this control")
+
+        class FakeShell:
+            """Expose the minimum shell surface used by the control setter."""
+
+            def __init__(self) -> None:
+                """Initialize the fake shell state."""
+
+                self._backend = FakeBackend()
+                self._settings = FakeSettings()
+                self._preview_state = "live"
+                self._controls_by_id = {
+                    "brightness": CameraControl(
+                        control_id="brightness",
+                        label="Brightness",
+                        kind="numeric",
+                        value=0.0,
+                        min_value=-100.0,
+                        max_value=100.0,
+                        step=1.0,
+                    )
+                }
+                self._software_control_ids = {"brightness"}
+                self.notice_calls: list[str] = []
+                self.status_calls: list[tuple[str, str | None]] = []
+                self.refresh_calls: list[str | None] = []
+                self.diagnostic_calls: list[str] = []
+
+            def _selected_descriptor(self) -> CameraDescriptor:
+                """Return the fake selected descriptor."""
+
+                return descriptor
+
+            def _set_controls_notice(self, notice: str) -> None:
+                """Record the visible controls notice."""
+
+                self.notice_calls.append(notice)
+
+            def _set_status(
+                self,
+                preview_state: str,
+                notice: str | None = None,
+            ) -> None:
+                """Record the visible status update."""
+
+                self.status_calls.append((preview_state, notice))
+
+            def _refresh_control_surface(
+                self,
+                *,
+                notice: str | None = None,
+            ) -> None:
+                """Record the requested surface refresh."""
+
+                self.refresh_calls.append(notice)
+
+            def _record_diagnostic_event(self, message: str) -> None:
+                """Record the diagnostic event emitted by the shell."""
+
+                self.diagnostic_calls.append(message)
+
+        descriptor = CameraDescriptor(
+            stable_id="camera-1",
+            display_name="Camera 1",
+            backend_name="qt_multimedia",
+            device_selector="camera-1",
+        )
+        shell = FakeShell()
+
+        PreviewApplication._apply_control_value(
+            shell,
+            "brightness",
+            12.0,
+            refresh_surface=True,
+            status_notice=True,
+        )
+
+        self.assertEqual(
+            12.0,
+            shell._settings.values[
+                _camera_control_setting_key(descriptor.stable_id, "brightness")
+            ],
+        )
+        self.assertEqual([], shell.diagnostic_calls)
+        self.assertEqual(["Updated Brightness."], shell.notice_calls)
+        self.assertEqual([("live", "Updated Brightness.")], shell.status_calls)
+        self.assertEqual(["Updated Brightness."], shell.refresh_calls)
+
     def test_nested_shell_callbacks_remain_covered_by_name(self) -> None:
         """Assert nested helper names stay visible to contract coverage."""
 
@@ -1387,6 +1607,9 @@ class ShellSpecTest(unittest.TestCase):
         )
         diagnostics_source = inspect.getsource(
             PreviewApplication._open_diagnostics
+        )
+        refresh_source = inspect.getsource(
+            PreviewApplication._refresh_control_surface
         )
         camera_controls_source = inspect.getsource(
             PreviewApplication._build_camera_controls_section_widget
@@ -1431,6 +1654,7 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("Resolution", camera_controls_source)
         self.assertIn("Light", camera_controls_source)
         self.assertIn("Reset to Defaults", user_controls_source)
+        self.assertIn("_software_controls_for_descriptor", refresh_source)
         self.assertIn("source_format", reset_defaults_source)
 
     def test_numeric_control_helpers_format_and_reject_invalid_text(
