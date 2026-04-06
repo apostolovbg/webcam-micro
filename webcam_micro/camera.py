@@ -1329,6 +1329,112 @@ def _qcamera_camera_format_text(camera_format: object) -> str:
     return ", ".join(parts) if parts else "Unknown camera format"
 
 
+def _qcamera_camera_format_token(camera_format: object) -> str:
+    """Return one stable token for a Qt camera format choice."""
+
+    resolution = getattr(camera_format, "resolution", None)
+    if callable(resolution):
+        resolution = resolution()
+    width = _call_or_value(getattr(resolution, "width", None))
+    height = _call_or_value(getattr(resolution, "height", None))
+    parts: list[str] = []
+    try:
+        width_value = int(width)
+        height_value = int(height)
+    except (TypeError, ValueError):
+        width_value = None
+        height_value = None
+    if (
+        width_value is not None
+        and height_value is not None
+        and width_value > 0
+        and height_value > 0
+    ):
+        parts.append(f"{width_value}x{height_value}")
+    pixel_format = getattr(camera_format, "pixelFormat", None)
+    if callable(pixel_format):
+        pixel_format = pixel_format()
+    if pixel_format is not None:
+        parts.append(_enum_name(pixel_format))
+    min_frame_rate = _safe_float(
+        getattr(camera_format, "minFrameRate", lambda: 0)()
+    )
+    max_frame_rate = _safe_float(
+        getattr(camera_format, "maxFrameRate", lambda: 0)()
+    )
+    if min_frame_rate and max_frame_rate:
+        if math.isclose(min_frame_rate, max_frame_rate, abs_tol=1e-6):
+            parts.append(f"{max_frame_rate:g}fps")
+        else:
+            parts.append(f"{min_frame_rate:g}-{max_frame_rate:g}fps")
+    elif max_frame_rate:
+        parts.append(f"{max_frame_rate:g}fps")
+    token = "|".join(parts)
+    return token if token else _qcamera_camera_format_text(camera_format)
+
+
+def _qcamera_supported_camera_formats(
+    camera_device: object,
+) -> tuple[object, ...]:
+    """Return the camera formats exposed by one Qt camera device."""
+
+    formats_method = getattr(camera_device, "videoFormats", None)
+    if callable(formats_method):
+        try:
+            formats = tuple(formats_method())
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            formats = ()
+        if formats:
+            return formats
+    current_format = getattr(camera_device, "cameraFormat", None)
+    if callable(current_format):
+        try:
+            active_format = current_format()
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            active_format = None
+        if active_format is not None:
+            return (active_format,)
+    return ()
+
+
+def _qcamera_camera_format_choices(
+    camera_device: object,
+) -> tuple[CameraControlChoice, ...]:
+    """Return the supported Qt camera-format choices for one device."""
+
+    choices: list[CameraControlChoice] = []
+    seen_tokens: set[str] = set()
+    for camera_format in _qcamera_supported_camera_formats(camera_device):
+        token = _qcamera_camera_format_token(camera_format)
+        if token in seen_tokens:
+            continue
+        seen_tokens.add(token)
+        choices.append(
+            CameraControlChoice(
+                value=token,
+                label=_qcamera_camera_format_text(camera_format),
+            )
+        )
+    return tuple(choices)
+
+
+def _qcamera_camera_format_for_token(
+    camera_device: object,
+    token: str | None,
+) -> object | None:
+    """Return one Qt camera-format object for a stable choice token."""
+
+    formats = _qcamera_supported_camera_formats(camera_device)
+    if not formats:
+        return None
+    if token is None:
+        return formats[0]
+    for camera_format in formats:
+        if _qcamera_camera_format_token(camera_format) == token:
+            return camera_format
+    return None
+
+
 def _v4l2_normalize_text(text: str) -> str:
     """Return one lowercase snake-case token for a V4L2 control label."""
 
@@ -2046,6 +2152,13 @@ def _build_control_backend(
     qt_multimedia: Any | None,
     qt_device_resolver: Callable[[CameraDescriptor], Any | None] | None,
     v4l2_device_resolver: Callable[[CameraDescriptor], str | None] | None,
+    *,
+    preferred_source_format_getter: (
+        Callable[[CameraDescriptor], str | None] | None
+    ) = None,
+    preferred_source_format_setter: (
+        Callable[[CameraDescriptor, str | None], None] | None
+    ) = None,
 ) -> CameraControlBackend:
     """Return the active control backend stack for one runtime."""
 
@@ -2057,6 +2170,8 @@ def _build_control_backend(
             QtCameraControlBackend(
                 qt_multimedia,
                 qt_device_resolver,
+                preferred_source_format_getter,
+                preferred_source_format_setter,
             )
         )
     if sys.platform.startswith("linux") and v4l2_device_resolver is not None:
@@ -2200,11 +2315,19 @@ class QtCameraControlBackend:
         self,
         qt_multimedia: Any,
         device_resolver: Callable[[CameraDescriptor], Any | None],
+        preferred_source_format_getter: (
+            Callable[[CameraDescriptor], str | None] | None
+        ) = None,
+        preferred_source_format_setter: (
+            Callable[[CameraDescriptor, str | None], None] | None
+        ) = None,
     ) -> None:
         """Store the Qt modules and descriptor resolver used for controls."""
 
         self._qt_multimedia = qt_multimedia
         self._device_resolver = device_resolver
+        self._preferred_source_format_getter = preferred_source_format_getter
+        self._preferred_source_format_setter = preferred_source_format_setter
 
     def _camera_for_descriptor(
         self, descriptor: CameraDescriptor
@@ -2217,7 +2340,63 @@ class QtCameraControlBackend:
         camera_class = getattr(self._qt_multimedia, "QCamera", None)
         if camera_class is None:
             return None
-        return camera_class(camera_device)
+        camera = camera_class(camera_device)
+        camera_format = self._camera_format_for_descriptor(
+            descriptor,
+            camera_device,
+        )
+        if camera_format is not None:
+            with contextlib.suppress(
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ):
+                camera.setCameraFormat(camera_format)
+        return camera
+
+    def _preferred_source_format(
+        self, descriptor: CameraDescriptor
+    ) -> str | None:
+        """Return the stored Qt source-format token for one descriptor."""
+
+        if self._preferred_source_format_getter is None:
+            return None
+        return self._preferred_source_format_getter(descriptor)
+
+    def _set_preferred_source_format(
+        self,
+        descriptor: CameraDescriptor,
+        token: str | None,
+    ) -> None:
+        """Store one preferred Qt source-format token for a descriptor."""
+
+        if self._preferred_source_format_setter is None:
+            return
+        self._preferred_source_format_setter(descriptor, token)
+
+    def _camera_format_for_descriptor(
+        self,
+        descriptor: CameraDescriptor,
+        camera_device: object,
+    ) -> object | None:
+        """Return the preferred Qt camera format for one descriptor."""
+
+        token = self._preferred_source_format(descriptor)
+        camera_format = _qcamera_camera_format_for_token(
+            camera_device,
+            token,
+        )
+        if camera_format is not None:
+            return camera_format
+        return _qcamera_camera_format_for_token(camera_device, None)
+
+    def _source_format_choices(
+        self, camera_device: object
+    ) -> tuple[CameraControlChoice, ...]:
+        """Return the available Qt source-format choices for one device."""
+
+        return _qcamera_camera_format_choices(camera_device)
 
     def _exposure_mode_choices(
         self, camera: Any
@@ -2263,12 +2442,35 @@ class QtCameraControlBackend:
     ) -> tuple[CameraControl, ...]:
         """Return the current Qt Multimedia control surface."""
 
+        camera_device = self._device_resolver(descriptor)
+        if camera_device is None:
+            return ()
         camera = self._camera_for_descriptor(descriptor)
         if camera is None:
             return ()
         camera_class = self._qt_multimedia.QCamera
         features = getattr(camera, "supportedFeatures", lambda: 0)()
         controls: list[CameraControl] = []
+
+        source_format_choices = self._source_format_choices(camera_device)
+        if source_format_choices:
+            current_source_format = self._preferred_source_format(descriptor)
+            if current_source_format not in {
+                choice.value for choice in source_format_choices
+            }:
+                current_source_format = source_format_choices[0].value
+            controls.append(
+                CameraControl(
+                    control_id="source_format",
+                    label="Resolution",
+                    kind="enum",
+                    value=current_source_format,
+                    choices=source_format_choices,
+                    read_only=len(source_format_choices) < 2,
+                    enabled=len(source_format_choices) > 1,
+                    details="Supported camera source resolutions.",
+                )
+            )
 
         exposure_choices = self._exposure_mode_choices(camera)
         if exposure_choices:
@@ -2668,6 +2870,29 @@ class QtCameraControlBackend:
                 ValueError,
             ) as exc:
                 raise CameraControlApplyError(str(exc)) from exc
+            return
+
+        if control_id == "source_format":
+            camera_device = self._device_resolver(descriptor)
+            if camera_device is None:
+                raise CameraControlApplyError(
+                    "The selected camera could not be found for control "
+                    "updates."
+                )
+            token = str(value).strip()
+            if not token:
+                raise CameraControlApplyError(
+                    "Resolution must be set to one supported format."
+                )
+            source_format = _qcamera_camera_format_for_token(
+                camera_device,
+                token,
+            )
+            if source_format is None:
+                raise CameraControlApplyError(
+                    "Unsupported resolution selection."
+                )
+            self._set_preferred_source_format(descriptor, token)
             return
 
         if control_id == "exposure_locked":
@@ -4033,6 +4258,7 @@ class QtCameraSession:
         descriptor: CameraDescriptor,
         camera_device: Any,
         *,
+        camera_format: Any | None = None,
         qt_core: Any,
         qt_gui: Any,
         qt_multimedia: Any,
@@ -4044,6 +4270,14 @@ class QtCameraSession:
         self._qt_gui = qt_gui
         self._qt_multimedia = qt_multimedia
         self._camera = qt_multimedia.QCamera(camera_device)
+        if camera_format is not None:
+            with contextlib.suppress(
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ):
+                self._camera.setCameraFormat(camera_format)
         self._preview_capture_session = qt_multimedia.QMediaCaptureSession()
         self._recording_capture_session = qt_multimedia.QMediaCaptureSession()
         self._video_sink = qt_multimedia.QVideoSink()
@@ -4430,10 +4664,17 @@ class QtCameraBackend:
                 "Install the package runtime dependencies before opening a "
                 "camera session."
             )
+        self._preferred_source_format_by_descriptor: dict[str, str] = {}
         self._control_backend = _build_control_backend(
             self._qt_multimedia,
             self._camera_device_for_descriptor,
             _v4l2_device_path_for_descriptor,
+            preferred_source_format_getter=(
+                self._preferred_source_format_for_descriptor
+            ),
+            preferred_source_format_setter=(
+                self._set_preferred_source_format_for_descriptor
+            ),
         )
 
     def _camera_device_for_descriptor(
@@ -4450,6 +4691,47 @@ class QtCameraBackend:
 
         return _discover_qt_cameras()
 
+    def _preferred_source_format_for_descriptor(
+        self, descriptor: CameraDescriptor
+    ) -> str | None:
+        """Return the stored preferred source-format token for one camera."""
+
+        return self._preferred_source_format_by_descriptor.get(
+            descriptor.stable_id
+        )
+
+    def _set_preferred_source_format_for_descriptor(
+        self,
+        descriptor: CameraDescriptor,
+        token: str | None,
+    ) -> None:
+        """Store one preferred source-format token for a camera."""
+
+        if token is None:
+            self._preferred_source_format_by_descriptor.pop(
+                descriptor.stable_id,
+                None,
+            )
+            return
+        self._preferred_source_format_by_descriptor[descriptor.stable_id] = (
+            token
+        )
+
+    def _camera_format_for_descriptor(
+        self,
+        descriptor: CameraDescriptor,
+    ) -> object | None:
+        """Return the preferred Qt camera format for one descriptor."""
+
+        camera_device = self._camera_device_for_descriptor(descriptor)
+        if camera_device is None:
+            return None
+        token = self._preferred_source_format_for_descriptor(descriptor)
+        camera_format = _qcamera_camera_format_for_token(camera_device, token)
+        if camera_format is not None:
+            return camera_format
+        return _qcamera_camera_format_for_token(camera_device, None)
+
     def open_session(self, descriptor: CameraDescriptor) -> QtCameraSession:
         """Open one Qt camera session for the provided descriptor."""
 
@@ -4465,6 +4747,7 @@ class QtCameraBackend:
         return QtCameraSession(
             descriptor=descriptor,
             camera_device=camera_device,
+            camera_format=self._camera_format_for_descriptor(descriptor),
             qt_core=self._qt_core,
             qt_gui=self._qt_gui,
             qt_multimedia=self._qt_multimedia,

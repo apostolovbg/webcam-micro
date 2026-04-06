@@ -64,22 +64,31 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("detachable dock", combined_body)
         self.assertIn("dock, float, hide, and restore", combined_body)
         self.assertIn("visible restore action", combined_body)
-        self.assertIn("spinboxes", combined_body)
+        self.assertIn("slider-plus-spinbox", combined_body)
         self.assertIn("one column", combined_body)
         self.assertIn("two columns", combined_body)
         self.assertIn("compact structured status bar", combined_body)
-        for family_name in (
+        self.assertIn(
+            "camera controls and user controls", combined_body.lower()
+        )
+        for phrase in (
+            "Camera Controls",
+            "User Controls",
+            "Resolution",
             "Exposure",
             "Focus",
-            "White Balance",
-            "Light/Flicker",
-            "Color/Image Quality",
-            "Zoom",
-            "Source Info",
-            "Actions",
-            "Other Controls",
+            "Light",
+            "Backlight compensation",
+            "Brightness",
+            "Contrast",
+            "Hue",
+            "Saturation",
+            "Sharpness",
+            "Gamma",
+            "White balance",
+            "Reset to Defaults",
         ):
-            self.assertIn(family_name, combined_body)
+            self.assertIn(phrase, combined_body)
         self.assertIn("still capture saves quietly", combined_body)
         self.assertIn("tighter preview cadence", combined_body.lower())
         self.assertEqual(
@@ -180,20 +189,21 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("accept_dialog", preferences_source)
         self.assertIn("apply_named_preset", preferences_source)
         self.assertIn("save_named_preset", preferences_source)
-        self.assertIn("_group_controls_for_surface", preferences_source)
         self.assertIn("add_text_tab", diagnostics_source)
         self.assertNotIn("_workspace_notes", fullscreen_toggle_source)
         self.assertIn("ResizeAwareControlsWidget", dock_source)
         self.assertIn("_controls_dock_actions_row", dock_source)
         self.assertIn("QToolButton", dock_button_source)
         self.assertIn("_make_controls_dock_action_button", actions_source)
-        self.assertIn("_group_controls_for_surface", controls_source)
+        self.assertIn("_build_camera_controls_section_widget", controls_source)
+        self.assertIn("_build_user_controls_section_widget", controls_source)
         self.assertIn("_controls_surface_column_count", controls_source)
         self.assertIn("_build_controls_section_widget", controls_source)
         self.assertIn("_build_controls_column_widget", controls_source)
         self.assertIn("_build_controls_empty_state_widget", controls_source)
         self.assertIn("PreciseTimer", run_source)
         self.assertIn("self._poll_preview_frame()", open_source)
+        self.assertIn("_prime_source_format_for_descriptor", open_source)
         self.assertTrue(issubclass(MissingGuiDependencyError, RuntimeError))
         self.assertEqual(
             "MissingGuiDependencyError", MissingGuiDependencyError.__name__
@@ -732,22 +742,10 @@ class ShellSpecTest(unittest.TestCase):
 
         controls = (
             CameraControl(
-                control_id="exposure_mode",
-                label="Exposure Mode",
+                control_id="source_format",
+                label="Resolution",
                 kind="enum",
-                value="continuous_auto",
-            ),
-            CameraControl(
-                control_id="exposure_locked",
-                label="Exposure Locked",
-                kind="boolean",
-                value=False,
-            ),
-            CameraControl(
-                control_id="backlight_compensation",
-                label="Backlight Compensation",
-                kind="numeric",
-                value=0.0,
+                value="1920x1080|Format_NV12|30-60fps",
             ),
             CameraControl(
                 control_id="manual_exposure_time",
@@ -756,14 +754,8 @@ class ShellSpecTest(unittest.TestCase):
                 value=0.02,
             ),
             CameraControl(
-                control_id="manual_iso_sensitivity",
-                label="Manual ISO Sensitivity",
-                kind="numeric",
-                value=100,
-            ),
-            CameraControl(
-                control_id="focus_auto",
-                label="Focus Automatic",
+                control_id="exposure_locked",
+                label="Exposure Locked",
                 kind="boolean",
                 value=False,
             ),
@@ -774,16 +766,70 @@ class ShellSpecTest(unittest.TestCase):
                 value=0.5,
             ),
             CameraControl(
-                control_id="smooth_auto_focus",
-                label="Smooth Auto Focus",
+                control_id="focus_auto",
+                label="Focus Automatic",
+                kind="boolean",
+                value=False,
+            ),
+            CameraControl(
+                control_id="activity_led",
+                label="Activity LED",
                 kind="boolean",
                 value=True,
             ),
             CameraControl(
-                control_id="white_balance_automatic",
-                label="White Balance Automatic",
+                control_id="backlight_compensation",
+                label="Backlight Compensation",
+                kind="numeric",
+                value=0.0,
+            ),
+            CameraControl(
+                control_id="brightness",
+                label="Brightness",
+                kind="numeric",
+                value=10,
+            ),
+            CameraControl(
+                control_id="contrast",
+                label="Contrast",
+                kind="numeric",
+                value=50,
+            ),
+            CameraControl(
+                control_id="contrast_auto",
+                label="Contrast Automatic",
                 kind="boolean",
-                value=True,
+                value=False,
+            ),
+            CameraControl(
+                control_id="hue",
+                label="Hue",
+                kind="numeric",
+                value=0,
+            ),
+            CameraControl(
+                control_id="hue_auto",
+                label="Hue Automatic",
+                kind="boolean",
+                value=False,
+            ),
+            CameraControl(
+                control_id="saturation",
+                label="Saturation",
+                kind="numeric",
+                value=128,
+            ),
+            CameraControl(
+                control_id="sharpness",
+                label="Sharpness",
+                kind="numeric",
+                value=50,
+            ),
+            CameraControl(
+                control_id="gamma",
+                label="Gamma",
+                kind="numeric",
+                value=72,
             ),
             CameraControl(
                 control_id="white_balance_temperature",
@@ -792,10 +838,28 @@ class ShellSpecTest(unittest.TestCase):
                 value=2800,
             ),
             CameraControl(
-                control_id="power_line_frequency",
-                label="Power Line Frequency",
+                control_id="white_balance_automatic",
+                label="White Balance Automatic",
+                kind="boolean",
+                value=True,
+            ),
+            CameraControl(
+                control_id="manual_iso_sensitivity",
+                label="Manual ISO Sensitivity",
+                kind="numeric",
+                value=100,
+            ),
+            CameraControl(
+                control_id="exposure_mode",
+                label="Exposure Mode",
                 kind="enum",
-                value="50",
+                value="continuous_auto",
+            ),
+            CameraControl(
+                control_id="focus_mode",
+                label="Focus Mode",
+                kind="enum",
+                value="auto",
             ),
             CameraControl(
                 control_id="flash_mode",
@@ -808,18 +872,6 @@ class ShellSpecTest(unittest.TestCase):
                 label="Torch Mode",
                 kind="enum",
                 value="off",
-            ),
-            CameraControl(
-                control_id="activity_led",
-                label="Activity LED",
-                kind="boolean",
-                value=True,
-            ),
-            CameraControl(
-                control_id="saturation",
-                label="Saturation",
-                kind="numeric",
-                value=128,
             ),
             CameraControl(
                 control_id="video_hdr_automatic",
@@ -872,40 +924,47 @@ class ShellSpecTest(unittest.TestCase):
         self.assertEqual(
             (
                 (
-                    "Exposure",
+                    "Camera Controls",
                     (
-                        "exposure_mode",
-                        "exposure_locked",
-                        "backlight_compensation",
+                        "source_format",
                         "manual_exposure_time",
-                        "manual_iso_sensitivity",
-                    ),
-                ),
-                (
-                    "Focus",
-                    ("focus_auto", "focus_distance", "smooth_auto_focus"),
-                ),
-                (
-                    "White Balance",
-                    ("white_balance_automatic", "white_balance_temperature"),
-                ),
-                (
-                    "Light/Flicker",
-                    (
-                        "power_line_frequency",
-                        "flash_mode",
-                        "torch_mode",
+                        "exposure_locked",
+                        "focus_distance",
+                        "focus_auto",
                         "activity_led",
                     ),
                 ),
                 (
-                    "Color/Image Quality",
-                    ("saturation", "video_hdr_automatic"),
+                    "User Controls",
+                    (
+                        "backlight_compensation",
+                        "brightness",
+                        "contrast",
+                        "contrast_auto",
+                        "hue",
+                        "hue_auto",
+                        "saturation",
+                        "sharpness",
+                        "gamma",
+                        "white_balance_temperature",
+                        "white_balance_automatic",
+                    ),
                 ),
-                ("Zoom", ("zoom_factor",)),
-                ("Source Info", ("active_format",)),
-                ("Actions", ("restore_auto_exposure",)),
-                ("Other Controls", ("vendor_extension",)),
+                (
+                    "Other Controls",
+                    (
+                        "manual_iso_sensitivity",
+                        "exposure_mode",
+                        "focus_mode",
+                        "flash_mode",
+                        "torch_mode",
+                        "video_hdr_automatic",
+                        "zoom_factor",
+                        "active_format",
+                        "restore_auto_exposure",
+                        "vendor_extension",
+                    ),
+                ),
             ),
             grouped,
         )
@@ -1326,6 +1385,15 @@ class ShellSpecTest(unittest.TestCase):
         diagnostics_source = inspect.getsource(
             PreviewApplication._open_diagnostics
         )
+        camera_controls_source = inspect.getsource(
+            PreviewApplication._build_camera_controls_section_widget
+        )
+        user_controls_source = inspect.getsource(
+            PreviewApplication._build_user_controls_section_widget
+        )
+        reset_defaults_source = inspect.getsource(
+            PreviewApplication._reset_controls_to_defaults
+        )
 
         self.assertNotIn("def sync_field", numeric_builder_source)
         self.assertIn("def sync_slider", numeric_builder_source)
@@ -1335,6 +1403,7 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("def handle_spinbox_change", numeric_builder_source)
         self.assertIn("QSpinBox", numeric_builder_source)
         self.assertIn("QDoubleSpinBox", numeric_builder_source)
+        self.assertIn("Auto", numeric_builder_source)
         self.assertNotIn("def handle_field_commit", numeric_builder_source)
         self.assertNotIn("def handle_step", numeric_builder_source)
         self.assertIn("def choose_directory", preferences_source)
@@ -1356,6 +1425,10 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("QuitRole", actions_source)
         self.assertIn("setShortcut", actions_source)
         self.assertIn("fullscreen-surface", fullscreen_source)
+        self.assertIn("Resolution", camera_controls_source)
+        self.assertIn("Light", camera_controls_source)
+        self.assertIn("Reset to Defaults", user_controls_source)
+        self.assertIn("source_format", reset_defaults_source)
 
     def test_numeric_control_helpers_format_and_reject_invalid_text(
         self,

@@ -192,25 +192,75 @@ class CameraContractTest(unittest.TestCase):
         class FakeCameraFormat:
             """Expose the current Qt camera-format details."""
 
+            def __init__(
+                self,
+                width: int,
+                height: int,
+                pixel_format: str,
+                min_frame_rate: float,
+                max_frame_rate: float,
+            ) -> None:
+                """Store one deterministic camera-format snapshot."""
+
+                self._width = width
+                self._height = height
+                self._pixel_format = pixel_format
+                self._min_frame_rate = min_frame_rate
+                self._max_frame_rate = max_frame_rate
+
             def resolution(self) -> FakeResolution:
                 """Return the active format resolution."""
 
-                return FakeResolution(1920, 1080)
+                return FakeResolution(self._width, self._height)
 
             def pixelFormat(self) -> str:
                 """Return the active format token."""
 
-                return "PixelFormat.Format_NV12"
+                return self._pixel_format
 
             def minFrameRate(self) -> float:
                 """Return the lowest frame rate in the active format."""
 
-                return 30.0
+                return self._min_frame_rate
 
             def maxFrameRate(self) -> float:
                 """Return the highest frame rate in the active format."""
 
-                return 60.0
+                return self._max_frame_rate
+
+        class FakeCameraDevice:
+            """Expose the video formats supported by the fake camera."""
+
+            def __init__(self) -> None:
+                """Store one deterministic format list."""
+
+                self._formats = (
+                    FakeCameraFormat(
+                        1920,
+                        1080,
+                        "PixelFormat.Format_NV12",
+                        30.0,
+                        60.0,
+                    ),
+                    FakeCameraFormat(
+                        1280,
+                        720,
+                        "PixelFormat.Format_NV12",
+                        30.0,
+                        30.0,
+                    ),
+                )
+                self._camera_format = self._formats[0]
+
+            def videoFormats(self) -> tuple[FakeCameraFormat, ...]:
+                """Return the supported video formats."""
+
+                return self._formats
+
+            def cameraFormat(self) -> FakeCameraFormat:
+                """Return the currently selected camera format."""
+
+                return self._camera_format
 
         class FakeQCamera:
             """Record every camera-control call made by the backend."""
@@ -227,6 +277,9 @@ class CameraContractTest(unittest.TestCase):
                 """Initialize the fake camera with deterministic values."""
 
                 self.device = device
+                self._camera_format = getattr(
+                    device, "cameraFormat", lambda: None
+                )()
 
             def supportedFeatures(self) -> int:
                 """Return every feature flag used by the test."""
@@ -424,7 +477,13 @@ class CameraContractTest(unittest.TestCase):
             def cameraFormat(self) -> FakeCameraFormat:
                 """Return the active camera format."""
 
-                return FakeCameraFormat()
+                return self._camera_format
+
+            def setCameraFormat(self, camera_format: FakeCameraFormat) -> None:
+                """Record the requested active camera format."""
+
+                self._camera_format = camera_format
+                self.calls.append(("setCameraFormat", camera_format))
 
             def setAutoExposureTime(self) -> None:
                 """Record the auto-exposure-time reset."""
@@ -436,7 +495,28 @@ class CameraContractTest(unittest.TestCase):
 
                 self.calls.append(("setAutoIsoSensitivity", True))
 
+        fake_device = FakeCameraDevice()
         fake_qt_multimedia = mock.MagicMock(QCamera=FakeQCamera)
+        preferred_source_formats: dict[str, str] = {}
+
+        def get_preferred_source_format(
+            descriptor: CameraDescriptor,
+        ) -> str | None:
+            """Return the remembered source-format token for one camera."""
+
+            return preferred_source_formats.get(descriptor.stable_id)
+
+        def set_preferred_source_format(
+            descriptor: CameraDescriptor,
+            token: str | None,
+        ) -> None:
+            """Store the preferred source-format token for one camera."""
+
+            if token is None:
+                preferred_source_formats.pop(descriptor.stable_id, None)
+                return
+            preferred_source_formats[descriptor.stable_id] = token
+
         descriptor = CameraDescriptor(
             stable_id="qt-camera::example",
             display_name="Example Camera",
@@ -445,13 +525,17 @@ class CameraContractTest(unittest.TestCase):
         )
         backend = QtCameraControlBackend(
             fake_qt_multimedia,
-            lambda _descriptor: object(),
+            lambda _descriptor: fake_device,
+            get_preferred_source_format,
+            set_preferred_source_format,
         )
 
         controls = backend.list_controls(descriptor)
+        controls_by_id = {control.control_id: control for control in controls}
 
         self.assertEqual(
             (
+                "source_format",
                 "exposure_mode",
                 "exposure_locked",
                 "backlight_compensation",
@@ -469,7 +553,8 @@ class CameraContractTest(unittest.TestCase):
             ),
             tuple(control.control_id for control in controls),
         )
-        controls_by_id = {control.control_id: control for control in controls}
+        self.assertEqual("enum", controls_by_id["source_format"].kind)
+        self.assertEqual(2, len(controls_by_id["source_format"].choices))
         self.assertEqual(
             "numeric", controls_by_id["backlight_compensation"].kind
         )
@@ -482,6 +567,25 @@ class CameraContractTest(unittest.TestCase):
         self.assertEqual("read_only", controls_by_id["active_format"].kind)
         self.assertIn("1920x1080", str(controls_by_id["active_format"].value))
         self.assertIn("fps", str(controls_by_id["active_format"].value))
+
+        source_format_choice = controls_by_id["source_format"].choices[1].value
+        backend.set_control_value(
+            descriptor,
+            "source_format",
+            source_format_choice,
+        )
+        updated_controls = backend.list_controls(descriptor)
+        updated_by_id = {
+            control.control_id: control for control in updated_controls
+        }
+        self.assertEqual(
+            source_format_choice,
+            updated_by_id["source_format"].value,
+        )
+        self.assertIn(
+            "1280x720",
+            str(updated_by_id["active_format"].value),
+        )
 
         FakeQCamera.calls = []
         backend.set_control_value(descriptor, "exposure_locked", True)
@@ -498,6 +602,9 @@ class CameraContractTest(unittest.TestCase):
         backend.set_control_value(descriptor, "torch_mode", "auto")
         backend.set_control_value(descriptor, "restore_auto_exposure", True)
 
+        control_calls = [
+            call for call in FakeQCamera.calls if call[0] != "setCameraFormat"
+        ]
         self.assertEqual(
             [
                 ("setExposureMode", FakeExposureMode.ExposureManual),
@@ -520,8 +627,153 @@ class CameraContractTest(unittest.TestCase):
                 ("setAutoExposureTime", True),
                 ("setAutoIsoSensitivity", True),
             ],
-            FakeQCamera.calls,
+            control_calls,
         )
+
+    @mock.patch.object(
+        QtCameraBackend,
+        "_camera_device_for_descriptor",
+        autospec=True,
+    )
+    @mock.patch("webcam_micro.camera._load_qt_camera_modules")
+    def test_qt_camera_backend_uses_preferred_source_format_on_open_session(
+        self,
+        load_modules: mock.MagicMock,
+        camera_device_for_descriptor: mock.MagicMock,
+    ) -> None:
+        """Assert the Qt backend opens sessions with the chosen resolution."""
+
+        class FakeResolution:
+            """Expose a Qt-like size object for the test formats."""
+
+            def __init__(self, width: int, height: int) -> None:
+                """Store one stable resolution."""
+
+                self._width = width
+                self._height = height
+
+            def width(self) -> int:
+                """Return the recorded width."""
+
+                return self._width
+
+            def height(self) -> int:
+                """Return the recorded height."""
+
+                return self._height
+
+        class FakeCameraFormat:
+            """Expose the supported Qt camera formats."""
+
+            def __init__(
+                self,
+                width: int,
+                height: int,
+                pixel_format: str,
+                min_frame_rate: float,
+                max_frame_rate: float,
+            ) -> None:
+                """Store one stable format snapshot."""
+
+                self._width = width
+                self._height = height
+                self._pixel_format = pixel_format
+                self._min_frame_rate = min_frame_rate
+                self._max_frame_rate = max_frame_rate
+
+            def resolution(self) -> FakeResolution:
+                """Return the active format resolution."""
+
+                return FakeResolution(self._width, self._height)
+
+            def pixelFormat(self) -> str:
+                """Return the active format token."""
+
+                return self._pixel_format
+
+            def minFrameRate(self) -> float:
+                """Return the lowest frame rate in the active format."""
+
+                return self._min_frame_rate
+
+            def maxFrameRate(self) -> float:
+                """Return the highest frame rate in the active format."""
+
+                return self._max_frame_rate
+
+        class FakeCameraDevice:
+            """Expose one deterministic camera device for the backend."""
+
+            def __init__(self) -> None:
+                """Store the supported video formats."""
+
+                self._formats = (
+                    FakeCameraFormat(
+                        1920,
+                        1080,
+                        "PixelFormat.Format_NV12",
+                        30.0,
+                        60.0,
+                    ),
+                    FakeCameraFormat(
+                        1280,
+                        720,
+                        "PixelFormat.Format_NV12",
+                        30.0,
+                        30.0,
+                    ),
+                )
+
+            def videoFormats(self) -> tuple[FakeCameraFormat, ...]:
+                """Return the supported video formats."""
+
+                return self._formats
+
+        class FakeSession:
+            """Record the camera format used to open one session."""
+
+            last_camera_format: object | None = None
+
+            def __init__(
+                self,
+                descriptor: CameraDescriptor,
+                camera_device: object,
+                *,
+                camera_format: object | None = None,
+                qt_core: object,
+                qt_gui: object,
+                qt_multimedia: object,
+            ) -> None:
+                """Store the session inputs for later assertions."""
+
+                self.descriptor = descriptor
+                self.camera_device = camera_device
+                self.camera_format = camera_format
+                FakeSession.last_camera_format = camera_format
+
+        fake_device = FakeCameraDevice()
+        fake_qt_multimedia = mock.MagicMock()
+        load_modules.return_value = (object(), object(), fake_qt_multimedia)
+        camera_device_for_descriptor.return_value = fake_device
+
+        backend = QtCameraBackend()
+        descriptor = CameraDescriptor(
+            stable_id="qt-camera::example",
+            display_name="Example Camera",
+            backend_name="qt_multimedia",
+            device_selector="qt-camera::example",
+        )
+        selected_format = "1280x720|Format_NV12|30fps"
+        backend.set_control_value(descriptor, "source_format", selected_format)
+        expected_format = fake_device.videoFormats()[1]
+
+        with mock.patch("webcam_micro.camera.QtCameraSession", FakeSession):
+            session = backend.open_session(descriptor)
+
+        self.assertIsInstance(session, FakeSession)
+        self.assertEqual(descriptor, session.descriptor)
+        self.assertIs(expected_format, FakeSession.last_camera_format)
+        self.assertIs(expected_format, session.camera_format)
 
     def test_linux_v4l2_control_backend_surfaces_light_and_vendor_controls(
         self,

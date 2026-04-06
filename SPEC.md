@@ -225,11 +225,18 @@ settings dialog with a preview bolted onto it.
   preview-first shell.
 - The controls surface should split camera-native controls from software-
   side user controls. The camera section should hold a Resolution
-  dropdown, Exposure and Focus slider+spinbox controls with Auto
-  checkboxes when exposed, and Light on/off and level subcontrols when
-  exposed. The user section should hold Backlight compensation,
+  dropdown of supported camera formats, Exposure as a slider+spinbox
+  with an Auto checkbox when the camera exposes auto exposure, Focus as
+  a slider+spinbox with an Auto checkbox when the camera exposes auto
+  focus, and Light as an on/off checkbox plus a level slider when the
+  camera exposes those subcontrols. When Auto is enabled, the paired
+  numeric control stays visible, greys out, and snaps to the auto value.
+  Any missing Light subcontrol must disable cleanly rather than pretend
+  to exist. The user section should hold Backlight compensation,
   Brightness, Contrast, Hue, Saturation, Sharpness, Gamma, and White
-  balance, and it should place Reset to defaults at the bottom.
+  balance as slider+spinbox widgets, with Auto checkboxes on Contrast,
+  Hue, and White balance wherever the backend exposes them. Reset to
+  defaults should sit at the bottom of the user section.
 - When a control exposes both auto and numeric/manual state, the numeric
   widget must stay visible, mirror the current value, snap to the auto
   value when auto is enabled, and become disabled while auto is enabled.
@@ -322,15 +329,16 @@ settings dialog with a preview bolted onto it.
   Light controls with the exact widget composition the device reports:
   Resolution as a dropdown source selector; Exposure and Focus as
   slider+spinbox pairs with Auto checkboxes when exposed; and Light as an
-  on/off checkbox plus a level slider when exposed.
+  on/off checkbox plus a level slider when exposed, with any missing
+  subcontrol disabled cleanly.
 
-- When a camera reports an Auto checkbox for Exposure, Focus, Contrast,
-  Hue, or White balance, enabling Auto must grey out the paired numeric
-  control and keep it synced to the current auto value.
+- When a camera reports an Auto checkbox for Exposure or Focus, enabling
+  Auto must grey out the paired numeric control and keep it synced to the
+  current auto value.
 
-- The product must support control families including Exposure, Focus,
-  White Balance, Light/Flicker, Color/Image Quality, Zoom, Source Info,
-  Actions, and Other Controls when the active device exposes them.
+- The product must keep additional backend-specific controls in the Other
+  Controls section when the active device exposes them, while preserving
+  the camera-controls and user-controls split.
 
 - Numeric controls that expose values must use guvcview-style settings
   components: a slider, min/mid/max labels shown beneath the slider, and an
@@ -348,12 +356,13 @@ settings dialog with a preview bolted onto it.
 - The product must tolerate cameras that expose only a subset of common
   controls and must not fail simply because some expected controls are absent.
 
-- The product must support common microscope-relevant controls where exposed,
-  including brightness, contrast, saturation, hue, gamma, gain, sharpness,
-  backlight compensation, power line frequency, AC flicker compensation,
-  white balance automatic control, white balance temperature, exposure
-  automatic and manual controls, focus automatic and manual controls, zoom
-  controls, color profile controls, and vendor-specific extension controls.
+- The product must support common microscope-relevant controls where
+  exposed, including brightness, contrast, saturation, hue, gamma, gain,
+  sharpness, backlight compensation, power line frequency, AC flicker
+  compensation, white balance automatic control, white balance
+  temperature, exposure automatic and manual controls, focus automatic and
+  manual controls, zoom controls, color profile controls, and vendor-
+  specific extension controls.
 
 - Camera-native controls must include light controls with on/off and level
   subcontrols when exposed, and unsupported subcontrols must disable cleanly
@@ -361,9 +370,11 @@ settings dialog with a preview bolted onto it.
 
 - The user-controls section must include backlight compensation, brightness,
   contrast, hue, saturation, sharpness, gamma, and white balance when the
-  active camera exposes them, with slider+spinbox widgets and Auto
-  toggles on contrast, hue, and white balance wherever the backend
-  exposes them.
+  active camera exposes them, with slider+spinbox widgets and Auto toggles
+  on contrast, hue, and white balance wherever the backend exposes them.
+
+- The user-controls section must place a Reset to Defaults button at the
+  bottom.
 
 - The user-controls section must end with a reset-to-defaults button that
   restores built-in or remembered values for the visible controls.
@@ -564,7 +575,8 @@ settings dialog with a preview bolted onto it.
   auto-enabled exposure or focus controls gray while the live value stays
   visible and tracks the auto value, use the split camera-controls and
   user-controls layout, adjust light on/off and level controls when
-  exposed, and reset visible user controls to their defaults.
+  exposed, and reset visible user controls to their defaults from the
+  bottom-most button.
 
 - A user can tune exposure, white balance, backlight compensation, flicker
   compensation, zoom, and any activity LED or vendor-specific control that

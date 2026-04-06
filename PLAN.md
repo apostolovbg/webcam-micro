@@ -123,20 +123,22 @@ in `SPEC.md` and history in `CHANGELOG.md`.
    - the revised SPEC contract is verified by automated tests and
      operational checks on the supported environments we can run here
 
-6. [pending] Rework the controls pane into camera controls and user
+6. [done] Rework the controls pane into camera controls and user
    controls.
    Goal:
-   - match the software-side control split now expected by the spec
+   - match the exact camera-controls and user-controls split now
+     expected by the spec
    Work:
    - expose supported camera resolutions in a dropdown menu
    - render exposure as a slider+spinbox with an Auto checkbox when the
-     camera exposes auto exposure; when Auto is enabled, the control
-     greys out and snaps to the auto value
+     camera exposes auto exposure; when Auto is enabled, the slider and
+     spinbox grey out and snap to the auto value
    - render focus as a slider+spinbox with an Auto checkbox when the
-     camera exposes auto focus; when Auto is enabled, the control greys
-     out and snaps to the auto value
+     camera exposes auto focus; when Auto is enabled, the slider and
+     spinbox grey out and snap to the auto value
    - render light as an on/off checkbox when exposed, plus a level
-     slider when exposed; missing subcontrols must be disabled cleanly
+     slider when exposed; any missing on/off or level subcontrol must be
+     disabled cleanly
    - keep backlight compensation, brightness, contrast, hue, saturation,
      sharpness, gamma, and white balance in the user-controls section,
      with slider+spinbox widgets for each and Auto checkboxes on

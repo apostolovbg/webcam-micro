@@ -61,6 +61,40 @@ Example:
 ## Version 0.1.0b1
 
 - 2026-04-06:
+  Change: Tightened the control-split test coverage and README wording
+    after the formatter sweep and the resolution-selection assertions.
+  Why: Aligned the refreshed camera-format and shell-contract work with
+    the current Camera Controls and User Controls helpers.
+  Impact: Restored the source-format persistence check, updated the
+    shell-spec expectations, refreshed the README mirrors, and kept the
+    current control-split slice passing.
+  Files:
+  CHANGELOG.md
+  README.md
+  tests/test_camera.py
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/ui.py
+
+- 2026-04-06:
+  Change: Revised the control-split slice around the exact camera
+    controls and user controls contract, including source-format
+    resolution selection and auto-aware paired widgets.
+  Why: Clarified the spec so the pane matches the requested control
+    composition instead of collapsing it into broader family labels.
+  Impact: Aligned the resolution dropdown, auto-gated exposure and
+    focus rows, light subcontrols, reset-to-defaults behavior, and the
+    covering tests with the new split.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  SPEC.md
+  tests/test_camera.py
+  tests/test_ui.py
+  webcam_micro/camera.py
+  webcam_micro/ui.py
+
+- 2026-04-06:
   Change: Reframed the workstation plan and spec around the camera
     controls and user controls split, and refreshed the managed
     DevCovenant policy surface.

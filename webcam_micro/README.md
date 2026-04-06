@@ -74,16 +74,16 @@ complete for the current release path.
 - Preview and framing: live preview supports fit, fill, and centered crop
   modes, and a tighter refresh cadence keeps the newest frame close to live
   motion when the preview resizes.
-- Camera controls: the dock splits native controls into camera controls
-  and user controls. Camera controls expose Resolution as a dropdown,
-  Exposure and Focus as slider+spinbox controls with Auto checkboxes
-  when the camera reports them, and Light as an on/off checkbox plus a
-  level slider when exposed. When Auto is enabled, the paired numeric
-  control stays visible, greys out, and tracks the auto value. User
-  controls expose Backlight compensation, Brightness, Contrast, Hue,
-  Saturation, Sharpness, Gamma, and White balance, with Auto checkboxes
-  on Contrast, Hue, and White balance when the backend exposes them, and
-  a Reset to Defaults button at the bottom.
+- Camera controls: the dock splits native controls into Camera Controls
+  and User Controls. Camera Controls expose Resolution as a dropdown,
+  Exposure and Focus as slider-plus-spinbox controls with Auto
+  checkboxes when the camera reports them, and Light as an on/off
+  checkbox plus a level slider when exposed. When Auto is enabled, the
+  paired numeric control stays visible, greys out, and tracks the auto
+  value. User Controls expose Backlight compensation, Brightness,
+  Contrast, Hue, Saturation, Sharpness, Gamma, and White balance, with
+  Auto checkboxes on Contrast, Hue, and White balance when the backend
+  exposes them, and a Reset to Defaults button at the bottom.
 - The active backend still exposes numeric, boolean, enum, read-only,
   and action controls when the device supports them. Qt Multimedia now
   surfaces backlight compensation, manual exposure time and ISO, focus
@@ -167,12 +167,12 @@ changing the live microscope view.
 
 ## Camera Controls
 The app exposes the real control surface reported by the active camera and
-backend. The dock splits those controls into camera controls and user
-controls. Camera controls expose Resolution as a dropdown, Exposure and
-Focus as slider+spinbox widgets with Auto checkboxes when the camera
+backend. The dock splits those controls into Camera Controls and User
+Controls. Camera Controls expose Resolution as a dropdown, Exposure and
+Focus as slider-plus-spinbox widgets with Auto checkboxes when the camera
 reports them, and Light as an on/off checkbox plus a level slider when
 available. When Auto is enabled, the paired numeric control stays visible,
-greys out, and tracks the auto value. User controls expose Backlight
+greys out, and tracks the auto value. User Controls expose Backlight
 compensation, Brightness, Contrast, Hue, Saturation, Sharpness, Gamma, and
 White balance, with Auto checkboxes on Contrast, Hue, and White balance
 when the backend exposes them, and a Reset to Defaults button at the

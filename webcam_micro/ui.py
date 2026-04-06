@@ -95,93 +95,32 @@ CONTROL_SURFACE_HIDDEN_CONTROL_IDS = {
     "low_light_boost_support",
 }
 CONTROL_SURFACE_SECTION_BY_CONTROL_ID = {
-    "active_format": "Source Info",
-    "exposure_locked": "Exposure",
-    "exposure_mode": "Exposure",
-    "restore_auto_exposure": "Actions",
-    "zoom_factor": "Zoom",
+    "activity_led": "Camera Controls",
+    "exposure_locked": "Camera Controls",
+    "focus_auto": "Camera Controls",
+    "focus_distance": "Camera Controls",
+    "light_enabled": "Camera Controls",
+    "light_level": "Camera Controls",
+    "manual_exposure_time": "Camera Controls",
+    "source_format": "Camera Controls",
+    "backlight_compensation": "User Controls",
+    "brightness": "User Controls",
+    "contrast": "User Controls",
+    "contrast_auto": "User Controls",
+    "gamma": "User Controls",
+    "hue": "User Controls",
+    "hue_auto": "User Controls",
+    "saturation": "User Controls",
+    "sharpness": "User Controls",
+    "white_balance_automatic": "User Controls",
+    "white_balance_temperature": "User Controls",
 }
 CONTROL_SURFACE_SECTION_ORDER = (
-    "Exposure",
-    "Focus",
-    "White Balance",
-    "Light/Flicker",
-    "Color/Image Quality",
-    "Zoom",
-    "Source Info",
-    "Actions",
+    "Camera Controls",
+    "User Controls",
     "Other Controls",
 )
 CONTROL_SURFACE_TWO_COLUMN_MIN_WIDTH = 800
-CONTROL_SURFACE_SECTION_KEYWORDS = (
-    (
-        "Exposure",
-        (
-            "exposure",
-            "shutter",
-            "iris",
-            "aperture",
-            "gain",
-            "backlight compensation",
-            "iso",
-        ),
-    ),
-    ("Focus", ("focus",)),
-    (
-        "White Balance",
-        (
-            "white balance",
-            "white_balance",
-            "awb",
-            "color temperature",
-            "temperature",
-        ),
-    ),
-    (
-        "Light/Flicker",
-        (
-            "flicker",
-            "power line frequency",
-            "power_line_frequency",
-            "anti banding",
-            "ac flicker",
-            "ac_flicker",
-            "flash",
-            "torch",
-            "lamp",
-            "illumination",
-            "led",
-        ),
-    ),
-    (
-        "Color/Image Quality",
-        (
-            "brightness",
-            "contrast",
-            "saturation",
-            "hue",
-            "gamma",
-            "sharpness",
-            "hdr",
-            "color profile",
-            "color_profile",
-        ),
-    ),
-    ("Zoom", ("zoom",)),
-    (
-        "Source Info",
-        (
-            "active format",
-            "active_format",
-            "source mode",
-            "source",
-            "frame size",
-            "frame rate",
-            "pixel format",
-            "video format",
-        ),
-    ),
-)
 STILL_FILE_FILTER = "PNG Image (*.png);;JPEG Image (*.jpg *.jpeg)"
 
 
@@ -221,12 +160,15 @@ def build_shell_spec() -> ShellSpec:
             "visible restore action for reattaching detached controls, the "
             "dock defaults to one column and widens to two columns on "
             "roomy layouts, still capture saves quietly to the configured "
-            "folder, numeric controls use sliders with spinboxes and "
-            "min/mid/max labels, and camera controls are grouped into "
-            "stable Exposure, Focus, White Balance, Light/Flicker, "
-            "Color/Image Quality, Zoom, Source Info, Actions, and Other "
-            "Controls sections while unsupported families stay out of the "
-            "main surface. A tighter preview cadence keeps the newest "
+            "folder, Camera Controls and User Controls are split explicitly "
+            "so the Camera Controls section puts Resolution in a dropdown, "
+            "Exposure and Focus use slider-plus-spinbox rows with Auto "
+            "checkboxes when the camera reports them, Light uses on/off "
+            "and level subcontrols when available, the User Controls "
+            "section carries Backlight compensation, Brightness, Contrast, "
+            "Hue, Saturation, Sharpness, Gamma, and White balance, and "
+            "Reset to Defaults sits at the bottom of the User Controls "
+            "section. A tighter preview cadence keeps the newest "
             "frame close to live motion while native dialogs handle "
             "preferences, diagnostics, recording start or stop flows, "
             "named presets, and a compact structured status bar.",
@@ -788,16 +730,6 @@ def _control_surface_section_name(control: CameraControl) -> str | None:
     section = CONTROL_SURFACE_SECTION_BY_CONTROL_ID.get(control.control_id)
     if section is not None:
         return section
-    search_text = " ".join(
-        part.lower()
-        for part in (control.control_id, control.label, control.details)
-        if part
-    ).replace("_", " ")
-    for section_name, keywords in CONTROL_SURFACE_SECTION_KEYWORDS:
-        if any(keyword in search_text for keyword in keywords):
-            return section_name
-    if control.kind == "action":
-        return "Actions"
     return "Other Controls"
 
 
@@ -1694,6 +1626,8 @@ class PreviewApplication:
         for control in self._active_controls:
             if control.value is None:
                 continue
+            if control.control_id == "source_format":
+                continue
             controls[control.control_id] = control.value
         return {
             "preview_framing_mode": self._preview_framing_mode,
@@ -1732,6 +1666,8 @@ class PreviewApplication:
             self._persist_workspace_state()
             return True
         for control in self._active_controls:
+            if control.control_id == "source_format":
+                continue
             raw_value = control_values.get(control.control_id)
             value = _persisted_control_value(control, raw_value)
             if value is None:
@@ -2199,6 +2135,50 @@ class PreviewApplication:
         details.setWordWrap(True)
         return details
 
+    def _control_by_id(self, *control_ids: str) -> CameraControl | None:
+        """Return the first active control matching one of the IDs."""
+
+        for control_id in control_ids:
+            control = self._controls_by_id.get(control_id)
+            if control is not None:
+                return control
+        return None
+
+    def _placeholder_numeric_control(
+        self, control_id: str, label: str
+    ) -> CameraControl:
+        """Return one disabled numeric placeholder for a missing control."""
+
+        return CameraControl(
+            control_id=control_id,
+            label=label,
+            kind="numeric",
+            value=0.0,
+            min_value=0.0,
+            max_value=1.0,
+            step=1.0,
+            read_only=True,
+            enabled=False,
+            details="This control is unavailable on the active camera.",
+        )
+
+    def _placeholder_boolean_control(
+        self,
+        control_id: str,
+        label: str,
+    ) -> CameraControl:
+        """Return one disabled boolean placeholder for a missing control."""
+
+        return CameraControl(
+            control_id=control_id,
+            label=label,
+            kind="boolean",
+            value=False,
+            read_only=True,
+            enabled=False,
+            details="This control is unavailable on the active camera.",
+        )
+
     def _clear_layout(self, layout) -> None:
         """Remove all child widgets from one layout."""
 
@@ -2266,6 +2246,172 @@ class PreviewApplication:
         layout.addStretch(1)
         return container
 
+    def _build_camera_controls_section_widget(
+        self,
+    ) -> tuple[object | None, set[str]]:
+        """Build the camera-native controls section for the dock."""
+
+        QtWidgets = self._qt_widgets
+
+        container = QtWidgets.QGroupBox("Camera Controls")
+        layout = QtWidgets.QVBoxLayout(container)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
+
+        rendered_controls = 0
+        used_control_ids: set[str] = set()
+
+        source_format = self._control_by_id("source_format")
+        if source_format is not None:
+            widget = self._build_enum_control(
+                source_format,
+                display_label="Resolution",
+            )
+            if widget is not None:
+                layout.addWidget(widget)
+                rendered_controls += 1
+                used_control_ids.add(source_format.control_id)
+
+        exposure_control = self._control_by_id("manual_exposure_time")
+        exposure_auto = self._control_by_id("exposure_locked")
+        if exposure_control is not None or exposure_auto is not None:
+            widget = self._build_numeric_control(
+                exposure_control
+                or self._placeholder_numeric_control(
+                    "manual_exposure_time",
+                    "Exposure",
+                ),
+                display_label="Exposure",
+                auto_control=exposure_auto,
+            )
+            if widget is not None:
+                layout.addWidget(widget)
+                rendered_controls += 1
+            if exposure_control is not None:
+                used_control_ids.add(exposure_control.control_id)
+            if exposure_auto is not None:
+                used_control_ids.add(exposure_auto.control_id)
+
+        focus_control = self._control_by_id("focus_distance")
+        focus_auto = self._control_by_id("focus_auto")
+        if focus_control is not None or focus_auto is not None:
+            widget = self._build_numeric_control(
+                focus_control
+                or self._placeholder_numeric_control(
+                    "focus_distance",
+                    "Focus",
+                ),
+                display_label="Focus",
+                auto_control=focus_auto,
+            )
+            if widget is not None:
+                layout.addWidget(widget)
+                rendered_controls += 1
+            if focus_control is not None:
+                used_control_ids.add(focus_control.control_id)
+            if focus_auto is not None:
+                used_control_ids.add(focus_auto.control_id)
+
+        light_toggle = self._control_by_id("activity_led", "light_enabled")
+        light_level = self._control_by_id("light_level")
+        if light_toggle is not None or light_level is not None:
+            toggle_widget = self._build_boolean_control(
+                light_toggle
+                or self._placeholder_boolean_control(
+                    "activity_led",
+                    "Light",
+                ),
+                display_label="Light",
+                checkbox_label="On",
+            )
+            if toggle_widget is not None:
+                layout.addWidget(toggle_widget)
+                rendered_controls += 1
+            if light_toggle is not None:
+                used_control_ids.add(light_toggle.control_id)
+
+            level_widget = self._build_numeric_control(
+                light_level
+                or self._placeholder_numeric_control("light_level", "Level"),
+                display_label="Level",
+            )
+            if level_widget is not None:
+                layout.addWidget(level_widget)
+                rendered_controls += 1
+            if light_level is not None:
+                used_control_ids.add(light_level.control_id)
+
+        if rendered_controls == 0:
+            container.deleteLater()
+            return None, set()
+
+        layout.addStretch(1)
+        return container, used_control_ids
+
+    def _build_user_controls_section_widget(
+        self,
+    ) -> tuple[object | None, set[str]]:
+        """Build the software-side user controls section for the dock."""
+
+        QtWidgets = self._qt_widgets
+
+        container = QtWidgets.QGroupBox("User Controls")
+        layout = QtWidgets.QVBoxLayout(container)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
+
+        rendered_controls = 0
+        used_control_ids: set[str] = set()
+        rows = (
+            ("Backlight Compensation", ("backlight_compensation",), ()),
+            ("Brightness", ("brightness",), ()),
+            ("Contrast", ("contrast",), ("contrast_auto",)),
+            ("Hue", ("hue",), ("hue_auto",)),
+            ("Saturation", ("saturation",), ()),
+            ("Sharpness", ("sharpness",), ()),
+            ("Gamma", ("gamma",), ()),
+            (
+                "White Balance",
+                ("white_balance_temperature",),
+                ("white_balance_automatic",),
+            ),
+        )
+
+        for display_label, value_ids, auto_ids in rows:
+            value_control = self._control_by_id(*value_ids)
+            auto_control = self._control_by_id(*auto_ids) if auto_ids else None
+            if value_control is None and auto_control is None:
+                continue
+            widget = self._build_numeric_control(
+                value_control
+                or self._placeholder_numeric_control(
+                    value_ids[0],
+                    display_label,
+                ),
+                display_label=display_label,
+                auto_control=auto_control,
+            )
+            if widget is None:
+                continue
+            layout.addWidget(widget)
+            rendered_controls += 1
+            if value_control is not None:
+                used_control_ids.add(value_control.control_id)
+            if auto_control is not None:
+                used_control_ids.add(auto_control.control_id)
+
+        if rendered_controls == 0:
+            container.deleteLater()
+            return None, set()
+
+        layout.addStretch(1)
+        reset_button = QtWidgets.QPushButton("Reset to Defaults", container)
+        reset_button.clicked.connect(
+            lambda _checked=False: self._reset_controls_to_defaults()
+        )
+        layout.addWidget(reset_button)
+        return container, used_control_ids
+
     def _build_controls_column_widget(
         self,
         section_widgets: tuple[object, ...],
@@ -2289,15 +2435,30 @@ class PreviewApplication:
         if self._controls_body_layout is None:
             return
         self._clear_layout(self._controls_body_layout)
-        grouped_sections = _group_controls_for_surface(self._active_controls)
+        camera_section, camera_control_ids = (
+            self._build_camera_controls_section_widget()
+        )
+        user_section, user_control_ids = (
+            self._build_user_controls_section_widget()
+        )
+        used_control_ids = camera_control_ids | user_control_ids
+        other_controls = tuple(
+            control
+            for control in self._active_controls
+            if control.control_id not in used_control_ids
+            and control.control_id not in CONTROL_SURFACE_HIDDEN_CONTROL_IDS
+        )
         section_widgets: list[object] = []
-        for heading, controls in grouped_sections:
-            section_widget = self._build_controls_section_widget(
-                heading,
-                controls,
-            )
+        for section_widget in (camera_section, user_section):
             if section_widget is not None:
                 section_widgets.append(section_widget)
+        if other_controls:
+            other_section_widget = self._build_controls_section_widget(
+                "Other Controls",
+                other_controls,
+            )
+            if other_section_widget is not None:
+                section_widgets.append(other_section_widget)
 
         if not section_widgets:
             self._controls_layout_columns = 1
@@ -2348,7 +2509,13 @@ class PreviewApplication:
             return None
         return int(round(step_count))
 
-    def _build_numeric_control(self, control: CameraControl):
+    def _build_numeric_control(
+        self,
+        control: CameraControl,
+        *,
+        display_label: str | None = None,
+        auto_control: CameraControl | None = None,
+    ):
         """Build one numeric camera-control dock row."""
 
         if (
@@ -2364,15 +2531,36 @@ class PreviewApplication:
         scale = _slider_scale(control.step)
         step = control.step if control.step is not None else 1.0
         decimals = _numeric_decimals(control.step)
-        disabled = control.read_only or not control.enabled
+        auto_enabled = bool(auto_control.value) if auto_control else False
+        disabled = control.read_only or not control.enabled or auto_enabled
 
         container = QtWidgets.QWidget()
         container_layout = QtWidgets.QVBoxLayout(container)
         container_layout.setContentsMargins(0, 0, 0, 0)
         container_layout.setSpacing(6)
 
-        label = QtWidgets.QLabel(control.label)
-        container_layout.addWidget(label)
+        header_row = QtWidgets.QHBoxLayout()
+        header_row.setContentsMargins(0, 0, 0, 0)
+        header_row.setSpacing(12)
+
+        label = QtWidgets.QLabel(display_label or control.label)
+        header_row.addWidget(label)
+        header_row.addStretch(1)
+
+        if auto_control is not None:
+            auto_checkbox = QtWidgets.QCheckBox("Auto")
+            auto_checkbox.setChecked(auto_enabled)
+            auto_checkbox.setDisabled(
+                auto_control.read_only or not auto_control.enabled
+            )
+            auto_checkbox.toggled.connect(
+                lambda checked, cid=auto_control.control_id: (
+                    self._handle_boolean_toggle(cid, checked)
+                )
+            )
+            header_row.addWidget(auto_checkbox)
+
+        container_layout.addLayout(header_row)
 
         slider_row = QtWidgets.QHBoxLayout()
         slider_row.setContentsMargins(0, 0, 0, 0)
@@ -2483,7 +2671,13 @@ class PreviewApplication:
         spinbox.valueChanged.connect(handle_spinbox_change)
         return container
 
-    def _build_boolean_control(self, control: CameraControl):
+    def _build_boolean_control(
+        self,
+        control: CameraControl,
+        *,
+        display_label: str | None = None,
+        checkbox_label: str | None = None,
+    ):
         """Build one boolean camera-control dock row."""
 
         QtWidgets = self._qt_widgets
@@ -2493,7 +2687,10 @@ class PreviewApplication:
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        checkbox = QtWidgets.QCheckBox(control.label)
+        if display_label is not None:
+            layout.addWidget(QtWidgets.QLabel(display_label))
+
+        checkbox = QtWidgets.QCheckBox(checkbox_label or control.label)
         checkbox.setChecked(bool(control.value))
         checkbox.setDisabled(control.read_only or not control.enabled)
         checkbox.toggled.connect(
@@ -2508,7 +2705,12 @@ class PreviewApplication:
             layout.addWidget(details)
         return container
 
-    def _build_enum_control(self, control: CameraControl):
+    def _build_enum_control(
+        self,
+        control: CameraControl,
+        *,
+        display_label: str | None = None,
+    ):
         """Build one enum camera-control dock row."""
 
         QtWidgets = self._qt_widgets
@@ -2518,7 +2720,7 @@ class PreviewApplication:
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        label = QtWidgets.QLabel(control.label)
+        label = QtWidgets.QLabel(display_label or control.label)
         layout.addWidget(label)
 
         dropdown = QtWidgets.QComboBox()
@@ -2649,6 +2851,11 @@ class PreviewApplication:
         )
         message = f"Updated {control.label}."
         self._set_controls_notice(message)
+        if control_id == "source_format":
+            if status_notice:
+                self._set_status(self._preview_state, notice=message)
+            self.open_selected_camera()
+            return
         if status_notice:
             self._set_status(self._preview_state, notice=message)
         if refresh_surface:
@@ -2664,6 +2871,8 @@ class PreviewApplication:
             return
         applied_controls: list[str] = []
         for control in self._active_controls:
+            if control.control_id == "source_format":
+                continue
             if control.read_only or not control.enabled:
                 continue
             value = BUILTIN_CONTROL_DEFAULT_VALUES.get(control.control_id)
@@ -2693,6 +2902,39 @@ class PreviewApplication:
             self._refresh_control_surface(
                 notice="Applied saved camera settings."
             )
+
+    def _reset_controls_to_defaults(self) -> None:
+        """Reset the active editable controls back to their defaults."""
+
+        descriptor = self._selected_descriptor()
+        if descriptor is None:
+            return
+        reset_anything = False
+        for control in self._active_controls:
+            default_value = BUILTIN_CONTROL_DEFAULT_VALUES.get(
+                control.control_id,
+            )
+            settings_key = _camera_control_setting_key(
+                descriptor.stable_id,
+                control.control_id,
+            )
+            if control.control_id == "source_format":
+                if self._settings.value(settings_key) is not None:
+                    self._settings.remove(settings_key)
+                    reset_anything = True
+                continue
+            if default_value is None:
+                continue
+            if control.read_only or not control.enabled:
+                continue
+            self._settings.remove(settings_key)
+            reset_anything = True
+        if not reset_anything:
+            return
+        if self._session is not None:
+            self.open_selected_camera()
+            return
+        self._refresh_control_surface(notice="Restored control defaults.")
 
     def _handle_boolean_toggle(self, control_id: str, value: object) -> None:
         """Apply one boolean control from its check-box state."""
@@ -2867,6 +3109,29 @@ class PreviewApplication:
         if auto_open:
             self.open_selected_camera()
 
+    def _prime_source_format_for_descriptor(
+        self,
+        descriptor: CameraDescriptor,
+    ) -> None:
+        """Seed the backend with one remembered source-format selection."""
+
+        stored_value = self._settings.value(
+            _camera_control_setting_key(
+                descriptor.stable_id,
+                "source_format",
+            )
+        )
+        if stored_value is None:
+            return
+        try:
+            self._backend.set_control_value(
+                descriptor,
+                "source_format",
+                stored_value,
+            )
+        except CameraControlApplyError:
+            return
+
     def _handle_camera_index_changed(self, index: int) -> None:
         """Handle a camera selection change from the combo box."""
 
@@ -2901,9 +3166,10 @@ class PreviewApplication:
             self._record_diagnostic_event(notice)
             return
         self.close_session()
+        self._prime_source_format_for_descriptor(descriptor)
         try:
             self._session = self._backend.open_session(descriptor)
-        except RuntimeError as exc:
+        except (CameraControlApplyError, RuntimeError) as exc:
             self._set_preview_message(str(exc))
             self._refresh_control_surface(notice=str(exc))
             self._set_status("open failed", notice="Camera open failed.")
