@@ -50,6 +50,9 @@ in `SPEC.md` and history in `CHANGELOG.md`.
 - Keep macOS camera control ownership on the Qt Multimedia path first,
   with AVFoundation as a fallback that fails closed on unsupported
   custom-exposure writes.
+- Gate format-dependent controls such as video HDR on explicit
+  active-format support so unsupported cameras do not surface
+  crash-prone rows.
 - Prefer stable control families and predictable layout over ad-hoc polish.
 - Preserve the alpha delivery history in `CHANGELOG.md`; do not carry it
   forward here.
@@ -146,13 +149,16 @@ in `SPEC.md` and history in `CHANGELOG.md`.
      section when the active camera exposes them, and always surface
      shell-managed brightness, contrast, hue, saturation, sharpness, and
      gamma rows with slider+spinbox widgets, with Auto checkboxes on
-     contrast and hue in the shell
+     contrast and hue in the shell; camera-owned exposure, focus, and
+     white-balance sliders stay usable so moving them can switch the
+     camera into manual mode
    - place the reset-to-defaults button at the bottom of the user-
      controls section
    Done when:
    - the pane cleanly separates camera-native controls from shell-
-     managed adjustments and preserves the auto/disabled behavior for
-     paired controls
+     managed adjustments and keeps shell-managed auto rows disabled
+     while camera-owned exposure, focus, and white-balance sliders stay
+     interactive
 
 ## Exit Criteria
 - The controls surface is capability-driven and grouped into stable

@@ -76,15 +76,19 @@ complete for the current release path.
   motion when the preview resizes.
 - Camera controls: the dock splits native controls into Camera Controls
   and User Controls. Camera Controls expose Resolution as a dropdown,
-  Exposure and Focus as slider-plus-spinbox controls with Auto
-  checkboxes when the camera reports them, and Light as an on/off
-  checkbox plus a level slider when exposed. When Auto is enabled, the
-  paired numeric control stays visible, greys out, and tracks the auto
-  value. User Controls expose Backlight compensation and White balance
-  when the camera exposes them plus shell-managed Brightness, Contrast,
-  Hue, Saturation, Sharpness, and Gamma rows, Contrast and Hue keep
-  Auto checkboxes in the shell, and a Reset to Defaults button sits at
-  the bottom.
+  Exposure and Focus as slider-plus-spinbox controls with exposure
+  lock and Auto checkboxes when the camera reports them, and Light as
+  an on/off checkbox plus a level slider when exposed. Shell-managed
+  Auto rows grey out their paired numeric control, while the camera-
+  owned exposure, focus, and white-balance sliders stay usable so moving
+  them can switch the camera into manual mode. Automatic Video HDR
+  appears only when the active format reports support, so unsupported
+  cameras skip that row instead of crashing. User Controls expose
+  Backlight compensation and White balance when the camera exposes them
+  plus shell-managed Brightness, Contrast, Hue, Saturation, Sharpness,
+  and Gamma rows, Contrast and Hue keep Auto checkboxes in the shell,
+  White balance keeps its manual temperature slider usable, and a Reset
+  to Defaults button sits at the bottom.
 - The active backend still exposes numeric, boolean, enum, read-only,
   and action controls when the device supports them. Qt Multimedia now
   surfaces backlight compensation, manual exposure time and ISO, focus
@@ -196,7 +200,8 @@ does not fail just because a camera lacks an expected control.
 On macOS, the Qt control backend owns exposure, ISO, backlight, focus,
 and white balance when those setters are available. AVFoundation remains
 fallback for native-only gaps and rejects unsupported custom-exposure
-writes instead of crashing.
+writes instead of crashing. Automatic Video HDR is only surfaced when the
+active format reports HDR support.
 
 ## Capture and Recording
 Still images save quietly to the configured image folder as PNG or JPEG

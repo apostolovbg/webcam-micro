@@ -1653,7 +1653,11 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("fullscreen-surface", fullscreen_source)
         self.assertIn("Resolution", camera_controls_source)
         self.assertIn("Light", camera_controls_source)
+        self.assertIn('auto_checkbox_label="Locked"', camera_controls_source)
+        self.assertIn("disable_when_auto=False", camera_controls_source)
         self.assertIn("Reset to Defaults", user_controls_source)
+        self.assertIn("white_balance_temperature", user_controls_source)
+        self.assertIn("white_balance_automatic", user_controls_source)
         self.assertIn("_software_controls_for_descriptor", refresh_source)
         self.assertIn("source_format", reset_defaults_source)
 

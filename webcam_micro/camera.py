@@ -3410,22 +3410,40 @@ class AvFoundationCameraControlBackend:
             max_bias = 4.0
         return min_bias, max_bias
 
+    def _white_balance_locked_supported(self, device: Any) -> bool:
+        """Return whether the device can lock white balance manually."""
+
+        support_method = getattr(device, "isWhiteBalanceModeSupported_", None)
+        if support_method is not None:
+            try:
+                if bool(support_method(0)):
+                    return True
+            except (AttributeError, RuntimeError, TypeError, ValueError):
+                pass
+        locking_supported = getattr(
+            device,
+            "isLockingWhiteBalanceWithCustomDeviceGainsSupported",
+            None,
+        )
+        if locking_supported is None:
+            return False
+        try:
+            return bool(_call_or_value(locking_supported))
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            return False
+
     def _white_balance_temperature_supported(self, device: Any) -> bool:
         """Return whether locked white balance temperature is safe."""
 
-        support_method = getattr(device, "isWhiteBalanceModeSupported_", None)
         setter = getattr(
             device,
             "setWhiteBalanceModeLockedWithDeviceWhiteBalanceTemperatureAnd"
             "TintValues_completionHandler_",
             None,
         )
-        if support_method is None or setter is None:
+        if setter is None:
             return False
-        try:
-            return bool(support_method(0))
-        except (AttributeError, RuntimeError, TypeError, ValueError):
-            return False
+        return self._white_balance_locked_supported(device)
 
     def _cmtime_seconds(self, value: object) -> float | None:
         """Return the seconds represented by one AVFoundation CMTime."""
@@ -3487,6 +3505,18 @@ class AvFoundationCameraControlBackend:
             return False
         try:
             return bool(support_method())
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            return False
+
+    def _video_hdr_supported(self, active_format: Any) -> bool:
+        """Return whether the active format can safely expose video HDR."""
+
+        if active_format is None or not hasattr(
+            active_format, "isVideoHDRSupported"
+        ):
+            return False
+        try:
+            return bool(active_format.isVideoHDRSupported())
         except (AttributeError, RuntimeError, TypeError, ValueError):
             return False
 
@@ -3719,12 +3749,13 @@ class AvFoundationCameraControlBackend:
             )
             if current_white_balance_mode is None:
                 current_white_balance_mode = white_balance_choices[0].value
+            locked_supported = self._white_balance_locked_supported(device)
             supports_white_balance_toggle = (
-                _choice_for_value(white_balance_choices, "locked") is not None
+                locked_supported
                 and _choice_for_value(white_balance_choices, "auto")
                 is not None
             ) or (
-                _choice_for_value(white_balance_choices, "locked") is not None
+                locked_supported
                 and _choice_for_value(
                     white_balance_choices,
                     "continuous_auto",
@@ -3840,8 +3871,10 @@ class AvFoundationCameraControlBackend:
                 )
             )
 
-        if hasattr(device, "automaticallyAdjustsVideoHDREnabled") and hasattr(
-            device, "setAutomaticallyAdjustsVideoHDREnabled_"
+        if (
+            self._video_hdr_supported(active_format)
+            and hasattr(device, "automaticallyAdjustsVideoHDREnabled")
+            and hasattr(device, "setAutomaticallyAdjustsVideoHDREnabled_")
         ):
             controls.append(
                 CameraControl(
@@ -4301,7 +4334,7 @@ class AvFoundationCameraControlBackend:
                 release_completion()
                 return
             if control_id == "white_balance_automatic":
-                locked_supported = bool(device.isWhiteBalanceModeSupported_(0))
+                locked_supported = self._white_balance_locked_supported(device)
                 auto_mode = 2 if device.isWhiteBalanceModeSupported_(2) else 1
                 if bool(value):
                     if (
@@ -4425,6 +4458,10 @@ class AvFoundationCameraControlBackend:
                     raise CameraControlApplyError(str(exc)) from exc
                 return
             if control_id == "video_hdr_automatic":
+                if not self._video_hdr_supported(active_format):
+                    raise CameraControlApplyError(
+                        "The camera does not support video HDR."
+                    )
                 device.setAutomaticallyAdjustsVideoHDREnabled_(bool(value))
                 return
             if control_id == "restore_auto_exposure":

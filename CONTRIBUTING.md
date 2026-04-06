@@ -63,5 +63,6 @@ across DevCovenant refresh and upgrade runs.
   exposure, ISO, focus, white balance, and backlight path after a fresh
   reinstall, and confirm the shell-managed brightness, contrast, hue,
   saturation, sharpness, and gamma rows still appear in User Controls.
-  Confirm unsupported AVFoundation custom-exposure writes fail closed and
-  smooth autofocus stays gated by native support.
+  Confirm unsupported AVFoundation custom-exposure writes fail closed,
+  smooth autofocus stays gated by native support, and Automatic Video HDR
+  stays hidden when the active format does not report support.

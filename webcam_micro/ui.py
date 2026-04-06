@@ -2414,6 +2414,8 @@ class PreviewApplication:
                 ),
                 display_label="Exposure",
                 auto_control=exposure_auto,
+                auto_checkbox_label="Locked",
+                disable_when_auto=False,
             )
             if widget is not None:
                 layout.addWidget(widget)
@@ -2434,6 +2436,7 @@ class PreviewApplication:
                 ),
                 display_label="Focus",
                 auto_control=focus_auto,
+                disable_when_auto=False,
             )
             if widget is not None:
                 layout.addWidget(widget)
@@ -2494,21 +2497,22 @@ class PreviewApplication:
         rendered_controls = 0
         used_control_ids: set[str] = set()
         rows = (
-            ("Backlight Compensation", ("backlight_compensation",), ()),
-            ("Brightness", ("brightness",), ()),
-            ("Contrast", ("contrast",), ("contrast_auto",)),
-            ("Hue", ("hue",), ("hue_auto",)),
-            ("Saturation", ("saturation",), ()),
-            ("Sharpness", ("sharpness",), ()),
-            ("Gamma", ("gamma",), ()),
+            ("Backlight Compensation", ("backlight_compensation",), (), True),
+            ("Brightness", ("brightness",), (), True),
+            ("Contrast", ("contrast",), ("contrast_auto",), True),
+            ("Hue", ("hue",), ("hue_auto",), True),
+            ("Saturation", ("saturation",), (), True),
+            ("Sharpness", ("sharpness",), (), True),
+            ("Gamma", ("gamma",), (), True),
             (
                 "White Balance",
                 ("white_balance_temperature",),
                 ("white_balance_automatic",),
+                False,
             ),
         )
 
-        for display_label, value_ids, auto_ids in rows:
+        for display_label, value_ids, auto_ids, disable_when_auto in rows:
             value_control = self._control_by_id(*value_ids)
             auto_control = self._control_by_id(*auto_ids) if auto_ids else None
             if value_control is None and auto_control is None:
@@ -2521,6 +2525,7 @@ class PreviewApplication:
                 ),
                 display_label=display_label,
                 auto_control=auto_control,
+                disable_when_auto=disable_when_auto,
             )
             if widget is None:
                 continue
@@ -2646,6 +2651,8 @@ class PreviewApplication:
         *,
         display_label: str | None = None,
         auto_control: CameraControl | None = None,
+        auto_checkbox_label: str | None = None,
+        disable_when_auto: bool = True,
     ):
         """Build one numeric camera-control dock row."""
 
@@ -2663,7 +2670,11 @@ class PreviewApplication:
         step = control.step if control.step is not None else 1.0
         decimals = _numeric_decimals(control.step)
         auto_enabled = bool(auto_control.value) if auto_control else False
-        disabled = control.read_only or not control.enabled or auto_enabled
+        disabled = (
+            control.read_only
+            or not control.enabled
+            or (disable_when_auto and auto_enabled)
+        )
 
         container = QtWidgets.QWidget()
         container_layout = QtWidgets.QVBoxLayout(container)
@@ -2679,7 +2690,7 @@ class PreviewApplication:
         header_row.addStretch(1)
 
         if auto_control is not None:
-            auto_checkbox = QtWidgets.QCheckBox("Auto")
+            auto_checkbox = QtWidgets.QCheckBox(auto_checkbox_label or "Auto")
             auto_checkbox.setChecked(auto_enabled)
             auto_checkbox.setDisabled(
                 auto_control.read_only or not auto_control.enabled

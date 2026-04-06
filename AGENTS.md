@@ -60,6 +60,9 @@ DevCovenant lifecycle and command behavior used by the project.
   backend for exposure, ISO, backlight, focus, and white balance when
   those setters are available; AVFoundation remains fallback and must
   fail closed on unsupported custom-exposure paths.
+- 2026-04-06: Automatic Video HDR rows are gated by active-format
+  support; unsupported USB cameras must skip the control instead of
+  touching the AVFoundation getter.
 
 <!-- DEVCOV-WORKFLOW:BEGIN -->
 

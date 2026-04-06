@@ -229,17 +229,20 @@ settings dialog with a preview bolted onto it.
   with an Auto checkbox when the camera exposes auto exposure, Focus as
   a slider+spinbox with an Auto checkbox when the camera exposes auto
   focus, and Light as an on/off checkbox plus a level slider when the
-  camera exposes those subcontrols. When Auto is enabled, the paired
-  numeric control stays visible, greys out, and snaps to the auto value.
-  Any missing Light subcontrol must disable cleanly rather than pretend
-  to exist. The user section should hold Backlight compensation,
-  Brightness, Contrast, Hue, Saturation, Sharpness, Gamma, and White
-  balance as slider+spinbox widgets, with Auto checkboxes on Contrast,
-  Hue, and White balance wherever the backend exposes them. Reset to
-  defaults should sit at the bottom of the user section.
-- When a control exposes both auto and numeric/manual state, the numeric
-  widget must stay visible, mirror the current value, snap to the auto
-  value when auto is enabled, and become disabled while auto is enabled.
+  camera exposes those subcontrols. Shell-managed Auto rows may grey
+  out their paired numeric control, while camera-owned exposure, focus,
+  and white-balance sliders stay usable so moving them can switch the
+  camera into manual mode. Any missing Light subcontrol must disable
+  cleanly rather than pretend to exist. The user section should hold
+  Backlight compensation, Brightness, Contrast, Hue, Saturation,
+  Sharpness, Gamma, and White balance as slider+spinbox widgets, with
+  Auto checkboxes on Contrast, Hue, and White balance wherever the
+  backend exposes them. Reset to defaults should sit at the bottom of
+  the user section.
+- When a control exposes both auto and numeric/manual state, shell-
+  managed rows may disable the paired numeric widget while auto is
+  enabled, but camera-owned exposure, focus, and white-balance sliders
+  stay visible and can switch the camera into manual mode.
 - Camera-native light controls must disable any missing on/off or level
   subcontrol cleanly rather than pretending the control exists.
 
@@ -363,6 +366,10 @@ settings dialog with a preview bolted onto it.
   manual controls, zoom controls, color profile controls, and vendor-
   specific extension controls, plus shell-managed brightness, contrast,
   saturation, hue, gamma, and sharpness adjustments.
+
+- The product must only expose Automatic Video HDR when the active
+  format reports HDR support, and unsupported formats must skip the row
+  and fail closed on write attempts.
 
 - Camera-native controls must include light controls with on/off and level
   subcontrols when exposed, and unsupported subcontrols must disable cleanly
@@ -595,6 +602,8 @@ settings dialog with a preview bolted onto it.
   shell-managed brightness, contrast, hue, saturation, sharpness, and
   gamma through slider+spinbox widgets, with Auto toggles on contrast and
   hue in the shell and on white balance when the camera exposes it.
+  Camera-owned exposure, focus, and white-balance sliders stay usable so
+  moving them can switch the camera into manual mode.
 
 - A user on any platform can enter fullscreen mode, use the fullscreen
   command surface in expanded and collapsed states, exit fullscreen safely,

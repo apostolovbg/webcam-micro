@@ -61,6 +61,57 @@ Example:
 ## Version 0.2.0
 
 - 2026-04-06:
+  Change: Adjusted the UI contract test to verify the white-balance row
+    names after the control-surface update.
+  Why: The previous source-string assertion did not align with the
+    updated white-balance row names after the control rows changed.
+  Impact: Preserve the test coverage for the current white-balance row
+    names without changing the camera-control behavior.
+  Files:
+  CHANGELOG.md
+  tests/test_ui.py
+
+- 2026-04-06:
+  Change: Renamed the exposure checkbox to Locked, kept camera-owned
+    exposure, focus, and white-balance sliders interactive, and added a
+    white-balance fallback for AVFoundation custom-gains support.
+  Why: The exposure toggle behaved like a lock, the sliders were being
+    greyed out even though their setters switch the camera into manual
+    mode, and some cameras expose white balance through custom-gains
+    locking instead of the older mode probe.
+  Impact: Ensure the manual camera controls respond from the sliders,
+    expose white balance on more AVFoundation cameras, and keep the
+    docs aligned with the updated control behavior.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  SPEC.md
+  tests/test_camera.py
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/camera.py
+  webcam_micro/ui.py
+
+- 2026-04-06:
+  Change: Gated Automatic Video HDR on active-format support so
+    unsupported USB cameras skip the row during discovery.
+  Why: Prevented the controls surface from touching the unsupported
+    AVFoundation HDR getter on formats that do not report support.
+  Impact: Ensure the startup path skips the HDR crash path on cameras
+    that cannot expose the control safely.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  CONTRIBUTING.md
+  PLAN.md
+  README.md
+  SPEC.md
+  tests/test_camera.py
+  webcam_micro/README.md
+  webcam_micro/camera.py
+
+- 2026-04-06:
   Change: Added shell-managed brightness, contrast, hue, saturation,
     sharpness, and gamma rows to User Controls and guarded the macOS
     exposure-lock and smooth-autofocus paths.

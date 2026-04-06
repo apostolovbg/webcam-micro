@@ -1165,11 +1165,17 @@ class CameraContractTest(unittest.TestCase):
                 self.systemRecommendedExposureBiasRange = (
                     FakeExposureBiasRange()
                 )
+                self._video_hdr_supported = False
 
             def __str__(self) -> str:
                 """Return a readable active-format summary."""
 
                 return "1920x1080 30 FPS (MJPEG)"
+
+            def isVideoHDRSupported(self) -> bool:
+                """Report whether this format supports video HDR."""
+
+                return self._video_hdr_supported
 
         class FakeDevice:
             """Provide the AVFoundation surface used by the backend."""
@@ -1471,7 +1477,6 @@ class CameraContractTest(unittest.TestCase):
                 "flash_mode",
                 "torch_mode",
                 "smooth_auto_focus",
-                "video_hdr_automatic",
                 "zoom_factor",
                 "active_format",
                 "restore_auto_exposure",
@@ -1506,15 +1511,29 @@ class CameraContractTest(unittest.TestCase):
             "numeric", controls_by_id["white_balance_temperature"].kind
         )
         self.assertEqual("boolean", controls_by_id["smooth_auto_focus"].kind)
-        self.assertEqual("boolean", controls_by_id["video_hdr_automatic"].kind)
         self.assertEqual("read_only", controls_by_id["active_format"].kind)
         self.assertEqual(
             "action", controls_by_id["restore_auto_exposure"].kind
         )
         self.assertNotIn("control_backend", control_ids)
         self.assertNotIn("low_light_boost_support", control_ids)
+        self.assertNotIn("video_hdr_automatic", control_ids)
 
         device = FakeCaptureDeviceClass._device
+        device.calls.clear()
+        device._active_format._video_hdr_supported = True
+        hdr_controls = {
+            control.control_id: control
+            for control in backend.list_controls(descriptor)
+        }
+        self.assertIn("video_hdr_automatic", hdr_controls)
+        self.assertEqual("boolean", hdr_controls["video_hdr_automatic"].kind)
+        backend.set_control_value(descriptor, "video_hdr_automatic", True)
+        self.assertEqual(
+            [("setAutomaticallyAdjustsVideoHDREnabled", True)],
+            device.calls,
+        )
+
         device.calls.clear()
         backend.set_control_value(descriptor, "exposure_locked", True)
         backend.set_control_value(descriptor, "manual_exposure_time", 0.05)
@@ -1531,7 +1550,6 @@ class CameraContractTest(unittest.TestCase):
         backend.set_control_value(descriptor, "flash_mode", "on")
         backend.set_control_value(descriptor, "torch_mode", "auto")
         backend.set_control_value(descriptor, "smooth_auto_focus", False)
-        backend.set_control_value(descriptor, "video_hdr_automatic", True)
         backend.set_control_value(descriptor, "zoom_factor", 3.0)
         backend.set_control_value(descriptor, "restore_auto_exposure", True)
 
@@ -1548,7 +1566,6 @@ class CameraContractTest(unittest.TestCase):
                 ("setFlashMode", 1),
                 ("setTorchMode", 2),
                 ("setSmoothAutoFocusEnabled", False),
-                ("setAutomaticallyAdjustsVideoHDREnabled", True),
                 ("setVideoZoomFactor", 3.0),
                 ("setExposureMode", 2),
             ],
@@ -2134,6 +2151,179 @@ class CameraContractTest(unittest.TestCase):
                 "white_balance_temperature",
                 5000,
             )
+
+    @mock.patch("webcam_micro.camera._load_avfoundation_modules")
+    @mock.patch("webcam_micro.camera.sys.platform", "darwin")
+    def test_avfoundation_white_balance_custom_gains_support(
+        self, load_modules: mock.MagicMock
+    ) -> None:
+        """Assert custom-gains white balance exposes the manual controls."""
+
+        class FakeTemperatureTintValues:
+            """Provide a minimal white-balance temperature/tint struct."""
+
+            def __init__(self, temperature: float, tint: float) -> None:
+                """Store the white-balance values used by the backend."""
+
+                self.field_0 = temperature
+                self.field_1 = tint
+
+        class FakeActiveFormat:
+            """Expose the AVFoundation format metadata used by the backend."""
+
+            def __str__(self) -> str:
+                """Return a readable active-format summary."""
+
+                return "1920x1080 30 FPS (MJPEG)"
+
+        class FakeDevice:
+            """Provide the AVFoundation surface used by the backend."""
+
+            def __init__(self) -> None:
+                """Store the current test-double state and call log."""
+
+                self.calls: list[tuple[object, ...]] = []
+                self._active_format = FakeActiveFormat()
+                self._white_balance_gains = object()
+
+            def localizedName(self) -> str:
+                """Return the device name used for descriptor matching."""
+
+                return "Custom Gains White Balance Camera"
+
+            def uniqueID(self) -> str:
+                """Return the device identifier used for matching."""
+
+                return "camera-white-balance-custom-gains"
+
+            def activeFormat(self) -> FakeActiveFormat:
+                """Return the current active camera format."""
+
+                return self._active_format
+
+            def isWhiteBalanceModeSupported_(self, mode_value: int) -> bool:
+                """Report support only for the auto white-balance modes."""
+
+                return mode_value in {1, 2}
+
+            def isLockingWhiteBalanceWithCustomDeviceGainsSupported(
+                self,
+            ) -> bool:
+                """Report support for custom-gains white-balance locking."""
+
+                return True
+
+            def whiteBalanceMode(self) -> int:
+                """Return the current white-balance mode."""
+
+                return 1
+
+            def deviceWhiteBalanceGains(self) -> object:
+                """Return one white-balance gains snapshot."""
+
+                return self._white_balance_gains
+
+            def temperatureAndTintValuesForDeviceWhiteBalanceGains_(
+                self,
+                gains: object,
+            ) -> FakeTemperatureTintValues:
+                """Convert gains into one temperature/tint structure."""
+
+                return FakeTemperatureTintValues(3100.0, 0.0)
+
+            def minAvailableVideoZoomFactor(self) -> float:
+                """Return the minimum zoom factor."""
+
+                return 1.0
+
+            def maxAvailableVideoZoomFactor(self) -> float:
+                """Return the maximum zoom factor."""
+
+                return 2.0
+
+            def videoZoomFactor(self) -> float:
+                """Return the current zoom factor."""
+
+                return 1.0
+
+            def lockForConfiguration_(self, _error) -> bool:
+                """Pretend the device can be configured."""
+
+                return True
+
+            def unlockForConfiguration(self) -> None:
+                """No-op for the fake device."""
+
+                return None
+
+            def set_white_balance_temperature(
+                self,
+                values: FakeTemperatureTintValues,
+                completion: object,
+            ) -> None:
+                """Record white-balance updates."""
+
+                self.calls.append(
+                    ("setWhiteBalanceTemperature", values.field_0)
+                )
+                _invoke_completion(completion)
+
+            locals()[
+                "setWhiteBalanceModeLockedWithDeviceWhiteBalanceTemperatureAnd"
+                "TintValues_completionHandler_"
+            ] = set_white_balance_temperature
+
+            def setWhiteBalanceMode_(self, mode_value: int) -> None:
+                """Record white-balance mode updates."""
+
+                self.calls.append(("setWhiteBalanceMode", mode_value))
+
+        class FakeCaptureDeviceClass:
+            """Return one fake device for the macOS control backend."""
+
+            _device = FakeDevice()
+
+            @staticmethod
+            def devicesWithMediaType_(media_type: object) -> tuple[FakeDevice]:
+                """Return the fake device list for the selected media type."""
+
+                return (FakeCaptureDeviceClass._device,)
+
+        load_modules.return_value = (FakeCaptureDeviceClass, object())
+        backend = AvFoundationCameraControlBackend()
+        descriptor = CameraDescriptor(
+            stable_id="camera-white-balance-custom-gains",
+            display_name="Custom Gains White Balance Camera",
+            backend_name="avfoundation",
+            device_selector="camera-white-balance-custom-gains",
+            native_identifier="camera-white-balance-custom-gains",
+        )
+
+        controls = backend.list_controls(descriptor)
+        controls_by_id = {control.control_id: control for control in controls}
+        self.assertIn("white_balance_automatic", controls_by_id)
+        self.assertIn("white_balance_temperature", controls_by_id)
+        self.assertEqual(
+            "boolean", controls_by_id["white_balance_automatic"].kind
+        )
+        self.assertEqual(
+            "numeric", controls_by_id["white_balance_temperature"].kind
+        )
+
+        device = FakeCaptureDeviceClass._device
+        backend.set_control_value(descriptor, "white_balance_automatic", False)
+        backend.set_control_value(
+            descriptor,
+            "white_balance_temperature",
+            5000,
+        )
+        self.assertEqual(
+            [
+                ("setWhiteBalanceMode", 0),
+                ("setWhiteBalanceTemperature", 5000.0),
+            ],
+            device.calls,
+        )
 
     def test_recording_container_helpers_track_supported_formats(self) -> None:
         """Assert recording helpers expose only supported video formats."""
