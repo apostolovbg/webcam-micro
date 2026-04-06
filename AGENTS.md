@@ -52,8 +52,10 @@ DevCovenant lifecycle and command behavior used by the project.
 
 - 2026-04-04: Release version is sourced from `webcam_micro/VERSION`; the
   alpha shell chrome and package READMEs carry the full legal-owner notice.
-- 2026-04-06: macOS AVFoundation control setters now pass nil completion
-  handlers to avoid Rubicon callback crashes on slider release.
+- 2026-04-06: macOS camera controls now prefer the Qt Multimedia
+  backend for exposure, ISO, backlight, focus, and white balance when
+  those setters are available; AVFoundation remains fallback and must
+  fail closed on unsupported custom-exposure paths.
 
 <!-- DEVCOV-WORKFLOW:BEGIN -->
 

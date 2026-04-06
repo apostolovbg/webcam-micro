@@ -61,6 +61,27 @@ Example:
 ## Version 0.2.0
 
 - 2026-04-06:
+  Change: Routed macOS exposure, ISO, backlight, focus, and white-balance
+    control writes through Qt Multimedia first, and made AVFoundation
+    fail closed on unsupported custom-exposure paths.
+  Why: The Intel Mac camera exposed controls that Qt could set but the
+    AVFoundation backend could not safely own.
+  Impact: Ensures slider and spinbox camera controls now use the stable
+    cross-platform control path on macOS, while unsupported AVFoundation
+    custom-exposure writes are hidden or rejected before they can crash.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  CONTRIBUTING.md
+  PLAN.md
+  README.md
+  SPEC.md
+  tests/test_camera.py
+  webcam_micro/README.md
+  webcam_micro/__init__.py
+  webcam_micro/camera.py
+
+- 2026-04-06:
   Change: Removed Python completion callbacks from the macOS camera
     configuration path so manual exposure, ISO, focus, white balance,
     and backlight updates pass a nil AVFoundation completion handler.

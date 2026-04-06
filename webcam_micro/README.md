@@ -89,14 +89,14 @@ complete for the current release path.
   surfaces backlight compensation, manual exposure time and ISO, focus
   auto and distance, white balance automatic and temperature, flash or
   torch, and source-format details when the device reports them. On
-  macOS, including Intel Macs, AVFoundation adds exposure mode, manual
-  exposure time and ISO, backlight compensation when the camera reports
-  a supported bias range, white balance temperature when it can lock
-  white balance, focus, flash, torch, smooth autofocus, automatic video
-  HDR, and zoom when the camera reports them. On Linux, V4L2 adds power
-  line frequency, brightness, contrast, saturation, hue, gamma, gain,
-  sharpness, lamp, illumination, activity LED, and vendor-specific
-  extension controls when the camera reports them.
+  macOS, including Intel Macs, the Qt control backend takes first
+  ownership of exposure, ISO, backlight, focus, and white balance when
+  those setters are available, while AVFoundation remains a fallback
+  for native-only gaps and rejects unsupported custom-exposure writes
+  instead of crashing. On Linux, V4L2 adds power line frequency,
+  brightness, contrast, saturation, hue, gamma, gain, sharpness, lamp,
+  illumination, activity LED, and vendor-specific extension controls
+  when the camera reports them.
 - Capture and recording: still images save quietly to the configured folder
   with the current capture framing, and recordings use native controls with
   platform-supported containers.
@@ -105,14 +105,14 @@ complete for the current release path.
   and video output folders live in Preferences.
 - Diagnostics and status: the shell reports runtime state, recent failures,
   and prototype exit checks in a visible diagnostics dialog and status bar.
-- Platform notes: Qt Multimedia owns the camera and recording stack, while
-  platform and device differences still shape the available controls. On
-  macOS, exposure, focus, backlight compensation, and white balance
-  updates now use nil AVFoundation completion handlers and release
-  configuration locks after the setter call returns, so slider-driven
-  control changes stay stable and the shared error-reporting layer keeps
-  launcher, runtime bootstrap, and camera failures as typed notices and
-  diagnostics instead of raw tracebacks.
+- Platform notes: Qt Multimedia owns the camera and recording stack,
+  while platform and device differences still shape the available
+  controls. On macOS, the Qt control backend now owns exposure, ISO,
+  backlight, focus, and white balance when those setters are available,
+  while AVFoundation stays as a fallback for native-only gaps and fails
+  closed on unsupported custom-exposure paths. The shared
+  error-reporting layer keeps launcher, runtime bootstrap, and camera
+  failures as typed notices and diagnostics instead of raw tracebacks.
 
 ## Installation
 The packaged app supports Python `3.11+`.
@@ -190,10 +190,10 @@ illumination, activity LED, and vendor-specific extensions when the device
 reports them. Supported controls include numeric, boolean, enumerated,
 read-only, and action widgets. The app tolerates partial control sets and
 does not fail just because a camera lacks an expected control.
-On macOS, backlight compensation only appears when AVFoundation reports a
-supported exposure-bias range, white balance temperature only appears
-when the device can lock white balance, and the app skips saved values
-for unsupported devices instead of reopening the camera with a crash.
+On macOS, the Qt control backend owns exposure, ISO, backlight, focus,
+and white balance when those setters are available. AVFoundation remains
+fallback for native-only gaps and rejects unsupported custom-exposure
+writes instead of crashing.
 
 ## Capture and Recording
 Still images save quietly to the configured image folder as PNG or JPEG

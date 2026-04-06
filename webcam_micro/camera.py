@@ -1246,6 +1246,22 @@ def _qcamera_feature_enabled(features: object, feature: object) -> bool:
         return False
 
 
+def _qcamera_feature_or_methods_supported(
+    camera: Any,
+    features: object,
+    feature: object,
+    *method_names: str,
+) -> bool:
+    """Return whether Qt reports a feature or exposes the needed methods."""
+
+    if _qcamera_feature_enabled(features, feature):
+        return True
+    for method_name in method_names:
+        if getattr(camera, method_name, None) is None:
+            return False
+    return True
+
+
 def _qcamera_choice_list(
     camera: Any,
     enum_cls: Any,
@@ -2169,8 +2185,6 @@ def _build_control_backend(
     """Return the active control backend stack for one runtime."""
 
     control_backends: list[CameraControlBackend] = []
-    if sys.platform == "darwin":
-        control_backends.append(AvFoundationCameraControlBackend())
     if qt_multimedia is not None and qt_device_resolver is not None:
         control_backends.append(
             QtCameraControlBackend(
@@ -2180,6 +2194,8 @@ def _build_control_backend(
                 preferred_source_format_setter,
             )
         )
+    if sys.platform == "darwin":
+        control_backends.append(AvFoundationCameraControlBackend())
     if sys.platform.startswith("linux") and v4l2_device_resolver is not None:
         control_backends.append(
             LinuxV4L2CameraControlBackend(
@@ -2514,8 +2530,12 @@ class QtCameraControlBackend:
                     )
                 )
 
-        if _qcamera_feature_enabled(
-            features, camera_class.Feature.ExposureCompensation
+        if _qcamera_feature_or_methods_supported(
+            camera,
+            features,
+            camera_class.Feature.ExposureCompensation,
+            "exposureCompensation",
+            "setExposureCompensation",
         ):
             exposure_compensation = _safe_float(
                 getattr(camera, "exposureCompensation", lambda: 0.0)()
@@ -2536,8 +2556,15 @@ class QtCameraControlBackend:
                 )
             )
 
-        manual_exposure_supported = _qcamera_feature_enabled(
-            features, camera_class.Feature.ManualExposureTime
+        manual_exposure_supported = _qcamera_feature_or_methods_supported(
+            camera,
+            features,
+            camera_class.Feature.ManualExposureTime,
+            "minimumExposureTime",
+            "maximumExposureTime",
+            "manualExposureTime",
+            "setManualExposureTime",
+            "setExposureMode",
         )
         if manual_exposure_supported:
             minimum_exposure = _safe_float(
@@ -2574,8 +2601,15 @@ class QtCameraControlBackend:
                     )
                 )
 
-        manual_iso_supported = _qcamera_feature_enabled(
-            features, camera_class.Feature.IsoSensitivity
+        manual_iso_supported = _qcamera_feature_or_methods_supported(
+            camera,
+            features,
+            camera_class.Feature.IsoSensitivity,
+            "minimumIsoSensitivity",
+            "maximumIsoSensitivity",
+            "manualIsoSensitivity",
+            "setManualIsoSensitivity",
+            "setExposureMode",
         )
         if manual_iso_supported:
             minimum_iso = _safe_float(
@@ -2647,8 +2681,12 @@ class QtCameraControlBackend:
                     )
                 )
 
-        if _qcamera_feature_enabled(
-            features, camera_class.Feature.FocusDistance
+        if _qcamera_feature_or_methods_supported(
+            camera,
+            features,
+            camera_class.Feature.FocusDistance,
+            "focusDistance",
+            "setFocusDistance",
         ):
             current_focus_distance = _safe_float(
                 getattr(camera, "focusDistance", lambda: 1.0)()
@@ -2709,8 +2747,12 @@ class QtCameraControlBackend:
                     )
                 )
 
-        if _qcamera_feature_enabled(
-            features, camera_class.Feature.ColorTemperature
+        if _qcamera_feature_or_methods_supported(
+            camera,
+            features,
+            camera_class.Feature.ColorTemperature,
+            "colorTemperature",
+            "setColorTemperature",
         ):
             current_color_temperature = _safe_float(
                 getattr(camera, "colorTemperature", lambda: 2800)()
@@ -2941,33 +2983,40 @@ class QtCameraControlBackend:
                 raise CameraControlApplyError(
                     "Manual exposure time must be numeric."
                 )
-            if _qcamera_feature_enabled(
-                features, camera_class.Feature.ManualExposureTime
+            if not _qcamera_feature_or_methods_supported(
+                camera,
+                features,
+                camera_class.Feature.ManualExposureTime,
+                "minimumExposureTime",
+                "maximumExposureTime",
+                "manualExposureTime",
+                "setManualExposureTime",
+                "setExposureMode",
             ):
-                try:
-                    camera.setExposureMode(
-                        camera_class.ExposureMode.ExposureManual
-                    )
-                except (
-                    AttributeError,
-                    RuntimeError,
-                    TypeError,
-                    ValueError,
-                ) as exc:
-                    raise CameraControlApplyError(str(exc)) from exc
-                try:
-                    camera.setManualExposureTime(exposure_time)
-                except (
-                    AttributeError,
-                    RuntimeError,
-                    TypeError,
-                    ValueError,
-                ) as exc:
-                    raise CameraControlApplyError(str(exc)) from exc
-                return
-            raise CameraControlApplyError(
-                "Manual exposure time is unavailable for this camera."
-            )
+                raise CameraControlApplyError(
+                    "Manual exposure time is unavailable for this camera."
+                )
+            try:
+                camera.setExposureMode(
+                    camera_class.ExposureMode.ExposureManual
+                )
+            except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise CameraControlApplyError(str(exc)) from exc
+            try:
+                camera.setManualExposureTime(exposure_time)
+            except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise CameraControlApplyError(str(exc)) from exc
+            return
 
         if control_id == "manual_iso_sensitivity":
             iso_value = _safe_float(value)
@@ -2975,33 +3024,40 @@ class QtCameraControlBackend:
                 raise CameraControlApplyError(
                     "Manual ISO sensitivity must be numeric."
                 )
-            if _qcamera_feature_enabled(
-                features, camera_class.Feature.IsoSensitivity
+            if not _qcamera_feature_or_methods_supported(
+                camera,
+                features,
+                camera_class.Feature.IsoSensitivity,
+                "minimumIsoSensitivity",
+                "maximumIsoSensitivity",
+                "manualIsoSensitivity",
+                "setManualIsoSensitivity",
+                "setExposureMode",
             ):
-                try:
-                    camera.setExposureMode(
-                        camera_class.ExposureMode.ExposureManual
-                    )
-                except (
-                    AttributeError,
-                    RuntimeError,
-                    TypeError,
-                    ValueError,
-                ) as exc:
-                    raise CameraControlApplyError(str(exc)) from exc
-                try:
-                    camera.setManualIsoSensitivity(int(round(iso_value)))
-                except (
-                    AttributeError,
-                    RuntimeError,
-                    TypeError,
-                    ValueError,
-                ) as exc:
-                    raise CameraControlApplyError(str(exc)) from exc
-                return
-            raise CameraControlApplyError(
-                "Manual ISO sensitivity is unavailable for this camera."
-            )
+                raise CameraControlApplyError(
+                    "Manual ISO sensitivity is unavailable for this camera."
+                )
+            try:
+                camera.setExposureMode(
+                    camera_class.ExposureMode.ExposureManual
+                )
+            except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise CameraControlApplyError(str(exc)) from exc
+            try:
+                camera.setManualIsoSensitivity(int(round(iso_value)))
+            except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                raise CameraControlApplyError(str(exc)) from exc
+            return
 
         if control_id == "focus_auto":
             focus_mode = (
@@ -3412,6 +3468,17 @@ class AvFoundationCameraControlBackend:
         tint = _safe_float(getattr(values, "field_1", None)) or 0.0
         return values, temperature, tint
 
+    def _custom_exposure_supported(self, device: Any) -> bool:
+        """Return whether the device can safely use custom exposure."""
+
+        support_method = getattr(device, "isExposureModeSupported_", None)
+        if support_method is None:
+            return False
+        try:
+            return bool(support_method(3))
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            return False
+
     def list_controls(
         self, descriptor: CameraDescriptor
     ) -> tuple[CameraControl, ...]:
@@ -3475,8 +3542,10 @@ class AvFoundationCameraControlBackend:
                 )
 
         active_format = _call_or_value(getattr(device, "activeFormat", None))
+        custom_exposure_supported = self._custom_exposure_supported(device)
         exposure_duration_supported = (
-            active_format is not None
+            custom_exposure_supported
+            and active_format is not None
             and hasattr(active_format, "minExposureDuration")
             and hasattr(active_format, "maxExposureDuration")
             and hasattr(
@@ -3879,6 +3948,18 @@ class AvFoundationCameraControlBackend:
             raise CameraControlApplyError(
                 "The selected camera could not be found for control updates."
             )
+        custom_exposure_supported = self._custom_exposure_supported(device)
+        if (
+            control_id
+            in {
+                "manual_exposure_time",
+                "manual_iso_sensitivity",
+            }
+            and not custom_exposure_supported
+        ):
+            raise CameraControlApplyError(
+                "The camera does not support custom exposure."
+            )
         self._lock_device(device)
         active_format = _call_or_value(getattr(device, "activeFormat", None))
 
@@ -3903,6 +3984,10 @@ class AvFoundationCameraControlBackend:
                         "The camera does not support that exposure mode."
                     )
                 if mode_value == 3:
+                    if not custom_exposure_supported:
+                        raise CameraControlApplyError(
+                            "The camera does not support custom exposure."
+                        )
                     duration_reference = _call_or_value(
                         getattr(device, "exposureDuration", None)
                     )

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import inspect
-import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -34,6 +33,7 @@ from webcam_micro.camera import (
     QtCameraControlBackend,
     QtCameraSession,
     RecordingCropPlan,
+    _build_control_backend,
     _preferred_recording_output_suffix,
     _qt_recording_output_path_for_path,
     _request_macos_camera_permission,
@@ -306,13 +306,7 @@ class CameraContractTest(unittest.TestCase):
             def supportedFeatures(self) -> int:
                 """Return every feature flag used by the test."""
 
-                return (
-                    FakeFeature.ExposureCompensation
-                    | FakeFeature.FocusDistance
-                    | FakeFeature.ColorTemperature
-                    | FakeFeature.ManualExposureTime
-                    | FakeFeature.IsoSensitivity
-                )
+                return 0
 
             def isExposureModeSupported(self, mode: object) -> bool:
                 """Report support for the auto and manual exposure modes."""
@@ -1059,6 +1053,65 @@ class CameraContractTest(unittest.TestCase):
         self.assertEqual([("set", "brightness", 15)], secondary.calls)
         self.assertEqual([("action", "exposure_mode", True)], primary.calls)
 
+    @mock.patch("webcam_micro.camera.sys.platform", "darwin")
+    def test_build_control_backend_prefers_qt_on_macos(self) -> None:
+        """Assert the macOS stack routes shared controls through Qt first."""
+
+        qt_backend = mock.MagicMock()
+        av_backend = mock.MagicMock()
+        qt_backend.list_controls.return_value = (
+            CameraControl(
+                control_id="manual_exposure_time",
+                label="Manual Exposure Time",
+                kind="numeric",
+                value=0.05,
+            ),
+        )
+        av_backend.list_controls.return_value = (
+            CameraControl(
+                control_id="manual_exposure_time",
+                label="Manual Exposure Time",
+                kind="numeric",
+                value=0.05,
+            ),
+        )
+
+        with (
+            mock.patch(
+                "webcam_micro.camera.QtCameraControlBackend",
+                return_value=qt_backend,
+            ),
+            mock.patch(
+                "webcam_micro.camera.AvFoundationCameraControlBackend",
+                return_value=av_backend,
+            ),
+        ):
+            backend = _build_control_backend(
+                object(),
+                lambda _descriptor: object(),
+                None,
+            )
+
+        descriptor = CameraDescriptor(
+            stable_id="macos::example",
+            display_name="Mac Camera",
+            backend_name="qt_multimedia",
+            device_selector="macos::example",
+        )
+
+        backend.set_control_value(
+            descriptor,
+            "manual_exposure_time",
+            0.05,
+        )
+
+        qt_backend.set_control_value.assert_called_once_with(
+            descriptor,
+            "manual_exposure_time",
+            0.05,
+        )
+        av_backend.set_control_value.assert_not_called()
+
     @mock.patch("webcam_micro.camera._load_avfoundation_modules")
     @mock.patch("webcam_micro.camera.sys.platform", "darwin")
     def test_avfoundation_control_surface_exposes_native_mac_controls(
@@ -1500,37 +1553,12 @@ class CameraContractTest(unittest.TestCase):
     @mock.patch("webcam_micro.camera.wrap_completion_handler")
     @mock.patch("webcam_micro.camera._load_avfoundation_modules")
     @mock.patch("webcam_micro.camera.sys.platform", "darwin")
-    def test_avfoundation_manual_exposure_uses_nil_completion_handler(
+    def test_avfoundation_manual_exposure_rejects_unsupported_custom_exposure(
         self,
         load_modules: mock.MagicMock,
         wrap_completion_handler: mock.MagicMock,
     ) -> None:
-        """Assert manual exposure avoids a Python completion callback."""
-
-        class FakeCMTime:
-            """Provide a minimal CMTime-compatible structure."""
-
-            def __init__(
-                self,
-                value: int,
-                timescale: int,
-                *_unused: object,
-            ) -> None:
-                """Store the CMTime fields used by the backend."""
-
-                self.field_0 = value
-                self.field_1 = timescale
-
-        class FakeActiveFormat:
-            """Expose the AVFoundation format metadata used by the backend."""
-
-            def __init__(self) -> None:
-                """Store one stable active-format snapshot."""
-
-                self.minExposureDuration = FakeCMTime(1, 120)
-                self.maxExposureDuration = FakeCMTime(1, 2)
-                self.minISO = 80.0
-                self.maxISO = 640.0
+        """Assert unsupported custom exposure fails closed on macOS."""
 
         class FakeDevice:
             """Provide the minimal AVFoundation surface used by the backend."""
@@ -1539,9 +1567,6 @@ class CameraContractTest(unittest.TestCase):
                 """Store the current test-double state and call log."""
 
                 self.calls: list[tuple[object, ...]] = []
-                self._active_format = FakeActiveFormat()
-                self._locked = False
-                self._unlock_event = threading.Event()
 
             def localizedName(self) -> str:
                 """Return the device name used for descriptor matching."""
@@ -1553,58 +1578,10 @@ class CameraContractTest(unittest.TestCase):
 
                 return "camera-1"
 
-            def activeFormat(self) -> FakeActiveFormat:
-                """Return the current active camera format."""
+            def isExposureModeSupported_(self, mode_value: int) -> bool:
+                """Report support only for the non-custom exposure modes."""
 
-                return self._active_format
-
-            def exposureDuration(self) -> FakeCMTime:
-                """Return the current exposure duration."""
-
-                return FakeCMTime(1, 60)
-
-            def ISO(self) -> float:
-                """Return the current ISO sensitivity."""
-
-                return 160.0
-
-            def deviceWhiteBalanceGains(self) -> object:
-                """Return an unused white-balance placeholder."""
-
-                return object()
-
-            def lockForConfiguration_(self, _error) -> bool:
-                """Pretend the device can be configured."""
-
-                self._locked = True
-                self.calls.append(("lock",))
-                return True
-
-            def unlockForConfiguration(self) -> None:
-                """No-op for the fake device."""
-
-                self._locked = False
-                self.calls.append(("unlock",))
-                self._unlock_event.set()
-
-            def setExposureModeCustomWithDuration_ISO_completionHandler_(
-                self,
-                duration: FakeCMTime,
-                iso_value: float,
-                completion: object,
-            ) -> None:
-                """Accept custom exposure updates in the test double."""
-
-                assert completion is None
-                self.calls.append(
-                    (
-                        "setExposureModeCustom",
-                        round(duration.field_0 / duration.field_1, 6),
-                        iso_value,
-                        self._locked,
-                    )
-                )
-                _invoke_completion(completion)
+                return mode_value in {0, 1, 2}
 
         class FakeCaptureDeviceClass:
             """Return one fake device for the macOS control backend."""
@@ -1618,7 +1595,6 @@ class CameraContractTest(unittest.TestCase):
                 return (FakeCaptureDeviceClass._device,)
 
         load_modules.return_value = (FakeCaptureDeviceClass, object())
-        wrap_completion_handler.side_effect = lambda handler: handler
         backend = AvFoundationCameraControlBackend()
         descriptor = CameraDescriptor(
             stable_id="camera-1",
@@ -1629,17 +1605,11 @@ class CameraContractTest(unittest.TestCase):
         )
 
         device = FakeCaptureDeviceClass._device
-        backend.set_control_value(descriptor, "manual_exposure_time", 0.05)
-        self.assertTrue(device._unlock_event.wait(1.0))
+        with self.assertRaises(CameraControlApplyError):
+            backend.set_control_value(descriptor, "manual_exposure_time", 0.05)
 
-        self.assertEqual(
-            [
-                ("lock",),
-                ("setExposureModeCustom", 0.05, 160.0, True),
-                ("unlock",),
-            ],
-            FakeCaptureDeviceClass._device.calls,
-        )
+        wrap_completion_handler.assert_not_called()
+        self.assertEqual([], device.calls)
 
     @mock.patch("webcam_micro.camera._load_avfoundation_modules")
     @mock.patch("webcam_micro.camera.sys.platform", "darwin")

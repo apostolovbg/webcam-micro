@@ -59,6 +59,7 @@ across DevCovenant refresh and upgrade runs.
 
 - Treat `webcam_micro/VERSION` as the release version source of truth for
   alpha work.
-- When validating macOS camera controls, exercise the slider-release path
-  for exposure, ISO, focus, white balance, and backlight after a fresh
-  reinstall.
+- When validating macOS camera controls, exercise the Qt-backed
+  exposure, ISO, focus, white balance, and backlight path after a fresh
+  reinstall, and confirm unsupported AVFoundation custom-exposure
+  writes fail closed.

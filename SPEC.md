@@ -549,9 +549,11 @@ settings dialog with a preview bolted onto it.
   behavior across platforms, so the product cannot assume identical control
   surfaces across all devices and platforms.
 
-- Constraint: on macOS, slider-backed AVFoundation control setters must
-  release their configuration lock after the setter call returns and must
-  not depend on Python-side completion callbacks for correctness.
+- Constraint: on macOS, camera-control ownership must prefer the backend
+  that can actually apply the write. Qt Multimedia should own exposure,
+  ISO, backlight, focus, and white balance when its setters are
+  available, and AVFoundation must fail closed on unsupported
+  custom-exposure paths instead of calling them.
 
 - Assumption: the active camera/backend will usually expose at least a
   meaningful subset of controls and source modes sufficient for microscope
