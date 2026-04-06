@@ -6,7 +6,7 @@
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
-**Last Updated:** 2026-04-05
+**Last Updated:** 2026-04-06
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -223,6 +223,18 @@ settings dialog with a preview bolted onto it.
 - The overall interaction model should follow the guvcview and quvcview
   concept: capability-driven control discovery, type-aware widgets, and a
   preview-first shell.
+- The controls surface should split camera-native controls from software-
+  side user controls. The camera section should hold a Resolution
+  dropdown, Exposure and Focus slider+spinbox controls with Auto
+  checkboxes when exposed, and Light on/off and level subcontrols when
+  exposed. The user section should hold Backlight compensation,
+  Brightness, Contrast, Hue, Saturation, Sharpness, Gamma, and White
+  balance, and it should place Reset to defaults at the bottom.
+- When a control exposes both auto and numeric/manual state, the numeric
+  widget must stay visible, mirror the current value, snap to the auto
+  value when auto is enabled, and become disabled while auto is enabled.
+- Camera-native light controls must disable any missing on/off or level
+  subcontrol cleanly rather than pretending the control exists.
 
 ## Functional Requirements
 - The product must be published as a Python package on PyPI and must work on
@@ -291,6 +303,10 @@ settings dialog with a preview bolted onto it.
 - The product must not present unsupported synthetic source modes as though
   they were native device modes.
 
+- The product must expose supported source resolutions and frame sizes
+  through a dropdown source selector rather than as a freeform field or
+  slider.
+
 - The product must expose the controls that the active camera/backend
   actually provides, grouped into stable families and rendered with widgets
   that match the control semantics.
@@ -298,6 +314,19 @@ settings dialog with a preview bolted onto it.
 - The product must keep the control-family order stable across layouts and
   backends. When a family is not supported, it must disappear cleanly
   rather than leave a broken placeholder.
+
+- The product must separate camera-native controls from software-side user
+  controls within the dedicated controls surface.
+
+- The product must render camera-native Resolution, Exposure, Focus, and
+  Light controls with the exact widget composition the device reports:
+  Resolution as a dropdown source selector; Exposure and Focus as
+  slider+spinbox pairs with Auto checkboxes when exposed; and Light as an
+  on/off checkbox plus a level slider when exposed.
+
+- When a camera reports an Auto checkbox for Exposure, Focus, Contrast,
+  Hue, or White balance, enabling Auto must grey out the paired numeric
+  control and keep it synced to the current auto value.
 
 - The product must support control families including Exposure, Focus,
   White Balance, Light/Flicker, Color/Image Quality, Zoom, Source Info,
@@ -325,6 +354,19 @@ settings dialog with a preview bolted onto it.
   white balance automatic control, white balance temperature, exposure
   automatic and manual controls, focus automatic and manual controls, zoom
   controls, color profile controls, and vendor-specific extension controls.
+
+- Camera-native controls must include light controls with on/off and level
+  subcontrols when exposed, and unsupported subcontrols must disable cleanly
+  rather than present fake values.
+
+- The user-controls section must include backlight compensation, brightness,
+  contrast, hue, saturation, sharpness, gamma, and white balance when the
+  active camera exposes them, with slider+spinbox widgets and Auto
+  toggles on contrast, hue, and white balance wherever the backend
+  exposes them.
+
+- The user-controls section must end with a reset-to-defaults button that
+  restores built-in or remembered values for the visible controls.
 
 - If a camera exposes a lamp, illumination, or activity LED control, the
   product must surface it and allow it to be turned off when the device
@@ -518,9 +560,20 @@ settings dialog with a preview bolted onto it.
   behavior, capture a still image, start and stop a video recording, and
   find the outputs in the configured folders.
 
+- A user can choose a supported source resolution from a dropdown, keep
+  auto-enabled exposure or focus controls gray while the live value stays
+  visible and tracks the auto value, use the split camera-controls and
+  user-controls layout, adjust light on/off and level controls when
+  exposed, and reset visible user controls to their defaults.
+
 - A user can tune exposure, white balance, backlight compensation, flicker
   compensation, zoom, and any activity LED or vendor-specific control that
   the active camera exposes.
+
+- A user can adjust backlight compensation, brightness, contrast, hue,
+  saturation, sharpness, gamma, and white balance through slider+spinbox
+  widgets, with Auto toggles on contrast, hue, and white balance when the
+  camera exposes them.
 
 - A user on any platform can enter fullscreen mode, use the fullscreen
   command surface in expanded and collapsed states, exit fullscreen safely,

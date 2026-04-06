@@ -1624,6 +1624,61 @@ through marker comments or marker regions.
 
 ---
 
+## Policy: Package Artifact Mirror
+
+```policy-def
+id: package-artifact-mirror
+severity: error
+auto_fix: 'true'
+enforcement: active
+enabled: 'true'
+custom: 'false'
+file_mirrors: []
+dir_mirrors: []
+dir_skip_paths: []
+```
+
+Ensure package-shipped artifacts that are true mirrors stay in exact sync
+with their canonical repository-root sources. `file_mirrors` and
+`dir_mirrors` declare `source=>target` pairs. `dir_skip_paths` declares
+repo-relative mirror exceptions in `source_dir=>relative/path` form.
+Dependency lockfiles and third-party license inventories are not mirrors
+unless the repository explicitly declares them here. Auto-fix rewrites the
+configured exact mirrors from their source paths, preserves separately
+mirrored files that live inside mirrored directories, preserves package-owned
+skipped paths, and removes stale mirrored files.
+
+
+---
+
+## Policy: Package Doc Sync
+
+```policy-def
+id: package-doc-sync
+severity: error
+auto_fix: 'true'
+enforcement: active
+enabled: 'true'
+custom: 'false'
+sync_pairs:
+- README.md=>webcam_micro/README.md
+omit_block_pairs:
+- <!-- REPO-ONLY:BEGIN -->=><!-- REPO-ONLY:END -->
+rewrite_repo_relative_links: 'true'
+```
+
+Ensure package-facing documentation files stay synchronized with their
+canonical repository-source docs. Configured `sync_pairs` map
+`source=>target` doc paths. Configured `omit_block_pairs` remove
+repo-only sections between paired begin/end markers before comparison.
+When `rewrite_repo_relative_links` is true, repo-relative Markdown links
+and images are rewritten to release-stable repository URLs resolved from
+`pyproject.toml`. Auto-fix rewrites the configured package docs from
+their source docs after those transforms.
+
+
+---
+
 ## Policy: Raw String Escapes
 
 ```policy-def

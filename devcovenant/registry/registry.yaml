@@ -1,13 +1,13 @@
 metadata:
   schema_version: 1
   registry_layout: single-root
-  policy_registry_input_hash: db5a976c1cc10e01c1bb0e2494ad34791c3d2ab507c64ef60546c5e1857251ca
+  policy_registry_input_hash: ece97ac9a1a505c77eb05bf59fd74eb277b3bad5277863f4c2521b305813ebff
 project-governance:
   project_name: webcam-micro
   project_description: Cross-platform microscope camera application distributed as
     a Python package on PyPI.
   copyright_notice: 2026 Black Epsilon Ltd. and Apostol Apostolov
-  project_version: 0.1.0a1
+  project_version: 0.1.0b1
   stage: alpha
   maintenance_stance: active
   compatibility_policy: forward-only
@@ -11818,6 +11818,355 @@ policies:
     script_exists: true
     hash: b8d616439e1d68675c5cae456fe0f85fc29e9946076b8e531d5ff9c0825f7597
     script_path: builtin/version_sync.py
+  package-artifact-mirror:
+    enabled: true
+    custom: false
+    description: Package Artifact Mirror
+    policy_text: |-
+      Ensure package-shipped artifacts that are true mirrors stay in exact sync
+      with their canonical repository-root sources. `file_mirrors` and
+      `dir_mirrors` declare `source=>target` pairs. `dir_skip_paths` declares
+      repo-relative mirror exceptions in `source_dir=>relative/path` form.
+      Dependency lockfiles and third-party license inventories are not mirrors
+      unless the repository explicitly declares them here. Auto-fix rewrites the
+      configured exact mirrors from their source paths, preserves separately
+      mirrored files that live inside mirrored directories, preserves package-owned
+      skipped paths, and removes stale mirrored files.
+    metadata:
+      id: package-artifact-mirror
+      severity: error
+      auto_fix: 'true'
+      enforcement: active
+      enabled: 'true'
+      custom: 'false'
+      file_mirrors: []
+      dir_mirrors: []
+      dir_skip_paths: []
+    metadata_resolution:
+      id:
+        descriptor:
+          values:
+          - package-artifact-mirror
+          behavior: base
+          replaced_inherited_values:
+          - ()
+        runtime_identity:
+          values:
+          - package-artifact-mirror
+          behavior: replace
+          replaced_inherited_values:
+          - ()
+        effective:
+          values:
+          - package-artifact-mirror
+      severity:
+        descriptor:
+          values:
+          - error
+          behavior: base
+          replaced_inherited_values:
+          - ()
+        effective:
+          values:
+          - error
+      auto_fix:
+        descriptor:
+          values:
+          - 'true'
+          behavior: base
+          replaced_inherited_values:
+          - ()
+        effective:
+          values:
+          - 'true'
+      enforcement:
+        descriptor:
+          values:
+          - active
+          behavior: base
+          replaced_inherited_values:
+          - ()
+        effective:
+          values:
+          - active
+      file_mirrors:
+        descriptor:
+          values:
+          - '[]'
+          behavior: base
+          replaced_inherited_values:
+          - ()
+        effective:
+          values:
+          - '[]'
+      dir_mirrors:
+        descriptor:
+          values:
+          - '[]'
+          behavior: base
+          replaced_inherited_values:
+          - ()
+        effective:
+          values:
+          - '[]'
+      dir_skip_paths:
+        descriptor:
+          values:
+          - '[]'
+          behavior: base
+          replaced_inherited_values:
+          - ()
+        effective:
+          values:
+          - '[]'
+      enabled:
+        runtime_defaults:
+          values:
+          - 'true'
+          behavior: default
+          replaced_inherited_values:
+          - ()
+        policy_state:
+          values:
+          - 'true'
+          behavior: replace
+          replaced_inherited_values:
+          - 'true'
+        effective:
+          values:
+          - 'true'
+      custom:
+        runtime_defaults:
+          values:
+          - 'false'
+          behavior: default
+          replaced_inherited_values:
+          - ()
+        effective:
+          values:
+          - 'false'
+    metadata_warnings: []
+    runtime_actions: []
+    commands: []
+    runtime_metadata_options:
+      id: package-artifact-mirror
+      severity: error
+      auto_fix: true
+      enforcement: active
+      enabled: true
+      custom: false
+      file_mirrors: []
+      dir_mirrors: []
+      dir_skip_paths: []
+    runtime_config_overrides: {}
+    runtime_effective_options:
+      id: package-artifact-mirror
+      severity: error
+      auto_fix: true
+      enforcement: active
+      enabled: true
+      custom: false
+    assets: []
+    origin: builtin
+    script_exists: true
+    hash: 59d36e32a6377ae39fae5d4a131f860b75027e8bbb4f3a6c1bd04db0dbde0cf1
+    script_path: builtin/package_artifact_mirror.py
+  package-doc-sync:
+    enabled: true
+    custom: false
+    description: Package Doc Sync
+    policy_text: |-
+      Ensure package-facing documentation files stay synchronized with their
+      canonical repository-source docs. Configured `sync_pairs` map
+      `source=>target` doc paths. Configured `omit_block_pairs` remove
+      repo-only sections between paired begin/end markers before comparison.
+      When `rewrite_repo_relative_links` is true, repo-relative Markdown links
+      and images are rewritten to release-stable repository URLs resolved from
+      `pyproject.toml`. Auto-fix rewrites the configured package docs from
+      their source docs after those transforms.
+    metadata:
+      id: package-doc-sync
+      severity: error
+      auto_fix: 'true'
+      enforcement: active
+      enabled: 'true'
+      custom: 'false'
+      sync_pairs:
+      - README.md=>webcam_micro/README.md
+      omit_block_pairs:
+      - <!-- REPO-ONLY:BEGIN -->=><!-- REPO-ONLY:END -->
+      rewrite_repo_relative_links: 'true'
+    metadata_resolution:
+      id:
+        descriptor:
+          values:
+          - package-doc-sync
+          behavior: base
+          replaced_inherited_values:
+          - ()
+        runtime_identity:
+          values:
+          - package-doc-sync
+          behavior: replace
+          replaced_inherited_values:
+          - ()
+        effective:
+          values:
+          - package-doc-sync
+      severity:
+        descriptor:
+          values:
+          - error
+          behavior: base
+          replaced_inherited_values:
+          - ()
+        effective:
+          values:
+          - error
+      auto_fix:
+        descriptor:
+          values:
+          - 'true'
+          behavior: base
+          replaced_inherited_values:
+          - ()
+        effective:
+          values:
+          - 'true'
+      enforcement:
+        descriptor:
+          values:
+          - active
+          behavior: base
+          replaced_inherited_values:
+          - ()
+        effective:
+          values:
+          - active
+      sync_pairs:
+        descriptor:
+          values:
+          - '[]'
+          behavior: base
+          replaced_inherited_values:
+          - ()
+        profile_overlays:
+          values:
+          - README.md=>webcam_micro/README.md
+          behavior: append
+          replaced_inherited_values:
+          - ()
+        autogen_overlays:
+          values:
+          - README.md=>webcam_micro/README.md
+          behavior: append
+          replaced_inherited_values:
+          - ()
+        effective:
+          values:
+          - README.md=>webcam_micro/README.md
+      omit_block_pairs:
+        descriptor:
+          values:
+          - '[]'
+          behavior: base
+          replaced_inherited_values:
+          - ()
+        profile_overlays:
+          values:
+          - <!-- REPO-ONLY:BEGIN -->=><!-- REPO-ONLY:END -->
+          behavior: append
+          replaced_inherited_values:
+          - ()
+        autogen_overlays:
+          values:
+          - <!-- REPO-ONLY:BEGIN -->=><!-- REPO-ONLY:END -->
+          behavior: append
+          replaced_inherited_values:
+          - ()
+        effective:
+          values:
+          - <!-- REPO-ONLY:BEGIN -->=><!-- REPO-ONLY:END -->
+      rewrite_repo_relative_links:
+        descriptor:
+          values:
+          - 'true'
+          behavior: base
+          replaced_inherited_values:
+          - ()
+        profile_overlays:
+          values:
+          - 'true'
+          behavior: replace
+          replaced_inherited_values:
+          - 'true'
+        autogen_overlays:
+          values:
+          - 'true'
+          behavior: replace
+          replaced_inherited_values:
+          - 'true'
+        effective:
+          values:
+          - 'true'
+      enabled:
+        runtime_defaults:
+          values:
+          - 'true'
+          behavior: default
+          replaced_inherited_values:
+          - ()
+        policy_state:
+          values:
+          - 'true'
+          behavior: replace
+          replaced_inherited_values:
+          - 'true'
+        effective:
+          values:
+          - 'true'
+      custom:
+        runtime_defaults:
+          values:
+          - 'false'
+          behavior: default
+          replaced_inherited_values:
+          - ()
+        effective:
+          values:
+          - 'false'
+    metadata_warnings: []
+    runtime_actions: []
+    commands: []
+    runtime_metadata_options:
+      id: package-doc-sync
+      severity: error
+      auto_fix: true
+      enforcement: active
+      enabled: true
+      custom: false
+      sync_pairs: &id108
+      - README.md=>webcam_micro/README.md
+      omit_block_pairs: &id109
+      - <!-- REPO-ONLY:BEGIN -->=><!-- REPO-ONLY:END -->
+      rewrite_repo_relative_links: true
+    runtime_config_overrides: {}
+    runtime_effective_options:
+      id: package-doc-sync
+      severity: error
+      auto_fix: true
+      enforcement: active
+      enabled: true
+      custom: false
+      sync_pairs: *id108
+      omit_block_pairs: *id109
+      rewrite_repo_relative_links: true
+    assets:
+    - README.md=>webcam_micro/README.md
+    origin: builtin
+    script_exists: true
+    hash: 8cf316089c465c80953d695035c2653cbe2f94a174778da7430b5620b2993b49
+    script_path: builtin/package_doc_sync.py
 profiles:
   csharp:
     version: 1

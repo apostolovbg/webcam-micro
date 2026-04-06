@@ -6,7 +6,7 @@
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
-**Last Updated:** 2026-04-05
+**Last Updated:** 2026-04-06
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -122,6 +122,31 @@ in `SPEC.md` and history in `CHANGELOG.md`.
    Done when:
    - the revised SPEC contract is verified by automated tests and
      operational checks on the supported environments we can run here
+
+6. [pending] Rework the controls pane into camera controls and user
+   controls.
+   Goal:
+   - match the software-side control split now expected by the spec
+   Work:
+   - expose supported camera resolutions in a dropdown menu
+   - render exposure as a slider+spinbox with an Auto checkbox when the
+     camera exposes auto exposure; when Auto is enabled, the control
+     greys out and snaps to the auto value
+   - render focus as a slider+spinbox with an Auto checkbox when the
+     camera exposes auto focus; when Auto is enabled, the control greys
+     out and snaps to the auto value
+   - render light as an on/off checkbox when exposed, plus a level
+     slider when exposed; missing subcontrols must be disabled cleanly
+   - keep backlight compensation, brightness, contrast, hue, saturation,
+     sharpness, gamma, and white balance in the user-controls section,
+     with slider+spinbox widgets for each and Auto checkboxes on
+     contrast, hue, and white balance when exposed
+   - place the reset-to-defaults button at the bottom of the user-
+     controls section
+   Done when:
+   - the pane cleanly separates camera-native controls from software-
+     side adjustments and preserves the auto/disabled behavior for
+     paired controls
 
 ## Exit Criteria
 - The controls surface is capability-driven and grouped into stable

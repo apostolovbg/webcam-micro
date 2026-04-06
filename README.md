@@ -2,7 +2,7 @@
 **Doc ID:** README
 **Doc Type:** repo-readme
 **Project Version:** 0.1.0b1
-**Last Updated:** 2026-04-05
+**Last Updated:** 2026-04-06
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -74,24 +74,29 @@ complete for the current release path.
 - Preview and framing: live preview supports fit, fill, and centered crop
   modes, and a tighter refresh cadence keeps the newest frame close to live
   motion when the preview resizes.
-- Camera controls: the active backend exposes numeric, boolean, enum,
-  read-only, and action controls when the device supports them, and the
-  dock groups visible controls into stable Exposure, Focus, White
-  Balance, Light/Flicker, Color/Image Quality, Zoom, Source Info,
-  Actions, and Other Controls families across supported OSes with a
-  one-column default layout that widens to two columns on roomy docks.
-  Qt Multimedia now surfaces backlight compensation, manual exposure
-  time and ISO, focus auto and distance, white balance automatic and
-  temperature, flash or torch, and source-format details when the device
-  reports them. On macOS, including Intel Macs, AVFoundation adds
-  exposure mode, manual exposure time and ISO, backlight compensation
-  when the camera reports a supported bias range, white balance
-  temperature when it can lock white balance, focus, flash, torch,
-  smooth autofocus, automatic video HDR, and zoom when the camera
-  reports them. On Linux, V4L2 adds power line frequency, brightness,
-  contrast, saturation, hue, gamma, gain, sharpness, lamp, illumination,
-  activity LED, and vendor-specific extension controls when the camera
-  reports them.
+- Camera controls: the dock splits native controls into camera controls
+  and user controls. Camera controls expose Resolution as a dropdown,
+  Exposure and Focus as slider+spinbox controls with Auto checkboxes
+  when the camera reports them, and Light as an on/off checkbox plus a
+  level slider when exposed. When Auto is enabled, the paired numeric
+  control stays visible, greys out, and tracks the auto value. User
+  controls expose Backlight compensation, Brightness, Contrast, Hue,
+  Saturation, Sharpness, Gamma, and White balance, with Auto checkboxes
+  on Contrast, Hue, and White balance when the backend exposes them, and
+  a Reset to Defaults button at the bottom.
+- The active backend still exposes numeric, boolean, enum, read-only,
+  and action controls when the device supports them. Qt Multimedia now
+  surfaces backlight compensation, manual exposure time and ISO, focus
+  auto and distance, white balance automatic and temperature, flash or
+  torch, and source-format details when the device reports them. On
+  macOS, including Intel Macs, AVFoundation adds exposure mode, manual
+  exposure time and ISO, backlight compensation when the camera reports
+  a supported bias range, white balance temperature when it can lock
+  white balance, focus, flash, torch, smooth autofocus, automatic video
+  HDR, and zoom when the camera reports them. On Linux, V4L2 adds power
+  line frequency, brightness, contrast, saturation, hue, gamma, gain,
+  sharpness, lamp, illumination, activity LED, and vendor-specific
+  extension controls when the camera reports them.
 - Capture and recording: still images save quietly to the configured folder
   with the current capture framing, and recordings use native controls with
   platform-supported containers.
@@ -143,12 +148,8 @@ controls do not consume preview space permanently. It keeps the preview
 central even when detached, defaults to one vertical column, and widens to
 two columns on roomier layouts while preserving the section order.
 Numeric controls use guvcview-style affordances: a slider, min/mid/max
-labels, and an adjacent field with step buttons. The dock groups visible
-controls into stable Exposure, Focus, White Balance, Light/Flicker,
-Color/Image Quality, Zoom, Source Info, Actions, and Other Controls
-families so related settings stay together on every supported OS.
-Boolean, enumerated, read-only, and action controls appear when the backend
-exposes them.
+labels, and an adjacent field with step buttons. Boolean, enumerated,
+read-only, and action controls appear when the backend exposes them.
 
 ## Fullscreen Workspace
 Fullscreen replaces the windowed chrome with a compact command surface.
@@ -166,9 +167,19 @@ changing the live microscope view.
 
 ## Camera Controls
 The app exposes the real control surface reported by the active camera and
-backend. Qt Multimedia covers the common exposure, focus, white balance,
-flash, torch, zoom, and source-format controls across supported platforms,
-while Linux V4L2 adds power line frequency, image-quality controls, lamp,
+backend. The dock splits those controls into camera controls and user
+controls. Camera controls expose Resolution as a dropdown, Exposure and
+Focus as slider+spinbox widgets with Auto checkboxes when the camera
+reports them, and Light as an on/off checkbox plus a level slider when
+available. When Auto is enabled, the paired numeric control stays visible,
+greys out, and tracks the auto value. User controls expose Backlight
+compensation, Brightness, Contrast, Hue, Saturation, Sharpness, Gamma, and
+White balance, with Auto checkboxes on Contrast, Hue, and White balance
+when the backend exposes them, and a Reset to Defaults button at the
+bottom.
+Qt Multimedia covers the common exposure, focus, white balance, flash,
+torch, zoom, and source-format controls across supported platforms, while
+Linux V4L2 adds power line frequency, image-quality controls, lamp,
 illumination, activity LED, and vendor-specific extensions when the device
 reports them. Supported controls include numeric, boolean, enumerated,
 read-only, and action widgets. The app tolerates partial control sets and
