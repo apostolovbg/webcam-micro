@@ -5,8 +5,10 @@ from __future__ import annotations
 import tomllib
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from webcam_micro.app import LaunchPlan, build_launch_plan, main
+from webcam_micro.error_reporting import WebcamMicroError
 
 
 class ApplicationEntryPointTest(unittest.TestCase):
@@ -16,6 +18,18 @@ class ApplicationEntryPointTest(unittest.TestCase):
         """Assert the headless smoke path exits successfully."""
 
         self.assertEqual(0, main(["--smoke-test"]))
+
+    def test_launch_failure_reports_as_system_exit(self) -> None:
+        """Assert launcher failures stay typed through the app boundary."""
+
+        with mock.patch(
+            "webcam_micro.app.launch_main_window",
+            side_effect=WebcamMicroError("boom"),
+        ):
+            with self.assertRaises(SystemExit) as context:
+                main([])
+
+        self.assertEqual("boom", str(context.exception))
 
     def test_launch_plan_describes_current_qt_baseline(self) -> None:
         """Assert the launch plan documents the Qt shell baseline."""

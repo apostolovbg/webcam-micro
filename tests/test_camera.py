@@ -18,6 +18,7 @@ from webcam_micro.camera import (
     CameraControlChoice,
     CameraControlError,
     CameraDescriptor,
+    CameraOpenError,
     CameraOutputError,
     CameraSession,
     CompositeCameraControlBackend,
@@ -43,12 +44,20 @@ from webcam_micro.camera import (
     pack_preview_rgb_rows,
     request_camera_permission,
 )
+from webcam_micro.error_reporting import WebcamMicroError
 
 
 def _identity_completion_handler(handler: object) -> object:
     """Return the test handler unchanged."""
 
     return handler
+
+
+def _invoke_completion(completion: object) -> None:
+    """Invoke a Rubicon block or plain callback used by the test doubles."""
+
+    callback = getattr(completion, "func", completion)
+    callback(None)
 
 
 class CameraContractTest(unittest.TestCase):
@@ -87,7 +96,10 @@ class CameraContractTest(unittest.TestCase):
         self.assertEqual("CameraControlChoice", CameraControlChoice.__name__)
         self.assertEqual("CameraDescriptor", CameraDescriptor.__name__)
         self.assertEqual("CameraControlError", CameraControlError.__name__)
+        self.assertTrue(issubclass(CameraControlError, WebcamMicroError))
         self.assertEqual("CameraOutputError", CameraOutputError.__name__)
+        self.assertTrue(issubclass(CameraOutputError, WebcamMicroError))
+        self.assertEqual("CameraOpenError", CameraOpenError.__name__)
         self.assertEqual("CameraSession", CameraSession.__name__)
         self.assertEqual(
             "CameraControlApplyError",
@@ -97,6 +109,13 @@ class CameraContractTest(unittest.TestCase):
             "MissingCameraDependencyError",
             MissingCameraDependencyError.__name__,
         )
+        self.assertTrue(
+            issubclass(MissingCameraDependencyError, WebcamMicroError)
+        )
+        configuration_completion_source = inspect.getsource(
+            AvFoundationCameraControlBackend._configuration_completion
+        )
+        self.assertIn("def release", configuration_completion_source)
         self.assertEqual("QtCameraBackend", QtCameraBackend.__name__)
         self.assertEqual("QtCameraSession", QtCameraSession.__name__)
         self.assertEqual("FfmpegCameraBackend", FfmpegCameraBackend.__name__)
@@ -1270,6 +1289,7 @@ class CameraContractTest(unittest.TestCase):
                         iso_value,
                     )
                 )
+                _invoke_completion(completion)
 
             def setExposureTargetBias_completionHandler_(
                 self,
@@ -1279,6 +1299,7 @@ class CameraContractTest(unittest.TestCase):
                 """Accept exposure-compensation updates."""
 
                 self.calls.append(("setExposureTargetBias", compensation))
+                _invoke_completion(completion)
 
             def setFocusMode_(self, mode_value: int) -> None:
                 """Accept focus updates in the test double."""
@@ -1293,6 +1314,7 @@ class CameraContractTest(unittest.TestCase):
                 """Accept manual focus updates in the test double."""
 
                 self.calls.append(("setFocusDistance", position))
+                _invoke_completion(completion)
 
             def setWhiteBalanceMode_(self, mode_value: int) -> None:
                 """Accept white-balance updates in the test double."""
@@ -1313,6 +1335,7 @@ class CameraContractTest(unittest.TestCase):
                         values.field_1,
                     )
                 )
+                _invoke_completion(completion)
 
             locals()[
                 "setWhiteBalanceModeLockedWithDeviceWhiteBalanceTemperatureAnd"
@@ -1578,7 +1601,7 @@ class CameraContractTest(unittest.TestCase):
                         self._locked,
                     )
                 )
-                completion(None)
+                _invoke_completion(completion)
 
         class FakeCaptureDeviceClass:
             """Return one fake device for the macOS control backend."""
@@ -1713,6 +1736,7 @@ class CameraContractTest(unittest.TestCase):
                 """Record exposure-compensation updates."""
 
                 self.calls.append(("setExposureTargetBias", compensation))
+                _invoke_completion(completion)
 
         class FakeCaptureDeviceClass:
             """Return one fake device for the macOS control backend."""
@@ -1856,6 +1880,7 @@ class CameraContractTest(unittest.TestCase):
                 self.calls.append(
                     ("setWhiteBalanceTemperature", values.field_0)
                 )
+                _invoke_completion(completion)
 
             locals()[
                 "setWhiteBalanceModeLockedWithDeviceWhiteBalanceTemperatureAnd"

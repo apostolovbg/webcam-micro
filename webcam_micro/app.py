@@ -8,7 +8,8 @@ from typing import Sequence
 
 from webcam_micro import APP_NAME, BACKEND_STRATEGY, GUI_BASELINE, PACKAGE_NAME
 from webcam_micro.camera import build_backend_plan
-from webcam_micro.ui import MissingGuiDependencyError, launch_main_window
+from webcam_micro.error_reporting import WebcamMicroError, build_error_report
+from webcam_micro.ui import launch_main_window
 
 
 @dataclass(frozen=True)
@@ -72,5 +73,5 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     try:
         return launch_main_window()
-    except MissingGuiDependencyError as exc:
-        raise SystemExit(str(exc)) from exc
+    except WebcamMicroError as exc:
+        raise SystemExit(build_error_report(exc).display_message) from exc

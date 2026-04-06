@@ -8,10 +8,13 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from webcam_micro.error_reporting import WebcamMicroError
 from webcam_micro.runtime_bootstrap import (
+    RuntimeBootstrapError,
     RuntimeBootstrapPlan,
     _bridge_import_roots,
     _runtime_root,
+    _runtime_site_packages_path,
     _write_import_bridge,
     bootstrap_runtime,
     build_runtime_bootstrap_plan,
@@ -30,6 +33,11 @@ class RuntimeBootstrapModuleTest(unittest.TestCase):
         )
         self.assertTrue(callable(build_runtime_bootstrap_plan))
         self.assertTrue(callable(bootstrap_runtime))
+        self.assertEqual(
+            "RuntimeBootstrapError",
+            RuntimeBootstrapError.__name__,
+        )
+        self.assertTrue(issubclass(RuntimeBootstrapError, WebcamMicroError))
 
     def test_bridge_import_roots_include_the_current_site_packages(
         self,
@@ -178,6 +186,48 @@ class RuntimeBootstrapModuleTest(unittest.TestCase):
                 ],
             )
 
+    def test_bootstrap_runtime_wraps_runtime_creation_failures(
+        self,
+    ) -> None:
+        """Assert runtime creation errors stay typed."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            runtime_root = Path(temp_dir) / "runtime"
+            runtime_python = runtime_root / "bin" / "python"
+            runtime_site_packages = (
+                runtime_root / "lib" / "python3.14" / "site-packages"
+            )
+
+            plan = RuntimeBootstrapPlan(
+                runtime_root=runtime_root,
+                runtime_python=runtime_python,
+                runtime_site_packages=runtime_site_packages,
+                import_roots=(),
+                needs_runtime_creation=True,
+                needs_relaunch=False,
+                macos_info_plist=None,
+            )
+
+            with (
+                mock.patch(
+                    "webcam_micro.runtime_bootstrap."
+                    "build_runtime_bootstrap_plan",
+                    return_value=plan,
+                ),
+                mock.patch(
+                    "webcam_micro.runtime_bootstrap."
+                    "_create_runtime_environment",
+                    side_effect=OSError("boom"),
+                ),
+            ):
+                with self.assertRaises(RuntimeBootstrapError) as context:
+                    bootstrap_runtime(["--smoke-test"])
+
+        self.assertIn(
+            "Unable to create the private runtime environment.",
+            str(context.exception),
+        )
+
     def test_bootstrap_runtime_keeps_existing_bridge_when_reused(
         self,
     ) -> None:
@@ -223,3 +273,15 @@ class RuntimeBootstrapModuleTest(unittest.TestCase):
                 "/opt/site-packages\n",
                 bridge_file.read_text(encoding="utf-8"),
             )
+
+    def test_runtime_site_packages_path_raises_structured_error(
+        self,
+    ) -> None:
+        """Assert runtime path resolution failures stay typed."""
+
+        with mock.patch(
+            "webcam_micro.runtime_bootstrap.sysconfig.get_path",
+            return_value=None,
+        ):
+            with self.assertRaises(RuntimeBootstrapError):
+                _runtime_site_packages_path(Path("/tmp/runtime"))

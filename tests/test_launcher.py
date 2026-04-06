@@ -7,6 +7,7 @@ import unittest
 from unittest import mock
 
 from webcam_micro.launcher import main as launcher_main
+from webcam_micro.runtime_bootstrap import RuntimeBootstrapError
 
 
 class LauncherTest(unittest.TestCase):
@@ -34,6 +35,18 @@ class LauncherTest(unittest.TestCase):
 
         bootstrap_runtime_mock.assert_called_once_with(["--smoke-test"])
         run_app_mock.assert_called_once_with(["--smoke-test"])
+
+    def test_launcher_reports_bootstrap_failures_as_system_exit(self) -> None:
+        """Assert bootstrap failures surface as typed launcher exits."""
+
+        with mock.patch(
+            "webcam_micro.launcher.bootstrap_runtime",
+            side_effect=RuntimeBootstrapError("boom"),
+        ):
+            with self.assertRaises(SystemExit) as context:
+                launcher_main(["--smoke-test"])
+
+        self.assertEqual("boom", str(context.exception))
 
     def test_python_module_launcher_mentions_the_bootstrap_module(
         self,

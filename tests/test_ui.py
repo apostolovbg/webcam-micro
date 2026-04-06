@@ -14,6 +14,7 @@ from webcam_micro.camera import (
     PreviewFrame,
     RecordingCropPlan,
 )
+from webcam_micro.error_reporting import WebcamMicroError
 from webcam_micro.ui import (
     MissingGuiDependencyError,
     PreviewApplication,
@@ -204,7 +205,9 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("PreciseTimer", run_source)
         self.assertIn("self._poll_preview_frame()", open_source)
         self.assertIn("_prime_source_format_for_descriptor", open_source)
-        self.assertTrue(issubclass(MissingGuiDependencyError, RuntimeError))
+        self.assertTrue(
+            issubclass(MissingGuiDependencyError, WebcamMicroError)
+        )
         self.assertEqual(
             "MissingGuiDependencyError", MissingGuiDependencyError.__name__
         )

@@ -61,6 +61,51 @@ Example:
 ## Version 0.2.0
 
 - 2026-04-06:
+  Change: Introduced a shared error-reporting layer and typed app error
+    base so launcher, runtime bootstrap, and camera failures stay
+    structured instead of raw.
+  Why: Introduced the shared module so the GUI can report notices and
+    diagnostics instead of leaking tracebacks.
+  Impact: Updated app startup, camera open, and control failures to
+    render through `webcam_micro/error_reporting.py` as typed notices
+    and diagnostic entries.
+  Files:
+  CHANGELOG.md
+  README.md
+  tests/test_app.py
+  tests/test_camera.py
+  tests/test_error_reporting.py
+  tests/test_launcher.py
+  tests/test_runtime_bootstrap.py
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/app.py
+  webcam_micro/camera.py
+  webcam_micro/error_reporting.py
+  webcam_micro/launcher.py
+  webcam_micro/runtime_bootstrap.py
+  webcam_micro/ui.py
+
+- 2026-04-06:
+  Change: Introduced typed camera-open and runtime-bootstrap failures so
+    launcher and control errors stay structured instead of raw.
+  Why: Prevented generic runtime failures from bubbling into the GUI when
+    a camera session or runtime path cannot be resolved.
+  Impact: Camera open failures and runtime bootstrap errors now report
+    through the existing notice and diagnostics layer.
+  Files:
+  README.md
+  CHANGELOG.md
+  tests/test_camera.py
+  tests/test_launcher.py
+  tests/test_runtime_bootstrap.py
+  webcam_micro/README.md
+  webcam_micro/camera.py
+  webcam_micro/launcher.py
+  webcam_micro/runtime_bootstrap.py
+  webcam_micro/ui.py
+
+- 2026-04-06:
   Change: Hardened AVFoundation control updates so macOS exposure, focus,
     backlight compensation, and white balance completions keep the
     configuration lock alive and release it off the callback thread.

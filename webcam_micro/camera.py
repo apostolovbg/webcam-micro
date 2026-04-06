@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
+from webcam_micro.error_reporting import WebcamMicroError
+
 from .macos_permission import wrap_completion_handler
 
 
@@ -61,7 +63,7 @@ class CameraControl:
     action_label: str = ""
 
 
-class CameraControlError(RuntimeError):
+class CameraControlError(WebcamMicroError):
     """Raised when camera controls are unavailable or fail to apply."""
 
 
@@ -69,8 +71,12 @@ class CameraControlApplyError(CameraControlError):
     """Raised when one control value cannot be applied."""
 
 
-class CameraOutputError(RuntimeError):
+class CameraOutputError(WebcamMicroError):
     """Raised when still or recording output work cannot complete."""
+
+
+class CameraOpenError(CameraControlError):
+    """Raised when a backend cannot open the selected camera session."""
 
 
 class CameraSession(Protocol):
@@ -377,7 +383,7 @@ class NullCameraBackend:
         self._control_backend.trigger_control_action(descriptor, control_id)
 
 
-class MissingCameraDependencyError(RuntimeError):
+class MissingCameraDependencyError(WebcamMicroError):
     """Raised when the runtime camera backend dependency is unavailable."""
 
 
@@ -3832,11 +3838,12 @@ class AvFoundationCameraControlBackend:
     def _configuration_completion(
         self,
         device: Any,
-    ) -> tuple[Any, Callable[[], None]]:
-        """Return one retained Objective-C completion block and releaser."""
+    ) -> tuple[Any, Callable[[], None], threading.Event]:
+        """Return one retained completion block, releaser, and wait flag."""
 
         token = object()
         lock_released = False
+        completed = threading.Event()
 
         def release() -> None:
             """Release the device lock and drop the retained block."""
@@ -3853,20 +3860,12 @@ class AvFoundationCameraControlBackend:
         def completion_handler(_error: c_void_p = None) -> None:
             """Release the lock after AVFoundation completes the update."""
 
-            def _release_later() -> None:
-                """Unlock on a Python thread after the callback returns."""
-
-                release()
-
-            try:
-                threading.Thread(target=_release_later, daemon=True).start()
-            except RuntimeError:
-                release()
+            completed.set()
 
         completion = wrap_completion_handler(completion_handler)
         with self._pending_configuration_completion_lock:
             self._pending_configuration_completions[token] = completion
-        return completion, release
+        return completion, release, completed
 
     def set_control_value(
         self,
@@ -3934,7 +3933,7 @@ class AvFoundationCameraControlBackend:
                         )
                     if iso_value is None or iso_value <= 0:
                         iso_value = 100.0
-                    completion, release_completion = (
+                    completion, release_completion, completion_done = (
                         self._configuration_completion(device)
                     )
                     set_custom_exposure = getattr(
@@ -3959,7 +3958,9 @@ class AvFoundationCameraControlBackend:
                     ):
                         release_completion()
                         raise
+                    completion_done.wait()
                     defer_unlock = True
+                    release_completion()
                     return
                 device.setExposureMode_(mode_value)
                 return
@@ -4016,7 +4017,7 @@ class AvFoundationCameraControlBackend:
                     )
                 if iso_value is None or iso_value <= 0:
                     iso_value = 100.0
-                completion, release_completion = (
+                completion, release_completion, completion_done = (
                     self._configuration_completion(device)
                 )
                 set_custom_exposure = getattr(
@@ -4041,7 +4042,9 @@ class AvFoundationCameraControlBackend:
                 ):
                     release_completion()
                     raise
+                completion_done.wait()
                 defer_unlock = True
+                release_completion()
                 return
             if control_id == "manual_iso_sensitivity":
                 iso_value = _safe_float(value)
@@ -4072,7 +4075,7 @@ class AvFoundationCameraControlBackend:
                 duration_seconds = self._cmtime_seconds(duration_reference)
                 if duration_seconds is None or duration_seconds <= 0:
                     duration_seconds = 0.001
-                completion, release_completion = (
+                completion, release_completion, completion_done = (
                     self._configuration_completion(device)
                 )
                 set_custom_exposure = getattr(
@@ -4097,7 +4100,9 @@ class AvFoundationCameraControlBackend:
                 ):
                     release_completion()
                     raise
+                completion_done.wait()
                 defer_unlock = True
+                release_completion()
                 return
             if control_id == "backlight_compensation":
                 backlight_compensation_range = (
@@ -4118,7 +4123,7 @@ class AvFoundationCameraControlBackend:
                         "Backlight compensation must be numeric."
                     )
                 compensation = max(min_bias, min(max_bias, compensation))
-                completion, release_completion = (
+                completion, release_completion, completion_done = (
                     self._configuration_completion(device)
                 )
                 try:
@@ -4137,7 +4142,9 @@ class AvFoundationCameraControlBackend:
                         "The camera does not support backlight "
                         "compensation."
                     ) from exc
+                completion_done.wait()
                 defer_unlock = True
+                release_completion()
                 return
             if control_id == "focus_auto":
                 locked_supported = bool(device.isFocusModeSupported_(0))
@@ -4170,7 +4177,7 @@ class AvFoundationCameraControlBackend:
                         "The camera cannot lock focus manually."
                     )
                 bounded_value = max(0.0, min(1.0, focus_distance))
-                completion, release_completion = (
+                completion, release_completion, completion_done = (
                     self._configuration_completion(device)
                 )
                 set_focus_mode_locked = getattr(
@@ -4190,7 +4197,9 @@ class AvFoundationCameraControlBackend:
                 ):
                     release_completion()
                     raise
+                completion_done.wait()
                 defer_unlock = True
+                release_completion()
                 return
             if control_id == "white_balance_automatic":
                 locked_supported = bool(device.isWhiteBalanceModeSupported_(0))
@@ -4245,7 +4254,7 @@ class AvFoundationCameraControlBackend:
                     bounded_temperature,
                     tint,
                 )
-                completion, release_completion = (
+                completion, release_completion, completion_done = (
                     self._configuration_completion(device)
                 )
                 set_white_balance_temperature = getattr(
@@ -4267,7 +4276,9 @@ class AvFoundationCameraControlBackend:
                 ):
                     release_completion()
                     raise
+                completion_done.wait()
                 defer_unlock = True
+                release_completion()
                 return
             if control_id == "flash_mode":
                 mode_value = self._mode_value(
@@ -4848,7 +4859,7 @@ class QtCameraBackend:
 
         camera_device = self._camera_device_for_descriptor(descriptor)
         if camera_device is None:
-            raise RuntimeError(
+            raise CameraOpenError(
                 "The selected camera could not be found in the current Qt "
                 "device list."
             )

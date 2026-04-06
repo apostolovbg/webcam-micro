@@ -14,6 +14,7 @@ from webcam_micro.camera import (
     CameraControl,
     CameraControlApplyError,
     CameraDescriptor,
+    CameraOpenError,
     CameraOutputError,
     MissingCameraDependencyError,
     NullCameraBackend,
@@ -27,9 +28,10 @@ from webcam_micro.camera import (
     build_recording_file_filter,
     request_camera_permission,
 )
+from webcam_micro.error_reporting import WebcamMicroError, build_error_report
 
 
-class MissingGuiDependencyError(RuntimeError):
+class MissingGuiDependencyError(WebcamMicroError):
     """Raised when the GUI dependency set is not installed."""
 
 
@@ -2800,10 +2802,11 @@ class PreviewApplication:
         try:
             controls = self._backend.list_controls(descriptor)
         except CameraControlApplyError as exc:
+            report = build_error_report(exc)
             self._active_controls = ()
             self._controls_by_id = {}
-            self._set_controls_notice(str(exc))
-            self._record_diagnostic_event(str(exc))
+            self._set_controls_notice(report.display_message)
+            self._record_diagnostic_event(report.diagnostic_message)
         else:
             self._active_controls = controls
             self._controls_by_id = {
@@ -2841,9 +2844,13 @@ class PreviewApplication:
         try:
             self._backend.set_control_value(descriptor, control_id, value)
         except CameraControlApplyError as exc:
-            self._set_controls_notice(str(exc))
-            self._set_status(self._preview_state, notice=str(exc))
-            self._record_diagnostic_event(str(exc))
+            report = build_error_report(exc)
+            self._set_controls_notice(report.display_message)
+            self._set_status(
+                self._preview_state,
+                notice=report.display_message,
+            )
+            self._record_diagnostic_event(report.diagnostic_message)
             return
         self._settings.setValue(
             _camera_control_setting_key(descriptor.stable_id, control_id),
@@ -2968,9 +2975,13 @@ class PreviewApplication:
         try:
             self._backend.trigger_control_action(descriptor, control_id)
         except CameraControlApplyError as exc:
-            self._set_controls_notice(str(exc))
-            self._set_status(self._preview_state, notice=str(exc))
-            self._record_diagnostic_event(str(exc))
+            report = build_error_report(exc)
+            self._set_controls_notice(report.display_message)
+            self._set_status(
+                self._preview_state,
+                notice=report.display_message,
+            )
+            self._record_diagnostic_event(report.diagnostic_message)
             return
         message = f"Triggered {control.label}."
         self._refresh_control_surface(notice=message)
@@ -3169,11 +3180,12 @@ class PreviewApplication:
         self._prime_source_format_for_descriptor(descriptor)
         try:
             self._session = self._backend.open_session(descriptor)
-        except (CameraControlApplyError, RuntimeError) as exc:
-            self._set_preview_message(str(exc))
-            self._refresh_control_surface(notice=str(exc))
+        except (CameraControlApplyError, CameraOpenError) as exc:
+            report = build_error_report(exc)
+            self._set_preview_message(report.display_message)
+            self._refresh_control_surface(notice=report.display_message)
             self._set_status("open failed", notice="Camera open failed.")
-            self._record_diagnostic_event(str(exc))
+            self._record_diagnostic_event(report.diagnostic_message)
             return
         self._refresh_recording_state()
         self._set_preview_message("Waiting for live preview frames...")
@@ -3453,8 +3465,12 @@ class PreviewApplication:
                 crop_plan=crop_plan,
             )
         except CameraOutputError as exc:
-            self._set_status(self._preview_state, notice=str(exc))
-            self._record_diagnostic_event(str(exc))
+            report = build_error_report(exc)
+            self._set_status(
+                self._preview_state,
+                notice=report.display_message,
+            )
+            self._record_diagnostic_event(report.diagnostic_message)
             return
         self._video_directory = recorded_path.parent
         self._persist_output_directories()
@@ -3935,9 +3951,15 @@ def launch_main_window() -> int:
             "GUI shell."
         ) from exc
 
-    application = QtWidgets.QApplication.instance()
-    if application is None:
-        application = QtWidgets.QApplication(sys.argv)
+    try:
+        application = QtWidgets.QApplication.instance()
+        if application is None:
+            application = QtWidgets.QApplication(sys.argv)
+    except (OSError, RuntimeError) as exc:
+        raise MissingGuiDependencyError(
+            "Install the package runtime dependencies before launching the "
+            "GUI shell."
+        ) from exc
     preview_application = PreviewApplication(
         QtCore,
         QtGui,

@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from typing import Sequence
 
+from webcam_micro.error_reporting import WebcamMicroError, build_error_report
 from webcam_micro.runtime_bootstrap import bootstrap_runtime
 
 
@@ -20,5 +21,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Bootstrap the runtime interpreter and then start the application."""
 
     argv_list = list(sys.argv[1:] if argv is None else argv)
-    bootstrap_runtime(argv_list)
+    try:
+        bootstrap_runtime(argv_list)
+    except WebcamMicroError as exc:
+        raise SystemExit(build_error_report(exc).display_message) from exc
     return _run_app(argv_list)

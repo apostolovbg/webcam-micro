@@ -13,10 +13,15 @@ from pathlib import Path
 from typing import Sequence
 
 from webcam_micro import APP_NAME, PACKAGE_NAME
+from webcam_micro.error_reporting import WebcamMicroError
 
 CAMERA_USAGE_DESCRIPTION = (
     "webcam-micro needs camera access to open the microscope preview."
 )
+
+
+class RuntimeBootstrapError(WebcamMicroError):
+    """Raised when the private runtime root cannot be resolved."""
 
 
 @dataclass(frozen=True)
@@ -58,13 +63,33 @@ def bootstrap_runtime(argv: Sequence[str] | None = None) -> None:
     argv_list = list(sys.argv[1:] if argv is None else argv)
     plan = build_runtime_bootstrap_plan()
     if plan.needs_runtime_creation:
-        _create_runtime_environment(plan.runtime_root)
+        try:
+            _create_runtime_environment(plan.runtime_root)
+        except OSError as exc:
+            raise RuntimeBootstrapError(
+                "Unable to create the private runtime environment."
+            ) from exc
     if plan.needs_relaunch:
-        _write_import_bridge(plan.runtime_site_packages, plan.import_roots)
+        try:
+            _write_import_bridge(plan.runtime_site_packages, plan.import_roots)
+        except OSError as exc:
+            raise RuntimeBootstrapError(
+                "Unable to write the private runtime import bridge."
+            ) from exc
     if plan.macos_info_plist is not None:
-        _ensure_camera_usage_description(plan.macos_info_plist)
+        try:
+            _ensure_camera_usage_description(plan.macos_info_plist)
+        except (OSError, plistlib.InvalidFileException) as exc:
+            raise RuntimeBootstrapError(
+                "Unable to update the active Python camera usage notice."
+            ) from exc
     if plan.needs_relaunch:
-        _exec_runtime_python(plan.runtime_python, argv_list)
+        try:
+            _exec_runtime_python(plan.runtime_python, argv_list)
+        except OSError as exc:
+            raise RuntimeBootstrapError(
+                "Unable to relaunch through the private runtime interpreter."
+            ) from exc
 
 
 def _create_runtime_environment(runtime_root: Path) -> None:
@@ -123,7 +148,9 @@ def _runtime_site_packages_path(runtime_root: Path) -> Path:
         },
     )
     if purelib is None:
-        raise RuntimeError("Unable to resolve the runtime site-packages path.")
+        raise RuntimeBootstrapError(
+            "Unable to resolve the runtime site-packages path."
+        )
     return Path(purelib)
 
 
