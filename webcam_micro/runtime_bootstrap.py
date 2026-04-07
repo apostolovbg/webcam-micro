@@ -6,7 +6,6 @@ import os
 import plistlib
 import site
 import sys
-import sysconfig
 import venv
 from dataclasses import dataclass
 from pathlib import Path
@@ -69,13 +68,13 @@ def bootstrap_runtime(argv: Sequence[str] | None = None) -> None:
             raise RuntimeBootstrapError(
                 "Unable to create the private runtime environment."
             ) from exc
-    if plan.needs_relaunch:
-        try:
-            _write_import_bridge(plan.runtime_site_packages, plan.import_roots)
-        except OSError as exc:
-            raise RuntimeBootstrapError(
-                "Unable to write the private runtime import bridge."
-            ) from exc
+    # Refresh the import bridge on every launch so a stale runtime self-heals.
+    try:
+        _write_import_bridge(plan.runtime_site_packages, plan.import_roots)
+    except OSError as exc:
+        raise RuntimeBootstrapError(
+            "Unable to write the private runtime import bridge."
+        ) from exc
     if plan.macos_info_plist is not None:
         try:
             _ensure_camera_usage_description(plan.macos_info_plist)
@@ -140,18 +139,10 @@ def _runtime_python_path(runtime_root: Path) -> Path:
 def _runtime_site_packages_path(runtime_root: Path) -> Path:
     """Return the runtime site-packages directory for the venv root."""
 
-    purelib = sysconfig.get_path(
-        "purelib",
-        vars={
-            "base": str(runtime_root),
-            "platbase": str(runtime_root),
-        },
-    )
-    if purelib is None:
-        raise RuntimeBootstrapError(
-            "Unable to resolve the runtime site-packages path."
-        )
-    return Path(purelib)
+    if sys.platform == "win32":
+        return runtime_root / "Lib" / "site-packages"
+    version_dir = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    return runtime_root / "lib" / version_dir / "site-packages"
 
 
 def _bridge_import_roots(runtime_root: Path) -> tuple[Path, ...]:

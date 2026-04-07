@@ -63,7 +63,8 @@ complete for the current release path.
 ## What Works Today
 - Launch and entrypoint: the application starts from the `webcam-micro`
   command, bootstraps a stable per-user runtime interpreter on every
-  supported OS, and can also run from source during development.
+  supported OS, refreshes the private runtime bridge on each launch, and
+  can also run from source during development.
 - Windowed workspace: the main shell keeps the preview central while the
   menu bar, toolbar, and status bar expose the primary microscope
   actions, and the controls dock can dock, float, hide, and restore
@@ -127,11 +128,12 @@ The application starts in a preview-first Qt Widgets window.
 The `webcam_micro.launcher` module uses `webcam_micro.runtime_bootstrap` to
 create or reuse a stable per-user runtime interpreter on Windows, macOS,
 and Linux before the Qt shell starts, so the first launch sets up the
-Python identity that will own later camera access on macOS. The runtime
-bridge keeps the package imports visible in that interpreter so Qt still
-loads from the installed package set. On macOS, the camera permission
-prompt runs through a repo-owned adapter so the same code path stays
-import-safe on Windows and Linux.
+Python identity that will own later camera access on macOS. The launcher
+refreshes the private runtime bridge on each launch so stale runtimes
+self-heal, and the bridge keeps the package imports visible in that
+interpreter so Qt still loads from the installed package set. On macOS,
+the camera permission prompt runs through a repo-owned adapter so the same
+code path stays import-safe on Windows and Linux.
 The command bar and native menu bar provide access to the core camera,
 capture, framing, preference, and diagnostics actions without requiring a
 terminal once the app is running.
@@ -236,7 +238,9 @@ The package-facing README lives at `webcam_micro/README.md`, where the
 repo-only notes are stripped out before packaging. The `webcam_micro.launcher`
 entrypoint uses `webcam_micro.runtime_bootstrap` to create or reuse the
 per-user runtime interpreter on every supported OS before handing off to
-the GUI app, and the source package remains runnable during development.
+the GUI app. It also refreshes the private runtime bridge on each launch
+so stale runtimes self-heal, and the source package remains runnable
+during development.
 
 ## Security, Privacy, and Support
 `webcam-micro` is a local desktop utility by default.

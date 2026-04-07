@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import site
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -139,7 +140,10 @@ class RuntimeBootstrapModuleTest(unittest.TestCase):
             runtime_root = Path(temp_dir) / "runtime"
             runtime_python = runtime_root / "bin" / "python"
             runtime_site_packages = (
-                runtime_root / "lib" / "python3.14" / ("site-packages")
+                runtime_root
+                / "lib"
+                / f"python{sys.version_info.major}.{sys.version_info.minor}"
+                / "site-packages"
             )
             runtime_site_packages.mkdir(parents=True, exist_ok=True)
 
@@ -228,15 +232,18 @@ class RuntimeBootstrapModuleTest(unittest.TestCase):
             str(context.exception),
         )
 
-    def test_bootstrap_runtime_keeps_existing_bridge_when_reused(
+    def test_bootstrap_runtime_refreshes_existing_bridge_when_reused(
         self,
     ) -> None:
-        """Assert the runtime hop leaves the original bridge untouched."""
+        """Assert the runtime hop refreshes the bridge without relaunching."""
 
         with tempfile.TemporaryDirectory() as temp_dir:
             runtime_root = Path(temp_dir) / "runtime"
             runtime_site_packages = (
-                runtime_root / "lib" / "python3.14" / ("site-packages")
+                runtime_root
+                / "lib"
+                / f"python{sys.version_info.major}.{sys.version_info.minor}"
+                / "site-packages"
             )
             runtime_site_packages.mkdir(parents=True, exist_ok=True)
             bridge_file = runtime_site_packages / "webcam_micro_runtime.pth"
@@ -260,6 +267,7 @@ class RuntimeBootstrapModuleTest(unittest.TestCase):
                 ),
                 mock.patch(
                     "webcam_micro.runtime_bootstrap._write_import_bridge",
+                    wraps=_write_import_bridge,
                 ) as write_bridge_mock,
                 mock.patch(
                     "webcam_micro.runtime_bootstrap._exec_runtime_python",
@@ -267,21 +275,42 @@ class RuntimeBootstrapModuleTest(unittest.TestCase):
             ):
                 bootstrap_runtime(["--smoke-test"])
 
-            write_bridge_mock.assert_not_called()
+            write_bridge_mock.assert_called_once_with(
+                runtime_site_packages,
+                plan.import_roots,
+            )
             exec_runtime_mock.assert_not_called()
             self.assertEqual(
-                "/opt/site-packages\n",
+                "/Users/test/project\n",
                 bridge_file.read_text(encoding="utf-8"),
             )
 
-    def test_runtime_site_packages_path_raises_structured_error(
-        self,
-    ) -> None:
-        """Assert runtime path resolution failures stay typed."""
+    def test_runtime_site_packages_path_uses_runtime_layout(self) -> None:
+        """Assert the runtime site-packages path follows the venv layout."""
 
-        with mock.patch(
-            "webcam_micro.runtime_bootstrap.sysconfig.get_path",
-            return_value=None,
-        ):
-            with self.assertRaises(RuntimeBootstrapError):
-                _runtime_site_packages_path(Path("/tmp/runtime"))
+        with self.subTest("macos"):
+            with mock.patch(
+                "webcam_micro.runtime_bootstrap.sys.platform",
+                "darwin",
+            ):
+                self.assertEqual(
+                    Path("/tmp/runtime")
+                    / "lib"
+                    / f"python{sys.version_info.major}."
+                    f"{sys.version_info.minor}" / "site-packages",
+                    _runtime_site_packages_path(Path("/tmp/runtime")),
+                )
+
+        with self.subTest("windows"):
+            with mock.patch(
+                "webcam_micro.runtime_bootstrap.sys.platform",
+                "win32",
+            ):
+                self.assertEqual(
+                    Path(r"C:\Users\test\AppData\Local")
+                    / "Lib"
+                    / "site-packages",
+                    _runtime_site_packages_path(
+                        Path(r"C:\Users\test\AppData\Local")
+                    ),
+                )

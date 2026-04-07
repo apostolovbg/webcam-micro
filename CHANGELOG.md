@@ -61,6 +61,19 @@ Example:
 ## Version 0.2.0
 
 - 2026-04-07:
+  Change: Hardened the private runtime bridge so the launcher refreshes it
+    on every launch.
+  Why: Keep the macOS private runtime aligned with the source checkout and
+    repair stale import bridges automatically.
+  Impact: Restores stale private runtimes before relaunch, which keeps the
+    camera-permission path and package imports available.
+  Files:
+  CHANGELOG.md
+  README.md
+  tests/test_runtime_bootstrap.py
+  webcam_micro/README.md
+  webcam_micro/runtime_bootstrap.py
+- 2026-04-07:
   Change: Moved the dependency-management license-source overrides into the
     custom userproject profile.
   Why: Keep user metadata overrides under the repo-specific profile instead
