@@ -61,6 +61,22 @@ Example:
 ## Version 0.2.0
 
 - 2026-04-07:
+  Change: Selected one authoritative control backend per camera and
+    removed the control-path merger.
+  Why: Aligned the active plan with one source of truth for ranges,
+    choices, and writes instead of a merged control stack.
+  Impact: Simplified camera control routing to one backend only, and the
+    docs and tests describe that selection.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  README.md
+  webcam_micro/README.md
+  webcam_micro/__init__.py
+  webcam_micro/camera.py
+  tests/test_camera.py
+
+- 2026-04-07:
   Change: Consolidated PLAN.md from seven slices into three around the
     single authoritative device-control layer.
   Why: Aligned the roadmap with the shorter spec and avoided unnecessary

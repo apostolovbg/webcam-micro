@@ -216,8 +216,8 @@ def build_backend_plan() -> BackendPlan:
     return BackendPlan(
         active_backend="QtCameraBackend",
         first_device_backend_target=(
-            "Qt Multimedia-backed discovery and live preview with native "
-            "device-control backends"
+            "Qt Multimedia-backed discovery and live preview with one "
+            "selected native device-control backend"
         ),
         notes=(
             "Stage 7 moves camera discovery and live preview onto Qt "
@@ -225,9 +225,8 @@ def build_backend_plan() -> BackendPlan:
             "Preview readers keep only the newest frame surfaced through a "
             "QVideoSink so the workspace renderer does not lag behind live "
             "video.",
-            "The typed control surface now combines Qt Multimedia preview "
-            "capability reporting with native device-control backends on "
-            "macOS and Linux so device-owned controls read real ranges, "
+            "The typed control surface now selects one native device-control "
+            "backend per camera so device-owned controls read real ranges, "
             "modes, and menu values.",
         ),
     )
@@ -2421,41 +2420,49 @@ def _v4l2_device_path_for_descriptor(
     return None
 
 
-class CompositeCameraControlBackend:
-    """Merge multiple control backends into one stable surface."""
+class _SelectedCameraControlBackend:
+    """Select one control backend per camera and delegate all access."""
 
     def __init__(self, *control_backends: CameraControlBackend) -> None:
-        """Store the ordered control backends used for lookup."""
+        """Store control-backend candidates in priority order."""
 
         self._control_backends = tuple(control_backends)
+        self._null_backend = NullCameraControlBackend()
+        self._selected_backend_by_descriptor: dict[
+            str, CameraControlBackend
+        ] = {}
+
+    def _backend_for_descriptor(
+        self,
+        descriptor: CameraDescriptor,
+    ) -> CameraControlBackend:
+        """Return the single control backend chosen for one camera."""
+
+        selected_backend = self._selected_backend_by_descriptor.get(
+            descriptor.stable_id
+        )
+        if selected_backend is not None:
+            return selected_backend
+        for backend in self._control_backends:
+            try:
+                controls = backend.list_controls(descriptor)
+            except CameraControlError:
+                continue
+            if not controls:
+                continue
+            self._selected_backend_by_descriptor[descriptor.stable_id] = (
+                backend
+            )
+            return backend
+        return self._null_backend
 
     def list_controls(
         self, descriptor: CameraDescriptor
     ) -> tuple[CameraControl, ...]:
-        """Return the merged control surface from every backend."""
+        """Return the selected control surface for one camera."""
 
-        controls: list[CameraControl] = []
-        seen_control_ids: set[str] = set()
-        for backend in self._control_backends:
-            for control in backend.list_controls(descriptor):
-                if control.control_id in seen_control_ids:
-                    continue
-                seen_control_ids.add(control.control_id)
-                controls.append(control)
-        return tuple(controls)
-
-    def _backend_for_control_id(
-        self,
-        descriptor: CameraDescriptor,
-        control_id: str,
-    ) -> CameraControlBackend | None:
-        """Return the first backend that reports one control ID."""
-
-        for backend in self._control_backends:
-            for control in backend.list_controls(descriptor):
-                if control.control_id == control_id:
-                    return backend
-        return None
+        backend = self._backend_for_descriptor(descriptor)
+        return backend.list_controls(descriptor)
 
     def set_control_value(
         self,
@@ -2463,13 +2470,9 @@ class CompositeCameraControlBackend:
         control_id: str,
         value: object,
     ) -> None:
-        """Apply one control value through the owning backend."""
+        """Apply one control value through the selected backend."""
 
-        backend = self._backend_for_control_id(descriptor, control_id)
-        if backend is None:
-            raise CameraControlApplyError(
-                f"Unsupported camera control `{control_id}`."
-            )
+        backend = self._backend_for_descriptor(descriptor)
         backend.set_control_value(descriptor, control_id, value)
 
     def trigger_control_action(
@@ -2477,13 +2480,9 @@ class CompositeCameraControlBackend:
         descriptor: CameraDescriptor,
         control_id: str,
     ) -> None:
-        """Trigger one action through the owning backend."""
+        """Trigger one action through the selected backend."""
 
-        backend = self._backend_for_control_id(descriptor, control_id)
-        if backend is None:
-            raise CameraControlApplyError(
-                f"Unsupported action control `{control_id}`."
-            )
+        backend = self._backend_for_descriptor(descriptor)
         backend.trigger_control_action(descriptor, control_id)
 
 
@@ -4078,7 +4077,7 @@ def _build_control_backend(
         Callable[[CameraDescriptor, str | None], None] | None
     ) = None,
 ) -> CameraControlBackend:
-    """Return the active control backend stack for one runtime."""
+    """Return the single active control backend for one runtime."""
 
     control_backends: list[CameraControlBackend] = []
     if sys.platform.startswith("linux") and v4l2_device_resolver is not None:
@@ -4105,7 +4104,7 @@ def _build_control_backend(
         return NullCameraControlBackend()
     if len(control_backends) == 1:
         return control_backends[0]
-    return CompositeCameraControlBackend(*control_backends)
+    return _SelectedCameraControlBackend(*control_backends)
 
 
 _QT_EXPOSURE_MODE_SPECS = (
@@ -6726,7 +6725,7 @@ class QtCameraBackend:
         control_id: str,
         value: object,
     ) -> None:
-        """Apply one control value through the composed control backend."""
+        """Apply one control value through the selected control backend."""
 
         self._control_backend.set_control_value(descriptor, control_id, value)
 
@@ -6735,7 +6734,7 @@ class QtCameraBackend:
         descriptor: CameraDescriptor,
         control_id: str,
     ) -> None:
-        """Trigger one action control through the composed backend."""
+        """Trigger one action control through the selected backend."""
 
         self._control_backend.trigger_control_action(
             descriptor,
@@ -6838,7 +6837,7 @@ class FfmpegCameraBackend:
         control_id: str,
         value: object,
     ) -> None:
-        """Apply one control value through the composed control backend."""
+        """Apply one control value through the selected control backend."""
 
         self._control_backend.set_control_value(descriptor, control_id, value)
 
@@ -6847,7 +6846,7 @@ class FfmpegCameraBackend:
         descriptor: CameraDescriptor,
         control_id: str,
     ) -> None:
-        """Trigger one action control through the composed backend."""
+        """Trigger one action control through the selected backend."""
 
         self._control_backend.trigger_control_action(
             descriptor,

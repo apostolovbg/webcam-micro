@@ -31,8 +31,8 @@ in `SPEC.md` and history in `CHANGELOG.md`.
 - This roadmap follows the workstation-shell contract in `SPEC.md`.
 - The current phase is to keep the shell preview-first, capability-driven,
   and owned by one device-control layer per camera.
-- The remaining work is to collapse the last stacked control plumbing so
-  each camera has one owner with live device-reported ranges and menus.
+- The control plumbing is now collapsed to one owner per camera, so
+  device-reported ranges and menus come from a single source of truth.
 
 ## Workflow
 - Work in dependency order unless a real blocker forces reordering.
@@ -84,7 +84,7 @@ in `SPEC.md` and history in `CHANGELOG.md`.
    - supported control sets appear faithfully and the validated shell
      stays stable
 
-3. [pending] Collapse the control path into one authoritative device-
+3. [done] Collapse the control path into one authoritative device-
    control layer.
    Goal:
    - make each camera have one control owner

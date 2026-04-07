@@ -2,7 +2,7 @@
 **Doc ID:** README
 **Doc Type:** repo-readme
 **Project Version:** 0.2.0
-**Last Updated:** 2026-04-06
+**Last Updated:** 2026-04-07
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -85,17 +85,16 @@ complete for the current release path.
   Backlight compensation, Brightness, Contrast, Hue, Saturation,
   Sharpness, Gamma, Gain, Power Line Frequency, and White balance rows,
   Contrast and Hue keep Auto checkboxes, White balance keeps its Auto
-  checkbox, and a Reset to Defaults button sits at the bottom.
+  checkbox, and a Reset to Defaults button sits at the bottom. The app
+  selects one control owner per camera and reads ranges, choices, and
+  writes from that backend only.
 - The active backend still exposes numeric, boolean, enum, read-only,
-  and action controls when the device supports them. Native
-  device-control backends now own exposure, focus, white balance, light,
-  power-line frequency, zoom, lamp or LED, and vendor-specific controls
-  when the device reports them. Qt Multimedia still covers preview,
-  source-format, flash, and torch controls across supported platforms.
-  On macOS, the native UVC-style control layer takes first ownership of
-  UVC controls while AVFoundation remains a fallback for native-only
-  gaps and rejects unsupported custom-exposure writes instead of
-  crashing. On Linux, V4L2 adds power line frequency, image-quality
+  and action controls when the selected owner supports them. One
+  selected device-control backend owns exposure, focus, white balance,
+  light, power-line frequency, zoom, lamp or LED, and vendor-specific
+  controls when the device reports them. Qt Multimedia still covers
+  preview, source-format, flash, and torch controls across supported
+  platforms. On Linux, V4L2 adds power line frequency, image-quality
   controls, lamp, illumination, activity LED, and vendor-specific
   extension controls when the camera reports them.
 - Capture and recording: still images save quietly to the configured folder
@@ -108,12 +107,12 @@ complete for the current release path.
   and prototype exit checks in a visible diagnostics dialog and status bar.
 - Platform notes: Qt Multimedia owns the camera and recording stack,
   while platform and device differences still shape the available
-  controls. On macOS, the Qt control backend now owns exposure, ISO,
-  backlight, focus, and white balance when those setters are available,
-  while AVFoundation stays as a fallback for native-only gaps and fails
-  closed on unsupported custom-exposure paths. The shared
-  error-reporting layer keeps launcher, runtime bootstrap, and camera
-  failures as typed notices and diagnostics instead of raw tracebacks.
+  controls. The app selects one device-control owner per camera so the
+  UI reads one source of truth for ranges, menus, and writes. On Linux,
+  V4L2 contributes extra control discovery for device-specific and
+  vendor-specific settings when available. The shared error-reporting
+  layer keeps launcher, runtime bootstrap, and camera failures as typed
+  notices and diagnostics instead of raw tracebacks.
 
 ## Installation
 The packaged app supports Python `3.11+`.

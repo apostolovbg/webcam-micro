@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import ctypes
 import inspect
 import unittest
 from pathlib import Path
 from unittest import mock
 
 from webcam_micro.camera import (
+    _LIBUVC_GET_CUR,
+    _LIBUVC_GET_DEF,
+    _LIBUVC_GET_MAX,
+    _LIBUVC_GET_MIN,
+    _LIBUVC_GET_RES,
     AvFoundationCameraControlBackend,
     BackendPlan,
     CameraBackend,
@@ -20,7 +26,6 @@ from webcam_micro.camera import (
     CameraOpenError,
     CameraOutputError,
     CameraSession,
-    CompositeCameraControlBackend,
     FfmpegCameraBackend,
     FfmpegCameraSession,
     LibUVCControlBackend,
@@ -35,10 +40,12 @@ from webcam_micro.camera import (
     QtCameraSession,
     RecordingCropPlan,
     _build_control_backend,
+    _configure_libuvc_library,
     _preferred_recording_output_suffix,
     _qt_recording_output_path_for_path,
     _request_macos_camera_permission,
     _request_qt_camera_permission,
+    _SelectedCameraControlBackend,
     _V4L2ControlRecord,
     build_backend_plan,
     build_recording_file_filter,
@@ -75,14 +82,15 @@ class CameraContractTest(unittest.TestCase):
         self.assertEqual("QtCameraBackend", plan.active_backend)
         self.assertIn("Qt Multimedia", plan.first_device_backend_target)
         self.assertIn(
-            "native device-control backends",
+            "one selected native device-control backend",
             plan.first_device_backend_target,
         )
         self.assertTrue(any("newest frame" in note for note in plan.notes))
         self.assertTrue(any("Qt Multimedia" in note for note in plan.notes))
         self.assertTrue(
             any(
-                "native device-control backends" in note for note in plan.notes
+                "one native device-control backend" in note
+                for note in plan.notes
             )
         )
 
@@ -137,10 +145,6 @@ class CameraContractTest(unittest.TestCase):
         self.assertEqual("PreviewFrame", PreviewFrame.__name__)
         self.assertEqual("RecordingCropPlan", RecordingCropPlan.__name__)
         self.assertEqual(
-            "CompositeCameraControlBackend",
-            CompositeCameraControlBackend.__name__,
-        )
-        self.assertEqual(
             "QtCameraControlBackend",
             QtCameraControlBackend.__name__,
         )
@@ -151,6 +155,94 @@ class CameraContractTest(unittest.TestCase):
 
         avfoundation_backend = AvFoundationCameraControlBackend()
         self.assertIsInstance(avfoundation_backend.available, bool)
+
+    def test_configure_libuvc_library_binds_exported_symbols(self) -> None:
+        """Assert the libuvc binder installs ctypes signatures."""
+
+        class FakeFunction:
+            """Track the signatures the binder installs."""
+
+            def __init__(self) -> None:
+                """Initialize signature placeholders."""
+
+                self.restype: object | None = None
+                self.argtypes: object | None = None
+
+        class FakeLibrary:
+            """Expose the small libuvc surface used by the binder."""
+
+            uvc_init = FakeFunction()
+            uvc_strerror = FakeFunction()
+
+        _configure_libuvc_library(FakeLibrary)
+
+        self.assertEqual(ctypes.c_int, FakeLibrary.uvc_init.restype)
+        self.assertEqual(
+            [ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p],
+            FakeLibrary.uvc_init.argtypes,
+        )
+        self.assertEqual(ctypes.c_char_p, FakeLibrary.uvc_strerror.restype)
+        self.assertEqual(
+            [ctypes.c_int],
+            FakeLibrary.uvc_strerror.argtypes,
+        )
+        configure_source = inspect.getsource(_configure_libuvc_library)
+        self.assertIn("def bind", configure_source)
+
+    def test_libuvc_numeric_record_scales_values(self) -> None:
+        """Assert libuvc numeric records convert raw values into units."""
+
+        class FakeLibrary:
+            """Expose the minimal getter used by the numeric helper."""
+
+            def uvc_get_test(
+                self,
+                handle: object,
+                value_ptr: object,
+                req_code: int,
+            ) -> int:
+                """Store deterministic raw values for each request."""
+
+                values = {
+                    _LIBUVC_GET_CUR: 12,
+                    _LIBUVC_GET_DEF: 10,
+                    _LIBUVC_GET_MIN: 5,
+                    _LIBUVC_GET_MAX: 20,
+                    _LIBUVC_GET_RES: 2,
+                }
+                raw_value_ptr = ctypes.cast(
+                    value_ptr,
+                    ctypes.POINTER(ctypes.c_uint16),
+                )
+                raw_value_ptr[0] = values[req_code]
+                return 0
+
+        backend = object.__new__(LibUVCControlBackend)
+        backend._lib = FakeLibrary()
+        backend._handle = object()
+
+        record = backend._numeric_record(
+            control_id="brightness",
+            label="Brightness",
+            getter_name="uvc_get_test",
+            setter_name="uvc_set_test",
+            unit_id=1,
+            selector=2,
+            value_type=ctypes.c_uint16,
+            scale=0.1,
+            details="Scaled numeric record.",
+        )
+
+        self.assertIsNotNone(record)
+        assert record is not None
+        self.assertAlmostEqual(1.2, record.value)
+        self.assertAlmostEqual(0.5, record.min_value)
+        self.assertAlmostEqual(2.0, record.max_value)
+        self.assertAlmostEqual(0.2, record.step)
+        numeric_record_source = inspect.getsource(
+            LibUVCControlBackend._numeric_record
+        )
+        self.assertIn("def scaled", numeric_record_source)
 
     def test_qt_camera_control_backend_surfaces_common_controls(
         self,
@@ -938,10 +1030,10 @@ class CameraContractTest(unittest.TestCase):
             write_calls,
         )
 
-    def test_composite_control_backend_merges_and_routes_control_updates(
+    def test_selected_control_backend_uses_one_owner_only(
         self,
     ) -> None:
-        """Assert the composite backend keeps primary and extra controls."""
+        """Assert the selected backend keeps one control owner."""
 
         class PrimaryBackend:
             """Expose one primary control and record writes."""
@@ -1035,31 +1127,37 @@ class CameraContractTest(unittest.TestCase):
 
         primary = PrimaryBackend()
         secondary = SecondaryBackend()
-        backend = CompositeCameraControlBackend(primary, secondary)
+        backend = _SelectedCameraControlBackend(primary, secondary)
         descriptor = CameraDescriptor(
-            stable_id="composite::example",
-            display_name="Composite Camera",
+            stable_id="selected::example",
+            display_name="Selected Camera",
             backend_name="qt_multimedia",
-            device_selector="composite::example",
+            device_selector="selected::example",
         )
 
         controls = backend.list_controls(descriptor)
         self.assertEqual(
-            ("exposure_mode", "brightness", "vendor_extension"),
+            ("exposure_mode",),
             tuple(control.control_id for control in controls),
         )
 
-        backend.set_control_value(descriptor, "brightness", 15)
+        backend.set_control_value(descriptor, "exposure_mode", "locked")
         backend.trigger_control_action(descriptor, "exposure_mode")
 
-        self.assertEqual([("set", "brightness", 15)], secondary.calls)
-        self.assertEqual([("action", "exposure_mode", True)], primary.calls)
+        self.assertEqual([], secondary.calls)
+        self.assertEqual(
+            [
+                ("set", "exposure_mode", "locked"),
+                ("action", "exposure_mode", True),
+            ],
+            primary.calls,
+        )
 
     @mock.patch("webcam_micro.camera.sys.platform", "darwin")
-    def test_build_control_backend_prefers_native_backend_on_macos(
+    def test_build_control_backend_selects_one_backend_on_macos(
         self,
     ) -> None:
-        """Assert the macOS stack routes shared controls to native first."""
+        """Assert the macOS backend selection keeps one control owner."""
 
         native_backend = mock.MagicMock()
         qt_backend = mock.MagicMock()
@@ -1074,18 +1172,18 @@ class CameraContractTest(unittest.TestCase):
         )
         qt_backend.list_controls.return_value = (
             CameraControl(
-                control_id="manual_exposure_time",
-                label="Manual Exposure Time",
+                control_id="brightness",
+                label="Brightness",
                 kind="numeric",
-                value=0.05,
+                value=12,
             ),
         )
         av_backend.list_controls.return_value = (
             CameraControl(
-                control_id="manual_exposure_time",
-                label="Manual Exposure Time",
-                kind="numeric",
-                value=0.05,
+                control_id="vendor_extension",
+                label="Vendor Extension",
+                kind="read_only",
+                value="Enabled",
             ),
         )
 
@@ -1108,6 +1206,19 @@ class CameraContractTest(unittest.TestCase):
                 lambda _descriptor: object(),
                 None,
             )
+
+        controls = backend.list_controls(
+            CameraDescriptor(
+                stable_id="macos::example",
+                display_name="Mac Camera",
+                backend_name="qt_multimedia",
+                device_selector="macos::example",
+            ),
+        )
+        self.assertEqual(
+            ("manual_exposure_time",),
+            tuple(control.control_id for control in controls),
+        )
 
         descriptor = CameraDescriptor(
             stable_id="macos::example",
