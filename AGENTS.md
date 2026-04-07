@@ -56,10 +56,9 @@ DevCovenant lifecycle and command behavior used by the project.
   saturation, sharpness, and gamma rows visible even when the camera
   backend lacks matching setters; backlight compensation and white
   balance remain camera-owned rows when exposed.
-- 2026-04-06: macOS camera controls now prefer the Qt Multimedia
-  backend for exposure, ISO, backlight, focus, and white balance when
-  those setters are available; AVFoundation remains fallback and must
-  fail closed on unsupported custom-exposure paths.
+- 2026-04-07: macOS camera controls now choose one owner by canonical
+  device identity, and Qt feature stubs no longer count as support;
+  unsupported rows stay hidden instead of becoming dead sliders.
 - 2026-04-06: Automatic Video HDR rows are gated by active-format
   support; unsupported USB cameras must skip the control instead of
   touching the AVFoundation getter.

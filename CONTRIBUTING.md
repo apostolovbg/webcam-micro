@@ -2,7 +2,7 @@
 **Doc ID:** CONTRIBUTING
 **Doc Type:** contributing-guide
 **Project Version:** 0.2.0
-**Last Updated:** 2026-04-06
+**Last Updated:** 2026-04-07
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -59,10 +59,10 @@ across DevCovenant refresh and upgrade runs.
 
 - Treat `webcam_micro/VERSION` as the release version source of truth for
   alpha work.
-- When validating macOS camera controls, exercise the Qt-backed
-  exposure, ISO, focus, white balance, and backlight path after a fresh
-  reinstall, and confirm the shell-managed brightness, contrast, hue,
-  saturation, sharpness, and gamma rows still appear in User Controls.
-  Confirm unsupported AVFoundation custom-exposure writes fail closed,
-  smooth autofocus stays gated by native support, and Automatic Video HDR
-  stays hidden when the active format does not report support.
+- When validating macOS camera controls, confirm the selected owner
+  matches the physical camera by canonical device identity, exercise the
+  control rows after a fresh reinstall, and confirm unsupported Qt
+  feature stubs stay hidden instead of showing dead sliders. Confirm
+  unsupported AVFoundation custom-exposure writes fail closed, smooth
+  autofocus stays gated by native support, and Automatic Video HDR stays
+  hidden when the active format does not report support.

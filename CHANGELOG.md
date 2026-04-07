@@ -61,6 +61,25 @@ Example:
 ## Version 0.2.0
 
 - 2026-04-07:
+  Change: Hardened canonical camera identity matching and feature gating so
+    one control owner can win per physical device.
+  Why: Prevented decorated Qt camera labels and method stubs from hiding
+    the native device-control owner or surfacing dead control rows.
+  Impact: Restored canonical hardware identity and explicit backend
+    capability flags, which stabilize native control selection on
+    matching cameras.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  CONTRIBUTING.md
+  PLAN.md
+  README.md
+  SPEC.md
+  webcam_micro/README.md
+  webcam_micro/__init__.py
+  webcam_micro/camera.py
+  tests/test_camera.py
+- 2026-04-07:
   Change: Hardened the private runtime bridge so the launcher refreshes it
     on every launch.
   Why: Keep the macOS private runtime aligned with the source checkout and

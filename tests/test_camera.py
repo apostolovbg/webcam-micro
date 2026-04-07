@@ -219,6 +219,7 @@ class CameraContractTest(unittest.TestCase):
 
         backend = object.__new__(LibUVCControlBackend)
         backend._lib = FakeLibrary()
+        backend._context = None
         backend._handle = object()
 
         record = backend._numeric_record(
@@ -243,6 +244,35 @@ class CameraContractTest(unittest.TestCase):
             LibUVCControlBackend._numeric_record
         )
         self.assertIn("def scaled", numeric_record_source)
+
+    def test_libuvc_device_matches_decorated_display_name(self) -> None:
+        """Assert libuvc matches a decorated Qt display name to USB data."""
+
+        class FakeDeviceDescriptor:
+            """Expose the libuvc strings used by the matching helper."""
+
+            serialNumber = None
+            manufacturer = b"Sonix Technology Co., Ltd."
+            product = b"A4ech FHD 1080P PC Camera"
+
+        backend = object.__new__(LibUVCControlBackend)
+        backend._lib = None
+        backend._context = None
+        descriptor = CameraDescriptor(
+            stable_id="qt-camera::example",
+            display_name="A4ech FHD 1080P PC Camera (Default)",
+            backend_name="qt_multimedia",
+            device_selector="qt-camera::example",
+            native_identifier=None,
+        )
+
+        self.assertTrue(
+            backend._device_matches_descriptor(
+                FakeDeviceDescriptor(),
+                descriptor,
+                0,
+            )
+        )
 
     def test_qt_camera_control_backend_surfaces_common_controls(
         self,
@@ -404,7 +434,12 @@ class CameraContractTest(unittest.TestCase):
             def supportedFeatures(self) -> int:
                 """Return every feature flag used by the test."""
 
-                return 0
+                return (
+                    FakeFeature.ExposureCompensation
+                    | FakeFeature.FocusDistance
+                    | FakeFeature.ColorTemperature
+                    | FakeFeature.ManualExposureTime
+                )
 
             def isExposureModeSupported(self, mode: object) -> bool:
                 """Report support for the auto and manual exposure modes."""
@@ -739,6 +774,131 @@ class CameraContractTest(unittest.TestCase):
             ],
             control_calls,
         )
+
+    def test_qt_camera_control_backend_hides_featureless_native_methods(
+        self,
+    ) -> None:
+        """Assert Qt hides method stubs when the feature flag is absent."""
+
+        class FakeExposureMode:
+            """Expose the Qt exposure-mode enum tokens used by the backend."""
+
+            ExposureAuto = "ExposureAuto"
+            ExposureManual = "ExposureManual"
+
+        class FakeFocusMode:
+            """Expose the Qt focus-mode enum tokens used by the backend."""
+
+            FocusModeAuto = "FocusModeAuto"
+            FocusModeManual = "FocusModeManual"
+
+        class FakeWhiteBalanceMode:
+            """Expose the Qt white-balance enum tokens used by the backend."""
+
+            WhiteBalanceAuto = "WhiteBalanceAuto"
+            WhiteBalanceManual = "WhiteBalanceManual"
+
+        class FakeFeature:
+            """Expose the Qt camera-feature bit flags used by the backend."""
+
+            ExposureCompensation = 1
+            FocusDistance = 2
+            ColorTemperature = 4
+            ManualExposureTime = 8
+
+        class FakeCameraDevice:
+            """Expose one deterministic camera device for the backend."""
+
+            def cameraFormat(self) -> object | None:
+                """Return no selected format for the featureless test."""
+
+                return None
+
+        class FakeQCamera:
+            """Expose featureless stubs for the native-method fallback."""
+
+            Feature = FakeFeature
+            ExposureMode = FakeExposureMode
+            FlashMode = FakeExposureMode
+            FocusMode = FakeFocusMode
+            TorchMode = FakeExposureMode
+            WhiteBalanceMode = FakeWhiteBalanceMode
+
+            def __init__(self, device: object) -> None:
+                """Store the fake device for later method calls."""
+
+                self.device = device
+
+            def supportedFeatures(self) -> int:
+                """Report no supported Qt camera features."""
+
+                return 0
+
+            def isExposureModeSupported(self, mode: object) -> bool:
+                """Report only continuous auto exposure support."""
+
+                return mode == FakeExposureMode.ExposureAuto
+
+            def exposureMode(self) -> object:
+                """Return the current exposure mode."""
+
+                return FakeExposureMode.ExposureAuto
+
+            def isFocusModeSupported(self, mode: object) -> bool:
+                """Report no writable focus support."""
+
+                return False
+
+            def isWhiteBalanceModeSupported(self, mode: object) -> bool:
+                """Report only auto white-balance support."""
+
+                return mode == FakeWhiteBalanceMode.WhiteBalanceAuto
+
+            def whiteBalanceMode(self) -> object:
+                """Return the current white-balance mode."""
+
+                return FakeWhiteBalanceMode.WhiteBalanceAuto
+
+            def minimumZoomFactor(self) -> float:
+                """Return a fixed minimum zoom factor."""
+
+                return 1.0
+
+            def maximumZoomFactor(self) -> float:
+                """Return a fixed maximum zoom factor."""
+
+                return 1.0
+
+            def zoomFactor(self) -> float:
+                """Return the current zoom factor."""
+
+                return 1.0
+
+            def cameraFormat(self) -> object | None:
+                """Return no selected camera format for this test."""
+
+                return None
+
+        fake_qt_multimedia = mock.MagicMock(QCamera=FakeQCamera)
+        backend = QtCameraControlBackend(
+            fake_qt_multimedia,
+            lambda _descriptor: FakeCameraDevice(),
+        )
+        descriptor = CameraDescriptor(
+            stable_id="qt-camera::featureless",
+            display_name="Featureless Camera",
+            backend_name="qt_multimedia",
+            device_selector="qt-camera::featureless",
+        )
+
+        control_ids = {
+            control.control_id for control in backend.list_controls(descriptor)
+        }
+
+        self.assertNotIn("backlight_compensation", control_ids)
+        self.assertNotIn("manual_exposure_time", control_ids)
+        self.assertNotIn("focus_distance", control_ids)
+        self.assertNotIn("white_balance_temperature", control_ids)
 
     @mock.patch.object(
         QtCameraBackend,

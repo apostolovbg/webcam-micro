@@ -180,12 +180,14 @@ settings dialog with a preview attached.
 - The status bar stays compact and structured; long help and recovery text
   belong in diagnostics.
 - One authoritative device-control layer owns each camera's control
-  surface. The UI does not merge competing control owners.
+  surface, and canonical hardware identity chooses that owner so one
+  physical camera maps to one source of truth. The UI does not merge
+  competing control owners.
 - Camera-native controls are separate from genuine software-side image
   adjustments. Device-owned controls belong to the device-control layer.
-- The product exposes the controls the active backend reports, with
-  authoritative device-reported minimums, maximums, step sizes, defaults,
-  and menu values.
+- The product exposes the controls the active backend reports and can
+  apply, with authoritative device-reported minimums, maximums, step
+  sizes, defaults, and menu values.
 - Control-family order stays stable across layouts and backends; unsupported
   families disappear cleanly instead of leaving placeholders.
 - The product renders Resolution, Exposure, Focus, White balance, Backlight

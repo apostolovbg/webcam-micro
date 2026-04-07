@@ -87,8 +87,8 @@ complete for the current release path.
   Sharpness, Gamma, Gain, Power Line Frequency, and White balance rows,
   Contrast and Hue keep Auto checkboxes, White balance keeps its Auto
   checkbox, and a Reset to Defaults button sits at the bottom. The app
-  selects one control owner per camera and reads ranges, choices, and
-  writes from that backend only.
+  selects one control owner per camera by canonical device identity and
+  reads ranges, choices, and writes from that backend only.
 - The active backend still exposes numeric, boolean, enum, read-only,
   and action controls when the selected owner supports them. One
   selected device-control backend owns exposure, focus, white balance,
@@ -108,12 +108,13 @@ complete for the current release path.
   and prototype exit checks in a visible diagnostics dialog and status bar.
 - Platform notes: Qt Multimedia owns the camera and recording stack,
   while platform and device differences still shape the available
-  controls. The app selects one device-control owner per camera so the
-  UI reads one source of truth for ranges, menus, and writes. On Linux,
-  V4L2 contributes extra control discovery for device-specific and
-  vendor-specific settings when available. The shared error-reporting
-  layer keeps launcher, runtime bootstrap, and camera failures as typed
-  notices and diagnostics instead of raw tracebacks.
+  controls. The app selects one device-control owner per camera by
+  canonical hardware identity so the UI reads one source of truth for
+  ranges, menus, and writes. On Linux, V4L2 contributes extra control
+  discovery for device-specific and vendor-specific settings when
+  available. The shared error-reporting layer keeps launcher, runtime
+  bootstrap, and camera failures as typed notices and diagnostics
+  instead of raw tracebacks.
 
 ## Installation
 The packaged app supports Python `3.11+`.

@@ -1247,16 +1247,16 @@ def _qcamera_feature_enabled(features: object, feature: object) -> bool:
         return False
 
 
-def _qcamera_feature_or_methods_supported(
+def _qcamera_feature_supported(
     camera: Any,
     features: object,
     feature: object,
     *method_names: str,
 ) -> bool:
-    """Return whether Qt reports a feature or exposes the needed methods."""
+    """Return whether Qt reports one feature and exposes the needed methods."""
 
-    if _qcamera_feature_enabled(features, feature):
-        return True
+    if not _qcamera_feature_enabled(features, feature):
+        return False
     for method_name in method_names:
         if getattr(camera, method_name, None) is None:
             return False
@@ -2125,6 +2125,22 @@ def _settings_text(value: object | None) -> str | None:
     return text or None
 
 
+def _camera_identity_text(value: object | None) -> str | None:
+    """Return one normalized identity token for camera matching."""
+
+    text = _settings_text(value)
+    if text is None:
+        return None
+    match = re.search(r"\s*\(([^()]*)\)\s*$", text)
+    if match and "default" in match.group(1).casefold():
+        text = text[: match.start()].rstrip()
+    if not text:
+        return None
+    identity = re.sub(r"[^0-9a-z]+", " ", text.casefold())
+    identity = " ".join(identity.split())
+    return identity or None
+
+
 def _libuvc_control_supported(bitmask: int, selector: int) -> bool:
     """Return whether one UVC selector bit is present in the bitmap."""
 
@@ -2789,30 +2805,22 @@ class LibUVCControlBackend:
         ):
             return True
         device_label = self._device_label(device_descriptor)
-        descriptor_label = descriptor.display_name.strip()
-        if device_label == descriptor_label:
-            return occurrence_index == descriptor.display_occurrence_index
-        if (
-            _settings_text(device_label).lower()
-            == _settings_text(descriptor_label).lower()
-        ):
-            return occurrence_index == descriptor.display_occurrence_index
         product = _libuvc_text(device_descriptor.product)
         manufacturer = _libuvc_text(device_descriptor.manufacturer)
-        candidate_names = {
-            name
-            for name in (
-                product,
-                manufacturer,
-                (
-                    f"{manufacturer} {product}"
-                    if manufacturer and product
-                    else None
-                ),
-            )
-            if name
+        candidate_identities = {
+            _camera_identity_text(device_label),
+            _camera_identity_text(product),
+            _camera_identity_text(manufacturer),
+            _camera_identity_text(
+                f"{manufacturer} {product}"
+                if manufacturer and product
+                else None
+            ),
         }
-        if descriptor_label in candidate_names:
+        descriptor_identity = _camera_identity_text(descriptor.display_name)
+        if descriptor_identity is not None and descriptor_identity in {
+            identity for identity in candidate_identities if identity
+        }:
             return occurrence_index == descriptor.display_occurrence_index
         return False
 
@@ -4428,7 +4436,7 @@ class QtCameraControlBackend:
                     )
                 )
 
-        if _qcamera_feature_or_methods_supported(
+        if _qcamera_feature_supported(
             camera,
             features,
             camera_class.Feature.ExposureCompensation,
@@ -4454,7 +4462,7 @@ class QtCameraControlBackend:
                 )
             )
 
-        manual_exposure_supported = _qcamera_feature_or_methods_supported(
+        manual_exposure_supported = _qcamera_feature_supported(
             camera,
             features,
             camera_class.Feature.ManualExposureTime,
@@ -4532,7 +4540,7 @@ class QtCameraControlBackend:
                     )
                 )
 
-        if _qcamera_feature_or_methods_supported(
+        if _qcamera_feature_supported(
             camera,
             features,
             camera_class.Feature.FocusDistance,
@@ -4598,7 +4606,7 @@ class QtCameraControlBackend:
                     )
                 )
 
-        if _qcamera_feature_or_methods_supported(
+        if _qcamera_feature_supported(
             camera,
             features,
             camera_class.Feature.ColorTemperature,
@@ -4810,6 +4818,16 @@ class QtCameraControlBackend:
             return
 
         if control_id == "backlight_compensation":
+            if not _qcamera_feature_supported(
+                camera,
+                features,
+                camera_class.Feature.ExposureCompensation,
+                "exposureCompensation",
+                "setExposureCompensation",
+            ):
+                raise CameraControlApplyError(
+                    "Backlight compensation is unavailable for this camera."
+                )
             compensation = _safe_float(value)
             if compensation is None:
                 raise CameraControlApplyError(
@@ -4832,7 +4850,7 @@ class QtCameraControlBackend:
                 raise CameraControlApplyError(
                     "Manual exposure time must be numeric."
                 )
-            if not _qcamera_feature_or_methods_supported(
+            if not _qcamera_feature_supported(
                 camera,
                 features,
                 camera_class.Feature.ManualExposureTime,
@@ -4885,6 +4903,16 @@ class QtCameraControlBackend:
             return
 
         if control_id == "focus_distance":
+            if not _qcamera_feature_supported(
+                camera,
+                features,
+                camera_class.Feature.FocusDistance,
+                "focusDistance",
+                "setFocusDistance",
+            ):
+                raise CameraControlApplyError(
+                    "Focus distance is unavailable for this camera."
+                )
             focus_distance = _safe_float(value)
             if focus_distance is None:
                 raise CameraControlApplyError(
@@ -4928,6 +4956,17 @@ class QtCameraControlBackend:
             return
 
         if control_id == "white_balance_temperature":
+            if not _qcamera_feature_supported(
+                camera,
+                features,
+                camera_class.Feature.ColorTemperature,
+                "colorTemperature",
+                "setColorTemperature",
+            ):
+                raise CameraControlApplyError(
+                    "White balance temperature is unavailable for this "
+                    "camera."
+                )
             color_temperature = _safe_float(value)
             if color_temperature is None:
                 raise CameraControlApplyError(
@@ -5498,8 +5537,15 @@ class AvFoundationCameraControlBackend:
                     )
                 )
 
-        if hasattr(device, "lensPosition") and hasattr(
-            device, "setFocusModeLockedWithLensPosition_completionHandler_"
+        locked_focus_supported = bool(
+            getattr(device, "isFocusModeSupported_", lambda _mode: False)(0)
+        )
+        if (
+            locked_focus_supported
+            and hasattr(device, "lensPosition")
+            and hasattr(
+                device, "setFocusModeLockedWithLensPosition_completionHandler_"
+            )
         ):
             current_focus_distance = _safe_float(
                 _call_or_value(device.lensPosition)

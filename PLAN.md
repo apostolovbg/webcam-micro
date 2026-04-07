@@ -44,6 +44,8 @@ in `SPEC.md` and history in `CHANGELOG.md`.
 - Start from the current Qt shell baseline and tighten it toward `SPEC.md`.
 - Keep preview on Qt Multimedia.
 - Give each camera one authoritative device-control layer.
+- Match that owner by canonical device identity and surface only controls
+  that the selected backend can prove it supports.
 - Use device-reported minimums, maximums, step sizes, defaults, and menu
   values as the source of truth.
 - Keep live camera controls separate from capture settings and status text.
