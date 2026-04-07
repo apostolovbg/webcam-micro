@@ -464,21 +464,6 @@ policy_overlays:
       - tests
     tests_watch_dirs:
       - tests
-  managed-environment:
-    expected_paths:
-      - .venv
-    expected_interpreters:
-      - .venv/bin/python
-      - .venv/Scripts/python.exe
-    required_commands:
-      - pre-commit
-      - pytest
-    manual_commands:
-      - '{current_python} -m venv .venv'
-      - '{managed_python} -m pip install -r requirements.lock'
-    managed_commands:
-      - start=>{current_python} -m venv .venv
-      - start=>{managed_python} -m pip install -r requirements.lock
 project-governance:
   changelog_file: CHANGELOG.md
   unversioned_label: Unversioned

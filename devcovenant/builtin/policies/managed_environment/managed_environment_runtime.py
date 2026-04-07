@@ -170,6 +170,43 @@ def _path_within_root(candidate: Path, root: Path) -> bool:
     return False
 
 
+def _dedupe_paths(paths: Sequence[Path]) -> list[Path]:
+    """Return paths in order while dropping equivalent duplicates."""
+    deduped: list[Path] = []
+    for path in paths:
+        if any(_paths_equivalent(path, existing) for existing in deduped):
+            continue
+        deduped.append(path)
+    return deduped
+
+
+def _resolve_command_search_paths(
+    repo_root: Path,
+    command_search_path_tokens: list[str],
+    managed_python: Path | None,
+    managed_root: Path | None,
+) -> list[Path]:
+    """Return PATH entries used to resolve managed-environment commands."""
+    resolved: list[Path] = []
+    if managed_python is not None:
+        resolved.append(managed_python.parent)
+    elif managed_root is not None:
+        resolved.extend(
+            [
+                managed_root / "bin",
+                managed_root / "Scripts",
+            ]
+        )
+    resolved.extend(
+        _resolve_metadata_paths(
+            repo_root,
+            command_search_path_tokens,
+            resolve_symlinks=False,
+        )
+    )
+    return _dedupe_paths(resolved)
+
+
 def _parse_managed_commands(entries: list[str]) -> list[tuple[str, str]]:
     """Parse metadata-managed command entries into stage/command pairs."""
     parsed: list[tuple[str, str]] = []
@@ -327,6 +364,7 @@ def _environment_satisfies_contract(
     managed_root: Path | None,
     *,
     required_commands: list[str],
+    command_search_paths: Sequence[Path] | None = None,
 ) -> tuple[bool, dict[str, str]]:
     """Return whether one candidate environment already satisfies policy."""
     if interpreter is None:
@@ -335,7 +373,12 @@ def _environment_satisfies_contract(
         return False, dict(env)
     if not os.access(interpreter, os.X_OK):
         return False, dict(env)
-    prepared_env = _apply_managed_env(env, interpreter, managed_root)
+    prepared_env = _apply_managed_env(
+        env,
+        interpreter,
+        managed_root,
+        command_search_paths=command_search_paths,
+    )
     missing_commands = _missing_required_commands_in_env(
         required_commands,
         prepared_env,
@@ -426,15 +469,23 @@ def _apply_managed_env(
     env: Mapping[str, str],
     interpreter: Path,
     root: Path | None,
+    *,
+    command_search_paths: Sequence[Path] | None = None,
 ) -> dict[str, str]:
     """Return env with managed interpreter PATH and identity markers."""
     updated = dict(env)
-    bin_dir = str(interpreter.parent)
-    existing_path = updated.get("PATH", "").strip()
+    path_entries: list[str] = []
+    for path_entry in [interpreter.parent, *(command_search_paths or [])]:
+        token = str(path_entry).strip()
+        if token and token not in path_entries:
+            path_entries.append(token)
+    existing_path = str(updated.get("PATH", "")).strip()
     if existing_path:
-        updated["PATH"] = f"{bin_dir}{os.pathsep}{existing_path}"
-    else:
-        updated["PATH"] = bin_dir
+        for token in existing_path.split(os.pathsep):
+            normalized = token.strip()
+            if normalized and normalized not in path_entries:
+                path_entries.append(normalized)
+    updated["PATH"] = os.pathsep.join(path_entries)
     updated["DEVCOV_MANAGED_PYTHON"] = str(interpreter)
     if root is not None:
         updated["VIRTUAL_ENV"] = str(root)
@@ -459,6 +510,8 @@ def _current_interpreter_root(env: Mapping[str, str]) -> Path | None:
 
 def _resolve_current_interpreter_environment(
     env: Mapping[str, str],
+    *,
+    command_search_paths: Sequence[Path] | None = None,
 ) -> tuple[dict[str, str] | None, str | None]:
     """Return the current interpreter env when it can host command setup."""
     current_python = Path(os.path.abspath(str(sys.executable)))
@@ -467,7 +520,12 @@ def _resolve_current_interpreter_environment(
     if not os.access(current_python, os.X_OK):
         return None, None
     current_root = _current_interpreter_root(env)
-    prepared_env = _apply_managed_env(env, current_python, current_root)
+    prepared_env = _apply_managed_env(
+        env,
+        current_python,
+        current_root,
+        command_search_paths=command_search_paths,
+    )
     return prepared_env, str(current_python)
 
 
@@ -648,6 +706,9 @@ def resolve_managed_environment_for_stage(
     required_commands = _normalize_metadata_tokens(
         metadata_map.get("required_commands")
     )
+    command_search_path_tokens = _normalize_metadata_tokens(
+        metadata_map.get("command_search_paths")
+    )
     managed_commands_raw = _normalize_metadata_tokens(
         metadata_map.get("managed_commands")
     )
@@ -679,11 +740,18 @@ def resolve_managed_environment_for_stage(
         expected_interpreters,
         expected_paths,
     )
+    command_search_paths = _resolve_command_search_paths(
+        repo_root,
+        command_search_path_tokens,
+        managed_python,
+        managed_root,
+    )
     environment_ready, env = _environment_satisfies_contract(
         env,
         managed_python,
         managed_root,
         required_commands=required_commands,
+        command_search_paths=command_search_paths,
     )
 
     if stage_token == "start" and environment_ready:
@@ -706,11 +774,18 @@ def resolve_managed_environment_for_stage(
             expected_interpreters,
             expected_paths,
         )
+        command_search_paths = _resolve_command_search_paths(
+            repo_root,
+            command_search_path_tokens,
+            managed_python,
+            managed_root,
+        )
         environment_ready, env = _environment_satisfies_contract(
             env,
             managed_python,
             managed_root,
             required_commands=required_commands,
+            command_search_paths=command_search_paths,
         )
 
     if (
@@ -734,11 +809,18 @@ def resolve_managed_environment_for_stage(
             expected_interpreters,
             expected_paths,
         )
+        command_search_paths = _resolve_command_search_paths(
+            repo_root,
+            command_search_path_tokens,
+            managed_python,
+            managed_root,
+        )
         environment_ready, env = _environment_satisfies_contract(
             env,
             managed_python,
             managed_root,
             required_commands=required_commands,
+            command_search_paths=command_search_paths,
         )
     if not environment_ready or managed_python is None:
         if (
@@ -747,7 +829,10 @@ def resolve_managed_environment_for_stage(
             and not managed_commands
         ):
             bootstrap_env, bootstrap_python = (
-                _resolve_current_interpreter_environment(env)
+                _resolve_current_interpreter_environment(
+                    env,
+                    command_search_paths=command_search_paths,
+                )
             )
             if bootstrap_env is not None and bootstrap_python is not None:
                 return bootstrap_env, bootstrap_python

@@ -61,6 +61,38 @@ Example:
 ## Version 0.2.0
 
 - 2026-04-07:
+  Change: Added PySide6-family license-source overrides for the system
+    interpreter path.
+  Why: Dependency-management refresh could not find upstream license files
+    for `PySide6_Addons` under the upgraded system install.
+  Impact: Refresh can now resolve the Qt-for-Python license inventory from
+    the source archive and keep the generated license reports current.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  devcovenant/config.yaml
+  devcovenant/registry/registry.yaml
+  licenses/PySide6-6.11.0.txt
+  licenses/PySide6_Addons-6.11.0.txt
+  licenses/PySide6_Essentials-6.11.0.txt
+  licenses/THIRD_PARTY_LICENSES.md
+  licenses/rubicon-objc-0.5.3.txt
+  licenses/shiboken6-6.11.0.txt
+
+- 2026-04-07:
+  Change: Disabled the managed-environment policy and overrode the target
+    interpreter to the system Python.
+  Why: Kept DevCovenant on the machine interpreter while this slice works
+    without the repo-local `.venv`.
+  Impact: The config now points managed-environment metadata at the system
+    Python contract, and the generated governance files track that target.
+  Files:
+  CHANGELOG.md
+  AGENTS.md
+  devcovenant/config.yaml
+  devcovenant/registry/registry.yaml
+
+- 2026-04-07:
   Change: Selected one authoritative control backend per camera and
     removed the control-path merger.
   Why: Aligned the active plan with one source of truth for ranges,

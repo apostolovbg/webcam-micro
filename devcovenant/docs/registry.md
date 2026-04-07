@@ -1,5 +1,5 @@
 # Registry
-**Last Updated:** 2026-04-05
+**Last Updated:** 2026-04-07
 **Project Version:** 1.0.1b1
 
 ## Overview
@@ -81,8 +81,9 @@ Those tracked surface definitions also explain why dependency-report and
 license-artifact refreshes can land next to a registry diff in the same slice:
 the registry is recording the dependency surface contract that generated them.
 The same tracked metadata can also capture stage-scoped managed-environment
-bootstrap commands, so registry diffs are the expected result when the seeded
-default stack changes how `gate --start` can prepare `.venv`.
+bootstrap commands, so registry diffs are the expected result when a
+repository's managed-environment stack changes how `gate --start` can prepare
+`.venv`.
 The tracked registry can also hold policy-owned runtime state when that state
 is deterministic and should travel with the repository.
 For `dependency-management`, that includes per-surface input and output
@@ -102,6 +103,10 @@ metadata.
 The same registry output also records generated CI inputs, so a source fix in
 the artifact-proof bootstrap path is expected to refresh
 `devcovenant/registry/registry.yaml` alongside `.github/workflows/ci.yml`.
+The same tracked metadata can also capture managed-environment bootstrap
+commands and command search paths, so registry diffs are expected when a
+repository changes how `gate --start` prepares `.venv` or resolves required
+commands inside a bench, container, or other declared managed environment.
 That is why `devcovenant/registry/registry.yaml` can change when one declared
 surface moves, when a repository-specific custom profile overrides
 `root_workspace`, when a repository adds its own `package_runtime`, or when

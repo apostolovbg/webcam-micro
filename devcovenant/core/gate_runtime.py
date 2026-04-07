@@ -17,6 +17,7 @@ from typing import Mapping, Sequence
 import yaml
 
 import devcovenant.core.execution as execution_runtime_module
+import devcovenant.core.profile_registry as profile_registry_service
 import devcovenant.core.project_governance as project_governance_service
 import devcovenant.core.repository_paths as yaml_cache_service
 import devcovenant.core.tracked_registry as tracked_registry_module
@@ -1068,7 +1069,7 @@ def snapshot_paths_changed_since(repo_root: Path, epoch: float) -> set[str]:
 
 
 def _snapshot_ignored_dirs(repo_root: Path) -> set[str]:
-    """Return snapshot ignored directories from defaults plus config."""
+    """Return snapshot ignored directories from config and active profiles."""
     ignored = set(_SNAPSHOT_BASE_IGNORED_DIRS)
     config_path = repo_root / "devcovenant" / "config.yaml"
     if not config_path.exists():
@@ -1085,7 +1086,7 @@ def _snapshot_ignored_dirs(repo_root: Path) -> set[str]:
         return ignored
     engine_cfg = payload.get("engine", {})
     if not isinstance(engine_cfg, dict):
-        return ignored
+        engine_cfg = {}
     extra = engine_cfg.get("ignore_dirs", [])
     if isinstance(extra, str):
         extra_dirs = [extra]
@@ -1094,6 +1095,23 @@ def _snapshot_ignored_dirs(repo_root: Path) -> set[str]:
     else:
         extra_dirs = []
     for entry in extra_dirs:
+        name = str(entry).strip()
+        if name:
+            ignored.add(name)
+    active_profiles = profile_registry_service.parse_active_profiles(
+        payload,
+        include_global=True,
+    )
+    profile_registry = profile_registry_service.load_profile_registry(
+        repo_root
+    )
+    profile_ignored_dirs = (
+        profile_registry_service.resolve_profile_ignore_dirs(
+            profile_registry,
+            active_profiles,
+        )
+    )
+    for entry in profile_ignored_dirs:
         name = str(entry).strip()
         if name:
             ignored.add(name)

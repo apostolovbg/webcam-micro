@@ -64,6 +64,9 @@ class ManagedEnvironmentCheck(PolicyCheck):
         required_commands = self._normalize_entries(
             self.get_option("required_commands", [])
         )
+        command_search_path_tokens = self._normalize_entries(
+            self.get_option("command_search_paths", [])
+        )
 
         warnings: list[Violation] = []
         if not expected_paths and not expected_interpreters:
@@ -74,20 +77,6 @@ class ManagedEnvironmentCheck(PolicyCheck):
                     "expected_interpreters are configured.",
                 )
             )
-        if required_commands:
-            missing = [
-                cmd
-                for cmd in required_commands
-                if cmd and not self._command_available(cmd)
-            ]
-            if missing:
-                warnings.append(
-                    self._warning(
-                        repo_root,
-                        "Required commands are missing from PATH: "
-                        f"{', '.join(missing)}.",
-                    )
-                )
 
         resolved_paths = self._resolve_paths(repo_root, expected_paths)
         resolved_interpreters = self._resolve_paths(
@@ -116,6 +105,30 @@ class ManagedEnvironmentCheck(PolicyCheck):
                 resolved_paths,
             )
         )
+        command_search_paths = (
+            managed_environment_runtime._resolve_command_search_paths(
+                repo_root,
+                command_search_path_tokens,
+                managed_python,
+                managed_root,
+            )
+        )
+        if required_commands and command_search_paths:
+            missing = [
+                cmd
+                for cmd in required_commands
+                if cmd
+                and not self._command_available(cmd, command_search_paths)
+            ]
+            if missing:
+                warnings.append(
+                    self._warning(
+                        repo_root,
+                        "Required commands are missing from the resolved "
+                        "managed-environment command paths: "
+                        f"{', '.join(missing)}.",
+                    )
+                )
         guidance = managed_environment_runtime._managed_guidance_suffix(
             manual_commands,
             repo_root=repo_root,
@@ -138,10 +151,19 @@ class ManagedEnvironmentCheck(PolicyCheck):
             )
         ]
 
-    def _command_available(self, command: str) -> bool:
-        """Return True when command or common token variants exist on PATH."""
+    def _command_available(
+        self,
+        command: str,
+        search_paths: list[Path],
+    ) -> bool:
+        """Return True when a command resolves in managed search paths."""
         token = str(command or "").strip()
         if not token:
+            return False
+        path_value = os.pathsep.join(
+            str(path) for path in search_paths if str(path).strip()
+        ).strip()
+        if not path_value:
             return False
         candidates = [token]
         if "_" in token:
@@ -150,7 +172,8 @@ class ManagedEnvironmentCheck(PolicyCheck):
             candidates.append(token.replace("-", "_"))
         deduped = list(dict.fromkeys(candidates))
         return any(
-            shutil.which(candidate) is not None for candidate in deduped
+            shutil.which(candidate, path=path_value) is not None
+            for candidate in deduped
         )
 
     def _normalize_entries(self, entries: object) -> list[str]:

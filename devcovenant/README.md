@@ -2,7 +2,7 @@
 **Doc ID:** README
 **Doc Type:** repo-readme
 **Project Version:** 1.0.1b1
-**Last Updated:** 2026-04-05
+**Last Updated:** 2026-04-07
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -106,10 +106,11 @@ devcovenant install
 # set install.config_reviewed: true
 devcovenant deploy
 # prepare the environment declared by the active profile stack
-# for the seeded defaults + python stack, one manual equivalent is:
+# if the active stack seeds a local .venv, one manual equivalent is:
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.lock
 # gate --start can also run the declared bootstrap commands
+# and honors active-profile ignore dirs before the snapshot
 devcovenant gate --start
 # make your edits
 devcovenant gate --mid
@@ -154,8 +155,8 @@ What those steps mean:
 5. Prepare the environment declared by the active profile stack before the
    first gate cycle.
 
-   If you keep the seeded `defaults` + `python` stack, `deploy` materializes
-   the workspace dependency artifacts and one manual equivalent is creating
+   If the active stack seeds a local `.venv`, `deploy` materializes the
+   workspace dependency artifacts and one manual equivalent is creating
    `.venv` and installing `requirements.lock`.
    On Windows, use `.venv\\Scripts\\python.exe -m pip install -r \
    requirements.lock`.
@@ -195,7 +196,8 @@ Use the commands this way:
 
 - `gate --start`
 
-  Opens a work session and records the starting state for the slice.
+  Opens a work session and records the starting state for the slice after
+  honoring active-profile ignore dirs and engine ignores.
 
 - `gate --mid`
 

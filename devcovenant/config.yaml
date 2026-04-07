@@ -405,14 +405,12 @@ policy_state:
   documentation-growth-tracking: true
   last-updated: true
   line-length-limit: true
-  managed-environment: true
+  managed-environment: false
   modules-need-tests: true
   name-clarity: true
   no-future-dates: true
   no-print-outside-output-runtime: true
   no-raw-errors: true
-  package-artifact-mirror: true
-  package-doc-sync: true
   raw-string-escapes: true
   read-only-directories: true
   security-scanner: true
@@ -1200,21 +1198,6 @@ autogen_metadata_overlays:
     - 'torrent:'
     - 'data:'
     - 'urn:'
-  managed-environment:
-    expected_interpreters:
-    - .venv/bin/python
-    - .venv/Scripts/python.exe
-    expected_paths:
-    - .venv
-    managed_commands:
-    - start=>{current_python} -m venv .venv
-    - start=>{managed_python} -m pip install -r requirements.lock
-    manual_commands:
-    - '{current_python} -m venv .venv'
-    - '{managed_python} -m pip install -r requirements.lock'
-    required_commands:
-    - pre-commit
-    - pytest
   modules-need-tests:
     exclude_prefixes:
     - build
@@ -1385,4 +1368,41 @@ autogen_metadata_overrides: {}
 
 # Do not replace a mapping with ad-hoc sibling flat keys.
 
-user_metadata_overrides: {}
+user_metadata_overrides:
+  managed-environment:
+    expected_paths:
+    - /usr/local/opt/python@3.14
+    expected_interpreters:
+    - /usr/local/opt/python@3.14/bin/python3.14
+    manual_commands: []
+    managed_commands: []
+  dependency-management:
+    license_source_overrides:
+    - id: pyside6
+      kind: archive_url
+      url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+      member_globs:
+      - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+      - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+      - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+    - id: pyside6-addons
+      kind: archive_url
+      url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+      member_globs:
+      - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+      - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+      - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+    - id: pyside6-essentials
+      kind: archive_url
+      url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+      member_globs:
+      - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+      - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+      - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+    - id: shiboken6
+      kind: archive_url
+      url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+      member_globs:
+      - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+      - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+      - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt

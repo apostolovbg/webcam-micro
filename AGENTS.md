@@ -851,6 +851,27 @@ license_source_overrides:
   - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
   - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
   - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+- id: pyside6-addons
+  kind: archive_url
+  url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+  member_globs:
+  - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+  - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+  - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+- id: pyside6-essentials
+  kind: archive_url
+  url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+  member_globs:
+  - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+  - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+  - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+- id: shiboken6
+  kind: archive_url
+  url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+  member_globs:
+  - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+  - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+  - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
 selector_roles: dependency
 dependency_globs: []
 dependency_files: []
@@ -1342,45 +1363,41 @@ id: managed-environment
 severity: error
 auto_fix: 'false'
 enforcement: active
-enabled: 'true'
+enabled: 'false'
 custom: 'false'
 expected_paths:
-- .venv
+- /usr/local/opt/python@3.14
 expected_interpreters:
-- .venv/bin/python
-- .venv/Scripts/python.exe
+- /usr/local/opt/python@3.14/bin/python3.14
+command_search_paths: []
 cleanup_protected_paths: []
-required_commands:
-- pre-commit
-- pytest
-manual_commands:
-- '{current_python} -m venv .venv'
-- '{managed_python} -m pip install -r requirements.lock'
-managed_commands:
-- start=>{current_python} -m venv .venv
-- start=>{managed_python} -m pip install -r requirements.lock
+required_commands: []
+manual_commands: []
+managed_commands: []
 ```
 
 DevCovenant must run from one execution environment described by this
 policy's metadata. `expected_paths` and `expected_interpreters` point to
-that target environment, while optional `cleanup_protected_paths` define
-extra roots that cleanup must never delete. `required_commands`
-declare the commands that must resolve once the target interpreter is
-selected. `manual_commands` document how a human can create or repair the
-environment, and stage-scoped `managed_commands` define how DevCovenant may
-prepare it automatically. Command templates may reference `{current_python}`
-and `{current_bin}` for the currently running interpreter, and
-`{managed_python}`, `{managed_bin}`, `{managed_root}`, `{repo_root}` for the
-selected target environment. User-facing guidance renders those path tokens
-with display-safe paths so local absolute roots do not leak into routine
-messages.
+that target environment, while optional `command_search_paths` add extra
+PATH entries for resolving required commands and optional
+`cleanup_protected_paths` define extra roots that cleanup must never delete.
+`required_commands` declare the commands that must resolve once the target
+interpreter is selected, using the managed PATH plus any declared command
+search paths. `manual_commands` document how a human can create or repair
+the environment, and stage-scoped `managed_commands` define how
+DevCovenant may prepare it automatically. Command templates may reference
+`{current_python}` and `{current_bin}` for the currently running
+interpreter, and `{managed_python}`, `{managed_bin}`, `{managed_root}`,
+`{repo_root}` for the selected target environment. User-facing guidance
+renders those path tokens with display-safe paths so local absolute roots do
+not leak into routine messages.
 The target environment may live inside the repository or outside it, as long
 as the metadata declares the interpreter path or environment root that
-DevCovenant should use. The seeded defaults describe a local `.venv`
-starting point, not the only supported shape. Repositories that use a
-bench-managed, container-managed, system, or other tool-owned environment
-should declare that environment explicitly instead of expecting DevCovenant
-to guess hidden wrapper hops.
+DevCovenant should use. The policy itself is environment-neutral: a
+repository may seed a local `.venv`, a bench-managed environment, a
+container-managed environment, a system interpreter, or another tool-owned
+layout in its active profile stack. DevCovenant should not assume the
+builtin defaults profile picks one of those layouts for it.
 Active managed-environment policy reuses the current interpreter when it
 already satisfies the contract, re-executes CLI commands in the selected
 interpreter when needed, and only runs bootstrap commands when the target
@@ -1631,61 +1648,6 @@ This policy flags bare `except`, broad `except Exception` handlers,
 generic `raise Exception(...)`, and silent `except Exception: pass`
 handlers in selected source files. Broad-handler waivers are explicit
 through marker comments or marker regions.
-
-
----
-
-## Policy: Package Artifact Mirror
-
-```policy-def
-id: package-artifact-mirror
-severity: error
-auto_fix: 'true'
-enforcement: active
-enabled: 'true'
-custom: 'false'
-file_mirrors: []
-dir_mirrors: []
-dir_skip_paths: []
-```
-
-Ensure package-shipped artifacts that are true mirrors stay in exact sync
-with their canonical repository-root sources. `file_mirrors` and
-`dir_mirrors` declare `source=>target` pairs. `dir_skip_paths` declares
-repo-relative mirror exceptions in `source_dir=>relative/path` form.
-Dependency lockfiles and third-party license inventories are not mirrors
-unless the repository explicitly declares them here. Auto-fix rewrites the
-configured exact mirrors from their source paths, preserves separately
-mirrored files that live inside mirrored directories, preserves package-owned
-skipped paths, and removes stale mirrored files.
-
-
----
-
-## Policy: Package Doc Sync
-
-```policy-def
-id: package-doc-sync
-severity: error
-auto_fix: 'true'
-enforcement: active
-enabled: 'true'
-custom: 'false'
-sync_pairs:
-- README.md=>webcam_micro/README.md
-omit_block_pairs:
-- <!-- REPO-ONLY:BEGIN -->=><!-- REPO-ONLY:END -->
-rewrite_repo_relative_links: 'true'
-```
-
-Ensure package-facing documentation files stay synchronized with their
-canonical repository-source docs. Configured `sync_pairs` map
-`source=>target` doc paths. Configured `omit_block_pairs` remove
-repo-only sections between paired begin/end markers before comparison.
-When `rewrite_repo_relative_links` is true, repo-relative Markdown links
-and images are rewritten to release-stable repository URLs resolved from
-`pyproject.toml`. Auto-fix rewrites the configured package docs from
-their source docs after those transforms.
 
 
 ---

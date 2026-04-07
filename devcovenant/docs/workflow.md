@@ -1,5 +1,5 @@
 # Workflow
-**Last Updated:** 2026-04-04
+**Last Updated:** 2026-04-07
 
 **Project Version:** 1.0.1b1
 
@@ -36,7 +36,8 @@ gate or workflow run.
 
 ### gate --start
 Opens the tracked work session.
-It records the starting state that later checks compare against.
+It records the starting state that later checks compare against after
+honoring active-profile ignore dirs and the configured engine ignores.
 If `gate --start` fails, fix the reported problem before editing.
 
 ### gate --mid
@@ -193,9 +194,9 @@ That keeps `gate --start` non-destructive once a configured environment already
 exists.
 It also keeps the workflow portable across normal `.venv` repositories,
 bench-like environments, and other declared environment layouts.
-With the default Python stack, `deploy`/`refresh` materializes the workspace
-dependency artifacts, and `gate --start` can run the declared bootstrap
-commands when the target environment is still missing.
+With a stack that seeds a local `.venv`, `deploy`/`refresh` materializes the
+workspace dependency artifacts, and `gate --start` can run the declared
+bootstrap commands when the target environment is still missing.
 If a repository uses a different environment shape, it should declare that
 shape explicitly instead of expecting DevCovenant to guess it.
 That includes system interpreters, bench-managed environments, and
@@ -203,6 +204,9 @@ container-managed environments.
 DevCovenant either runs from that managed context already or resolves the
 declared interpreter path or environment root for re-exec.
 It does not infer hidden wrapper hops on its own.
+If the managed environment keeps executables in additional locations, declare
+`command_search_paths` so `required_commands` resolve against the managed
+environment paths instead of the outer shell PATH.
 On a converged repository, repeated `check`, `gate`, and `run` startup paths do
 not intentionally rebuild current tracked registry content or current
 dependency surfaces.

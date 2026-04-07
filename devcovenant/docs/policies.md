@@ -1,5 +1,5 @@
 # Policies
-**Last Updated:** 2026-04-05
+**Last Updated:** 2026-04-07
 
 **Project Version:** 1.0.1b1
 
@@ -202,11 +202,14 @@ environment so other runtime code can use the same target interpreter.
 It resolves one target environment, reuses it when it already matches, and
 runs `managed_commands` only when the target environment is missing or invalid.
 That target may be repo-local or external to the repository tree.
-The seeded defaults use a local `.venv`, but repositories may instead declare
-system, bench-managed, container-managed, or other tool-owned environments as
-long as DevCovenant can run from that managed context or resolve the declared
-interpreter path or environment root.
+The policy itself is environment-neutral. Repositories may still seed a local
+`.venv`, but they can also declare system, bench-managed, container-managed,
+or other tool-owned environments as long as DevCovenant can run from that
+managed context or resolve the declared interpreter path or environment root.
 It does not guess hidden wrapper hops that the metadata never declared.
+When a managed environment needs extra command locations, repositories may
+declare `command_search_paths` so `required_commands` resolve against those
+PATH entries instead of the outer shell PATH.
 For Python-owned tools such as the pre-commit gate hook, execution uses
 `python -m ...` through the selected interpreter instead of depending on a
 console-script shim.

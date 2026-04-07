@@ -1,5 +1,5 @@
 # Profiles
-**Last Updated:** 2026-04-04
+**Last Updated:** 2026-04-07
 
 **Project Version:** 1.0.1b1
 
@@ -15,8 +15,8 @@ A profile can contribute:
 5. suffix inventories
 6. translator declarations
 7. CI fragments through `ci_and_test`
-8. ignore-directory hints that feed generated `.gitignore` and pre-commit
-   excludes
+8. ignore-directory hints that feed generated `.gitignore`, pre-commit
+   excludes, and the `gate --start` snapshot walk
 
 Profiles do not directly turn policies on or off.
 Policy activation still lives in `policy_state`.
@@ -115,7 +115,9 @@ That includes:
 If the behavior should apply to more than one repository of the same shape, it
 probably belongs in a profile instead of local config.
 
-The built-in `defaults` profile seeds a plain Python `.venv` starting point:
+The built-in `defaults` profile stays environment-neutral.
+A repository-specific custom profile can seed a plain Python `.venv`
+starting point:
 - expected paths and interpreters
 - required commands for the target environment
 - manual guidance that uses `{current_python}` and `{managed_python}`
@@ -129,6 +131,9 @@ through their active profile stack or metadata overlays.
 The important contract is that DevCovenant can run from that declared managed
 context or resolve the interpreter path or environment root it should use.
 The defaults do not try to guess hidden launcher hops.
+If the managed environment keeps commands in extra PATH locations, declare
+`command_search_paths` alongside the environment root so `required_commands`
+resolve from the managed stack instead of the host shell PATH.
 
 The built-in `devcovuser` profile is the normal user-repository layer.
 It keeps DevCovenant's own shipped runtime files out of ordinary app-code
@@ -140,10 +145,11 @@ while still enforcing `devcovenant/custom/**` and
 `tests/devcovenant/custom/**`.
 
 Profiles may also contribute `ignore_dirs` for disposable local outputs that
-should stay out of generated `.gitignore` and out of pre-commit's all-files
-scan.
-Typical examples are temporary build directories, cache roots, or declared
-environment folders that should not count as user-owned source files.
+should stay out of generated `.gitignore`, out of pre-commit's all-files
+scan, and out of the startup snapshot walk used by `gate --start`.
+Typical examples are temporary build directories, cache roots, declared
+environment folders, or other data trees that should not count as
+user-owned source files during the gate session snapshot.
 
 A custom profile can then strengthen the standard stack for one project shape.
 For example, it may add `managed_commands`, extra assets, CI steps, or

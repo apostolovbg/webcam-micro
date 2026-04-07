@@ -1,13 +1,13 @@
 metadata:
   schema_version: 1
   registry_layout: single-root
-  policy_registry_input_hash: ece97ac9a1a505c77eb05bf59fd74eb277b3bad5277863f4c2521b305813ebff
+  policy_registry_input_hash: e73fb26efd717b8689d26b2f1b62aa34516a100a633e77aa4a5fa2a5e383fa8c
 project-governance:
   project_name: webcam-micro
   project_description: Cross-platform microscope camera application distributed as
     a Python package on PyPI.
   copyright_notice: 2026 Black Epsilon Ltd. and Apostol Apostolov
-  project_version: 0.1.0b1
+  project_version: 0.2.0
   stage: alpha
   maintenance_stance: active
   compatibility_policy: forward-only
@@ -2364,6 +2364,27 @@ policies:
         - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
         - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
         - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+      - id: pyside6-addons
+        kind: archive_url
+        url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+        member_globs:
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+      - id: pyside6-essentials
+        kind: archive_url
+        url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+        member_globs:
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+      - id: shiboken6
+        kind: archive_url
+        url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+        member_globs:
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
       selector_roles: dependency
       dependency_globs: []
       dependency_files: []
@@ -3361,10 +3382,72 @@ policies:
           behavior: append
           replaced_inherited_values:
           - ()
+        user_overrides:
+          values:
+          - |-
+            - id: pyside6
+              kind: archive_url
+              url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+              member_globs:
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+            - id: pyside6-addons
+              kind: archive_url
+              url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+              member_globs:
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+            - id: pyside6-essentials
+              kind: archive_url
+              url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+              member_globs:
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+            - id: shiboken6
+              kind: archive_url
+              url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+              member_globs:
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+          behavior: replace
+          replaced_inherited_values:
+          - |-
+            - id: pyside6
+              kind: archive_url
+              url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+              member_globs:
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
         effective:
           values:
           - |-
             - id: pyside6
+              kind: archive_url
+              url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+              member_globs:
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+            - id: pyside6-addons
+              kind: archive_url
+              url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+              member_globs:
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+            - id: pyside6-essentials
+              kind: archive_url
+              url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+              member_globs:
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+              - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+            - id: shiboken6
               kind: archive_url
               url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
               member_globs:
@@ -3419,7 +3502,51 @@ policies:
         effective:
           values:
           - '[]'
-    metadata_warnings: []
+    metadata_warnings:
+    - policy_id: dependency-management
+      key: license_source_overrides
+      layer: user_overrides
+      inherited_values:
+      - |-
+        - id: pyside6
+          kind: archive_url
+          url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+          member_globs:
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+      replacement_values:
+      - |-
+        - id: pyside6
+          kind: archive_url
+          url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+          member_globs:
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+        - id: pyside6-addons
+          kind: archive_url
+          url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+          member_globs:
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+        - id: pyside6-essentials
+          kind: archive_url
+          url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+          member_globs:
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+        - id: shiboken6
+          kind: archive_url
+          url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+          member_globs:
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+      message: user_overrides replaces inherited metadata for `dependency-management.license_source_overrides`;
+        use overlays if you intended additive behavior.
     runtime_actions:
     - id: refresh-all
       description: Refresh configured dependency lockfiles and compliance artifacts.
@@ -3734,8 +3861,29 @@ policies:
             implementation: cp
             python_version: 3.14
             abi: cp314
-      license_source_overrides: &id013
+      license_source_overrides:
       - id: pyside6
+        kind: archive_url
+        url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+        member_globs:
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+      - id: pyside6-addons
+        kind: archive_url
+        url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+        member_globs:
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+      - id: pyside6-essentials
+        kind: archive_url
+        url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+        member_globs:
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+      - id: shiboken6
         kind: archive_url
         url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
         member_globs:
@@ -3746,7 +3894,36 @@ policies:
       dependency_globs: []
       dependency_files: []
       dependency_dirs: []
-    runtime_config_overrides: {}
+    runtime_config_overrides:
+      license_source_overrides: &id013
+      - id: pyside6
+        kind: archive_url
+        url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+        member_globs:
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+      - id: pyside6-addons
+        kind: archive_url
+        url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+        member_globs:
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+      - id: pyside6-essentials
+        kind: archive_url
+        url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+        member_globs:
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+      - id: shiboken6
+        kind: archive_url
+        url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+        member_globs:
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+        - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
     runtime_effective_options:
       id: dependency-management
       severity: error
@@ -3785,8 +3962,8 @@ policies:
           input_fingerprint: bb8d07788437ffbbb7588ee4da80f78b65b9bbe3c5bcd80721cc6f3f14cd3550
           output_fingerprints:
             lock_file: 79d5b502ea252061a3840699739e5c91c244fb0f4dc2eaf4b4be371efb37f9f5
-            third_party_file: e69c9f16e84e832d43b55fbb35dde85bdc05649dd070cebb59ef3e7fbfc5453f
-            licenses_dir: 8747600459d2d1438108ae5051ebb6651ed27bbe6724847dc9196d0847b62995
+            third_party_file: 88d806fd0e07f6f08d5afa0906f621739ad1ff0ccc386b9e778cb0f048bd9e11
+            licenses_dir: 3425eda5e04e3f2cc1230487f7e0a76b6e5260db1392a8863c839e4e723a8a73
   docstring-and-comment-coverage:
     enabled: true
     custom: false
@@ -6920,30 +7097,32 @@ policies:
     hash: 2d4523e6d519c57d8bf2167f80539697ca6a3059ea6cd3e511c60b85e99e828d
     script_path: builtin/line_length_limit.py
   managed-environment:
-    enabled: true
+    enabled: false
     custom: false
     description: Managed Environment
     policy_text: |-
       DevCovenant must run from one execution environment described by this
       policy's metadata. `expected_paths` and `expected_interpreters` point to
-      that target environment, while optional `cleanup_protected_paths` define
-      extra roots that cleanup must never delete. `required_commands`
-      declare the commands that must resolve once the target interpreter is
-      selected. `manual_commands` document how a human can create or repair the
-      environment, and stage-scoped `managed_commands` define how DevCovenant may
-      prepare it automatically. Command templates may reference `{current_python}`
-      and `{current_bin}` for the currently running interpreter, and
-      `{managed_python}`, `{managed_bin}`, `{managed_root}`, `{repo_root}` for the
-      selected target environment. User-facing guidance renders those path tokens
-      with display-safe paths so local absolute roots do not leak into routine
-      messages.
+      that target environment, while optional `command_search_paths` add extra
+      PATH entries for resolving required commands and optional
+      `cleanup_protected_paths` define extra roots that cleanup must never delete.
+      `required_commands` declare the commands that must resolve once the target
+      interpreter is selected, using the managed PATH plus any declared command
+      search paths. `manual_commands` document how a human can create or repair
+      the environment, and stage-scoped `managed_commands` define how
+      DevCovenant may prepare it automatically. Command templates may reference
+      `{current_python}` and `{current_bin}` for the currently running
+      interpreter, and `{managed_python}`, `{managed_bin}`, `{managed_root}`,
+      `{repo_root}` for the selected target environment. User-facing guidance
+      renders those path tokens with display-safe paths so local absolute roots do
+      not leak into routine messages.
       The target environment may live inside the repository or outside it, as long
       as the metadata declares the interpreter path or environment root that
-      DevCovenant should use. The seeded defaults describe a local `.venv`
-      starting point, not the only supported shape. Repositories that use a
-      bench-managed, container-managed, system, or other tool-owned environment
-      should declare that environment explicitly instead of expecting DevCovenant
-      to guess hidden wrapper hops.
+      DevCovenant should use. The policy itself is environment-neutral: a
+      repository may seed a local `.venv`, a bench-managed environment, a
+      container-managed environment, a system interpreter, or another tool-owned
+      layout in its active profile stack. DevCovenant should not assume the
+      builtin defaults profile picks one of those layouts for it.
       Active managed-environment policy reuses the current interpreter when it
       already satisfies the contract, re-executes CLI commands in the selected
       interpreter when needed, and only runs bootstrap commands when the target
@@ -6963,23 +7142,17 @@ policies:
       severity: error
       auto_fix: 'false'
       enforcement: active
-      enabled: 'true'
+      enabled: 'false'
       custom: 'false'
       expected_paths:
-      - .venv
+      - /usr/local/opt/python@3.14
       expected_interpreters:
-      - .venv/bin/python
-      - .venv/Scripts/python.exe
+      - /usr/local/opt/python@3.14/bin/python3.14
+      command_search_paths: []
       cleanup_protected_paths: []
-      required_commands:
-      - pre-commit
-      - pytest
-      manual_commands:
-      - '{current_python} -m venv .venv'
-      - '{managed_python} -m pip install -r requirements.lock'
-      managed_commands:
-      - start=>{current_python} -m venv .venv
-      - start=>{managed_python} -m pip install -r requirements.lock
+      required_commands: []
+      manual_commands: []
+      managed_commands: []
     metadata_resolution:
       id:
         descriptor:
@@ -7036,13 +7209,13 @@ policies:
           - ()
         policy_state:
           values:
-          - 'true'
+          - 'false'
           behavior: replace
           replaced_inherited_values:
           - 'false'
         effective:
           values:
-          - 'true'
+          - 'false'
       expected_paths:
         descriptor:
           values:
@@ -7050,21 +7223,15 @@ policies:
           behavior: base
           replaced_inherited_values:
           - ()
-        profile_overlays:
+        user_overrides:
           values:
-          - .venv
-          behavior: append
+          - /usr/local/opt/python@3.14
+          behavior: replace
           replaced_inherited_values:
-          - ()
-        autogen_overlays:
-          values:
-          - .venv
-          behavior: append
-          replaced_inherited_values:
-          - ()
+          - '[]'
         effective:
           values:
-          - .venv
+          - /usr/local/opt/python@3.14
       expected_interpreters:
         descriptor:
           values:
@@ -7072,24 +7239,25 @@ policies:
           behavior: base
           replaced_inherited_values:
           - ()
-        profile_overlays:
+        user_overrides:
           values:
-          - .venv/bin/python
-          - .venv/Scripts/python.exe
-          behavior: append
+          - /usr/local/opt/python@3.14/bin/python3.14
+          behavior: replace
           replaced_inherited_values:
-          - ()
-        autogen_overlays:
+          - '[]'
+        effective:
           values:
-          - .venv/bin/python
-          - .venv/Scripts/python.exe
-          behavior: append
+          - /usr/local/opt/python@3.14/bin/python3.14
+      command_search_paths:
+        descriptor:
+          values:
+          - '[]'
+          behavior: base
           replaced_inherited_values:
           - ()
         effective:
           values:
-          - .venv/bin/python
-          - .venv/Scripts/python.exe
+          - '[]'
       cleanup_protected_paths:
         descriptor:
           values:
@@ -7107,24 +7275,9 @@ policies:
           behavior: base
           replaced_inherited_values:
           - ()
-        profile_overlays:
-          values:
-          - pre-commit
-          - pytest
-          behavior: append
-          replaced_inherited_values:
-          - ()
-        autogen_overlays:
-          values:
-          - pre-commit
-          - pytest
-          behavior: append
-          replaced_inherited_values:
-          - ()
         effective:
           values:
-          - pre-commit
-          - pytest
+          - '[]'
       manual_commands:
         descriptor:
           values:
@@ -7132,24 +7285,15 @@ policies:
           behavior: base
           replaced_inherited_values:
           - ()
-        profile_overlays:
+        user_overrides:
           values:
-          - '{current_python} -m venv .venv'
-          - '{managed_python} -m pip install -r requirements.lock'
-          behavior: append
+          - '[]'
+          behavior: replace
           replaced_inherited_values:
-          - ()
-        autogen_overlays:
-          values:
-          - '{current_python} -m venv .venv'
-          - '{managed_python} -m pip install -r requirements.lock'
-          behavior: append
-          replaced_inherited_values:
-          - ()
+          - '[]'
         effective:
           values:
-          - '{current_python} -m venv .venv'
-          - '{managed_python} -m pip install -r requirements.lock'
+          - '[]'
       managed_commands:
         descriptor:
           values:
@@ -7157,24 +7301,15 @@ policies:
           behavior: base
           replaced_inherited_values:
           - ()
-        profile_overlays:
+        user_overrides:
           values:
-          - start=>{current_python} -m venv .venv
-          - start=>{managed_python} -m pip install -r requirements.lock
-          behavior: append
+          - '[]'
+          behavior: replace
           replaced_inherited_values:
-          - ()
-        autogen_overlays:
-          values:
-          - start=>{current_python} -m venv .venv
-          - start=>{managed_python} -m pip install -r requirements.lock
-          behavior: append
-          replaced_inherited_values:
-          - ()
+          - '[]'
         effective:
           values:
-          - start=>{current_python} -m venv .venv
-          - start=>{managed_python} -m pip install -r requirements.lock
+          - '[]'
       custom:
         runtime_defaults:
           values:
@@ -7197,42 +7332,39 @@ policies:
       severity: error
       auto_fix: false
       enforcement: active
-      enabled: true
+      enabled: false
       custom: false
-      expected_paths: &id048
-      - .venv
-      expected_interpreters: &id049
-      - .venv/bin/python
-      - .venv/Scripts/python.exe
+      expected_paths:
+      - /usr/local/opt/python@3.14
+      expected_interpreters:
+      - /usr/local/opt/python@3.14/bin/python3.14
+      command_search_paths: []
       cleanup_protected_paths: []
-      required_commands: &id050
-      - pre-commit
-      - pytest
-      manual_commands: &id051
-      - '{current_python} -m venv .venv'
-      - '{managed_python} -m pip install -r requirements.lock'
-      managed_commands: &id052
-      - start=>{current_python} -m venv .venv
-      - start=>{managed_python} -m pip install -r requirements.lock
-    runtime_config_overrides: {}
+      required_commands: []
+      manual_commands: []
+      managed_commands: []
+    runtime_config_overrides:
+      expected_paths: &id048
+      - /usr/local/opt/python@3.14
+      expected_interpreters: &id049
+      - /usr/local/opt/python@3.14/bin/python3.14
+      manual_commands: []
+      managed_commands: []
     runtime_effective_options:
       id: managed-environment
       severity: error
       auto_fix: false
       enforcement: active
-      enabled: true
+      enabled: false
       custom: false
       expected_paths: *id048
       expected_interpreters: *id049
-      required_commands: *id050
-      manual_commands: *id051
-      managed_commands: *id052
     assets:
-    - .venv/Scripts/python.exe
-    - .venv/bin/python
+    - /usr/local/opt/python@3.14
+    - /usr/local/opt/python@3.14/bin/python3.14
     origin: builtin
     script_exists: true
-    hash: 7368213c67fc8b8720e85a16bc037e94bbcf5d7dea4fe3aa160aadca92c43273
+    hash: 38d52167baf720350e510e60e14de91b78b27d60e35af97a3b2af929eb82b7ee
     script_path: builtin/managed_environment.py
   modules-need-tests:
     enabled: true
@@ -7715,45 +7847,45 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      include_suffixes: &id053
+      include_suffixes: &id050
       - .py
       include_prefixes: []
-      exclude_prefixes: &id054
+      exclude_prefixes: &id051
       - build
       - dist
       - node_modules
       - tests
       - devcovenant
-      exclude_globs: &id055
+      exclude_globs: &id052
       - build/**
       - dist/**
       - node_modules/**
       - tests/**
       - devcovenant/**
-      watch_dirs: &id056
+      watch_dirs: &id053
       - tests
-      tests_watch_dirs: &id057
+      tests_watch_dirs: &id054
       - tests
-      mirror_roots: &id058
+      mirror_roots: &id055
       - devcovenant/custom=>tests/devcovenant/custom
-      mirror_test_name_templates: &id059
+      mirror_test_name_templates: &id056
       - python=>test_{stem}.py
       - python=>{stem}_test.py
-      test_style_requirements: &id060
+      test_style_requirements: &id057
       - python=>python_unittest
-      include_globs: &id061
+      include_globs: &id058
       - '*.py'
       exclude_suffixes: []
-      force_include_globs: &id062
+      force_include_globs: &id059
       - devcovenant/custom/**/*.py
       watch_files: []
-      placeholder_test_methods: &id063
+      placeholder_test_methods: &id060
       - test_placeholder
-      placeholder_text_markers: &id064
+      placeholder_text_markers: &id061
       - placeholder-marker-alpha
       - placeholder-marker-beta
       - placeholder-marker-gamma
-      selector_roles: &id065
+      selector_roles: &id062
       - include
       - exclude
       - watch
@@ -7776,19 +7908,19 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      include_suffixes: *id053
-      exclude_prefixes: *id054
-      exclude_globs: *id055
-      watch_dirs: *id056
-      tests_watch_dirs: *id057
-      mirror_roots: *id058
-      mirror_test_name_templates: *id059
-      test_style_requirements: *id060
-      include_globs: *id061
-      force_include_globs: *id062
-      placeholder_test_methods: *id063
-      placeholder_text_markers: *id064
-      selector_roles: *id065
+      include_suffixes: *id050
+      exclude_prefixes: *id051
+      exclude_globs: *id052
+      watch_dirs: *id053
+      tests_watch_dirs: *id054
+      mirror_roots: *id055
+      mirror_test_name_templates: *id056
+      test_style_requirements: *id057
+      include_globs: *id058
+      force_include_globs: *id059
+      placeholder_test_methods: *id060
+      placeholder_text_markers: *id061
+      selector_roles: *id062
     assets:
     - build/**
     - devcovenant/**
@@ -8151,26 +8283,26 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      exclude_prefixes: &id066
+      exclude_prefixes: &id063
       - build
       - dist
       - node_modules
       - devcovenant
-      include_suffixes: &id067
+      include_suffixes: &id064
       - .py
       include_prefixes: []
-      include_globs: &id068
+      include_globs: &id065
       - '*.py'
       exclude_suffixes: []
-      exclude_globs: &id069
+      exclude_globs: &id066
       - build/**
       - dist/**
       - node_modules/**
       - devcovenant/**
-      force_include_globs: &id070
+      force_include_globs: &id067
       - devcovenant/custom/**/*.py
       - tests/devcovenant/custom/**/*.py
-      selector_roles: &id071
+      selector_roles: &id068
       - exclude
       - include
       - force_include
@@ -8188,12 +8320,12 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      exclude_prefixes: *id066
-      include_suffixes: *id067
-      include_globs: *id068
-      exclude_globs: *id069
-      force_include_globs: *id070
-      selector_roles: *id071
+      exclude_prefixes: *id063
+      include_suffixes: *id064
+      include_globs: *id065
+      exclude_globs: *id066
+      force_include_globs: *id067
+      selector_roles: *id068
     assets:
     - build/**
     - devcovenant/**
@@ -8665,7 +8797,7 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      selector_roles: &id072
+      selector_roles: &id069
       - include
       - exclude
       - force_include
@@ -8684,7 +8816,7 @@ policies:
       exclude_dirs: []
       force_include_files: []
       force_include_dirs: []
-      sink_call_targets: &id073
+      sink_call_targets: &id070
       - python=>print
       - python=>builtins.print
       sink_attr_targets: []
@@ -8700,8 +8832,8 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      selector_roles: *id072
-      sink_call_targets: *id073
+      selector_roles: *id069
+      sink_call_targets: *id070
     assets: []
     origin: builtin
     script_exists: true
@@ -9193,27 +9325,27 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      selector_roles: &id074
+      selector_roles: &id071
       - include
       - exclude
       - force_include
-      include_suffixes: &id075
+      include_suffixes: &id072
       - .py
       include_prefixes: []
-      include_globs: &id076
+      include_globs: &id073
       - '*.py'
       exclude_suffixes: []
-      exclude_prefixes: &id077
+      exclude_prefixes: &id074
       - build
       - dist
       - node_modules
       - devcovenant
-      exclude_globs: &id078
+      exclude_globs: &id075
       - build/**
       - dist/**
       - node_modules/**
       - devcovenant/**
-      force_include_globs: &id079
+      force_include_globs: &id076
       - devcovenant/custom/**/*.py
       - tests/devcovenant/custom/**/*.py
       include_files: []
@@ -9226,9 +9358,9 @@ policies:
       forbid_raise_exception: true
       forbid_broad_exception_handlers: true
       forbid_silent_exception_pass: true
-      broad_exception_waiver_markers: &id080
+      broad_exception_waiver_markers: &id077
       - DEVCOV_ALLOW_BROAD_ONCE
-      broad_exception_waiver_between: &id081
+      broad_exception_waiver_between: &id078
       - DEVCOV_BROAD_BEGIN=>DEVCOV_BROAD_END
     runtime_config_overrides: {}
     runtime_effective_options:
@@ -9238,18 +9370,18 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      selector_roles: *id074
-      include_suffixes: *id075
-      include_globs: *id076
-      exclude_prefixes: *id077
-      exclude_globs: *id078
-      force_include_globs: *id079
+      selector_roles: *id071
+      include_suffixes: *id072
+      include_globs: *id073
+      exclude_prefixes: *id074
+      exclude_globs: *id075
+      force_include_globs: *id076
       forbid_bare_except: true
       forbid_raise_exception: true
       forbid_broad_exception_handlers: true
       forbid_silent_exception_pass: true
-      broad_exception_waiver_markers: *id080
-      broad_exception_waiver_between: *id081
+      broad_exception_waiver_markers: *id077
+      broad_exception_waiver_between: *id078
     assets:
     - build/**
     - devcovenant/**
@@ -9584,7 +9716,7 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      include_suffixes: &id082
+      include_suffixes: &id079
       - .py
       - .pyi
       - .pyw
@@ -9600,11 +9732,11 @@ policies:
       - .swift
       - .php
       - .rb
-      selector_roles: &id083
+      selector_roles: &id080
       - include
       - exclude
       - force_include
-      include_globs: &id084
+      include_globs: &id081
       - '*.py'
       - '*.pyi'
       - '*.pyw'
@@ -9643,9 +9775,9 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      include_suffixes: *id082
-      selector_roles: *id083
-      include_globs: *id084
+      include_suffixes: *id079
+      selector_roles: *id080
+      include_globs: *id081
     assets: []
     origin: builtin
     script_exists: true
@@ -9916,7 +10048,7 @@ policies:
       exclude_prefixes: []
       exclude_globs: []
       force_include_globs: []
-      selector_roles: &id085
+      selector_roles: &id082
       - include
       - exclude
       - force_include
@@ -9934,7 +10066,7 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      selector_roles: *id085
+      selector_roles: *id082
     assets: []
     origin: builtin
     script_exists: true
@@ -10274,22 +10406,22 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      exclude_globs: &id086
+      exclude_globs: &id083
       - tests/**
       - '**/tests/**'
       - devcovenant/**
-      include_suffixes: &id087
+      include_suffixes: &id084
       - .py
       include_prefixes: []
-      include_globs: &id088
+      include_globs: &id085
       - '*.py'
       exclude_suffixes: []
-      exclude_prefixes: &id089
+      exclude_prefixes: &id086
       - devcovenant
-      force_include_globs: &id090
+      force_include_globs: &id087
       - devcovenant/custom/**/*.py
       - tests/devcovenant/custom/**/*.py
-      selector_roles: &id091
+      selector_roles: &id088
       - exclude
       - include
       - force_include
@@ -10307,12 +10439,12 @@ policies:
       enforcement: active
       enabled: true
       custom: false
-      exclude_globs: *id086
-      include_suffixes: *id087
-      include_globs: *id088
-      exclude_prefixes: *id089
-      force_include_globs: *id090
-      selector_roles: *id091
+      exclude_globs: *id083
+      include_suffixes: *id084
+      include_globs: *id085
+      exclude_prefixes: *id086
+      force_include_globs: *id087
+      selector_roles: *id088
     assets:
     - '**/tests/**'
     - devcovenant/**
@@ -10863,48 +10995,48 @@ policies:
       enabled: true
       custom: false
       enforce_symbol_fidelity: true
-      symbol_kinds: &id092
+      symbol_kinds: &id089
       - function
       - class
       symbol_name_min_length: 3
       symbol_assertion_window: 2
       fixture_marker_pattern: \bDEVCOV_FIXTURE_OK:\s*(?P<reason>\S.*)
-      assertion_signal_patterns: &id093
+      assertion_signal_patterns: &id090
       - '*=>\bassert\b'
       - python=>\bassert\b
       - python=>\bself\.assert[A-Za-z_]*\s*\(
-      tautology_patterns: &id094
+      tautology_patterns: &id091
       - '*=>^\s*assert\s*\(\s*true\s*\)\s*;?\s*$'
       - '*=>^\s*assert\s+true\s*;?\s*$'
       - rust=>^\s*assert!\s*\(\s*true\s*\)\s*;?\s*$
       - python=>^\s*assert\s+True\s*$
       - python=>^\s*self\.assertTrue\s*\(\s*True\s*\)\s*$
-      include_suffixes: &id095
+      include_suffixes: &id092
       - .py
       include_prefixes: []
-      exclude_prefixes: &id096
+      exclude_prefixes: &id093
       - build
       - dist
       - node_modules
       - tests
       - devcovenant
-      exclude_globs: &id097
+      exclude_globs: &id094
       - build/**
       - dist/**
       - node_modules/**
       - tests/**
       - devcovenant/**
-      watch_dirs: &id098
+      watch_dirs: &id095
       - tests
-      tests_watch_dirs: &id099
+      tests_watch_dirs: &id096
       - tests
-      include_globs: &id100
+      include_globs: &id097
       - '*.py'
       exclude_suffixes: []
-      force_include_globs: &id101
+      force_include_globs: &id098
       - devcovenant/custom/**/*.py
       watch_files: []
-      selector_roles: &id102
+      selector_roles: &id099
       - include
       - exclude
       - watch
@@ -10928,20 +11060,20 @@ policies:
       enabled: true
       custom: false
       enforce_symbol_fidelity: true
-      symbol_kinds: *id092
+      symbol_kinds: *id089
       symbol_name_min_length: 3
       symbol_assertion_window: 2
       fixture_marker_pattern: \bDEVCOV_FIXTURE_OK:\s*(?P<reason>\S.*)
-      assertion_signal_patterns: *id093
-      tautology_patterns: *id094
-      include_suffixes: *id095
-      exclude_prefixes: *id096
-      exclude_globs: *id097
-      watch_dirs: *id098
-      tests_watch_dirs: *id099
-      include_globs: *id100
-      force_include_globs: *id101
-      selector_roles: *id102
+      assertion_signal_patterns: *id090
+      tautology_patterns: *id091
+      include_suffixes: *id092
+      exclude_prefixes: *id093
+      exclude_globs: *id094
+      watch_dirs: *id095
+      tests_watch_dirs: *id096
+      include_globs: *id097
+      force_include_globs: *id098
+      selector_roles: *id099
     assets:
     - build/**
     - devcovenant/**
@@ -11762,17 +11894,17 @@ policies:
       enabled: true
       custom: false
       version_file: webcam_micro/VERSION
-      target_roles: &id103
+      target_roles: &id100
       - docs
       - changelog
       - package_manifest
-      role_extractors: &id104
+      role_extractors: &id101
       - docs=>project_version_line
       - changelog=>changelog_header_version
       - package_manifest=>manifest_project_version
-      role_legality_schemes: &id105
+      role_legality_schemes: &id102
       - package_manifest=>pep440
-      target_role_files: &id106
+      target_role_files: &id103
       - docs=>README.md
       - docs=>AGENTS.md
       - docs=>CONTRIBUTING.md
@@ -11784,7 +11916,7 @@ policies:
       target_role_dirs: []
       changelog_file: CHANGELOG.md
       changelog_header_prefix: '## Version'
-      selector_roles: &id107
+      selector_roles: &id104
       - target
       target_globs: []
       target_files: []
@@ -11798,13 +11930,13 @@ policies:
       enabled: true
       custom: false
       version_file: webcam_micro/VERSION
-      target_roles: *id103
-      role_extractors: *id104
-      role_legality_schemes: *id105
-      target_role_files: *id106
+      target_roles: *id100
+      role_extractors: *id101
+      role_legality_schemes: *id102
+      target_role_files: *id103
       changelog_file: CHANGELOG.md
       changelog_header_prefix: '## Version'
-      selector_roles: *id107
+      selector_roles: *id104
     assets:
     - CHANGELOG.md
     - changelog=>CHANGELOG.md
@@ -11818,355 +11950,6 @@ policies:
     script_exists: true
     hash: b8d616439e1d68675c5cae456fe0f85fc29e9946076b8e531d5ff9c0825f7597
     script_path: builtin/version_sync.py
-  package-artifact-mirror:
-    enabled: true
-    custom: false
-    description: Package Artifact Mirror
-    policy_text: |-
-      Ensure package-shipped artifacts that are true mirrors stay in exact sync
-      with their canonical repository-root sources. `file_mirrors` and
-      `dir_mirrors` declare `source=>target` pairs. `dir_skip_paths` declares
-      repo-relative mirror exceptions in `source_dir=>relative/path` form.
-      Dependency lockfiles and third-party license inventories are not mirrors
-      unless the repository explicitly declares them here. Auto-fix rewrites the
-      configured exact mirrors from their source paths, preserves separately
-      mirrored files that live inside mirrored directories, preserves package-owned
-      skipped paths, and removes stale mirrored files.
-    metadata:
-      id: package-artifact-mirror
-      severity: error
-      auto_fix: 'true'
-      enforcement: active
-      enabled: 'true'
-      custom: 'false'
-      file_mirrors: []
-      dir_mirrors: []
-      dir_skip_paths: []
-    metadata_resolution:
-      id:
-        descriptor:
-          values:
-          - package-artifact-mirror
-          behavior: base
-          replaced_inherited_values:
-          - ()
-        runtime_identity:
-          values:
-          - package-artifact-mirror
-          behavior: replace
-          replaced_inherited_values:
-          - ()
-        effective:
-          values:
-          - package-artifact-mirror
-      severity:
-        descriptor:
-          values:
-          - error
-          behavior: base
-          replaced_inherited_values:
-          - ()
-        effective:
-          values:
-          - error
-      auto_fix:
-        descriptor:
-          values:
-          - 'true'
-          behavior: base
-          replaced_inherited_values:
-          - ()
-        effective:
-          values:
-          - 'true'
-      enforcement:
-        descriptor:
-          values:
-          - active
-          behavior: base
-          replaced_inherited_values:
-          - ()
-        effective:
-          values:
-          - active
-      file_mirrors:
-        descriptor:
-          values:
-          - '[]'
-          behavior: base
-          replaced_inherited_values:
-          - ()
-        effective:
-          values:
-          - '[]'
-      dir_mirrors:
-        descriptor:
-          values:
-          - '[]'
-          behavior: base
-          replaced_inherited_values:
-          - ()
-        effective:
-          values:
-          - '[]'
-      dir_skip_paths:
-        descriptor:
-          values:
-          - '[]'
-          behavior: base
-          replaced_inherited_values:
-          - ()
-        effective:
-          values:
-          - '[]'
-      enabled:
-        runtime_defaults:
-          values:
-          - 'true'
-          behavior: default
-          replaced_inherited_values:
-          - ()
-        policy_state:
-          values:
-          - 'true'
-          behavior: replace
-          replaced_inherited_values:
-          - 'true'
-        effective:
-          values:
-          - 'true'
-      custom:
-        runtime_defaults:
-          values:
-          - 'false'
-          behavior: default
-          replaced_inherited_values:
-          - ()
-        effective:
-          values:
-          - 'false'
-    metadata_warnings: []
-    runtime_actions: []
-    commands: []
-    runtime_metadata_options:
-      id: package-artifact-mirror
-      severity: error
-      auto_fix: true
-      enforcement: active
-      enabled: true
-      custom: false
-      file_mirrors: []
-      dir_mirrors: []
-      dir_skip_paths: []
-    runtime_config_overrides: {}
-    runtime_effective_options:
-      id: package-artifact-mirror
-      severity: error
-      auto_fix: true
-      enforcement: active
-      enabled: true
-      custom: false
-    assets: []
-    origin: builtin
-    script_exists: true
-    hash: 59d36e32a6377ae39fae5d4a131f860b75027e8bbb4f3a6c1bd04db0dbde0cf1
-    script_path: builtin/package_artifact_mirror.py
-  package-doc-sync:
-    enabled: true
-    custom: false
-    description: Package Doc Sync
-    policy_text: |-
-      Ensure package-facing documentation files stay synchronized with their
-      canonical repository-source docs. Configured `sync_pairs` map
-      `source=>target` doc paths. Configured `omit_block_pairs` remove
-      repo-only sections between paired begin/end markers before comparison.
-      When `rewrite_repo_relative_links` is true, repo-relative Markdown links
-      and images are rewritten to release-stable repository URLs resolved from
-      `pyproject.toml`. Auto-fix rewrites the configured package docs from
-      their source docs after those transforms.
-    metadata:
-      id: package-doc-sync
-      severity: error
-      auto_fix: 'true'
-      enforcement: active
-      enabled: 'true'
-      custom: 'false'
-      sync_pairs:
-      - README.md=>webcam_micro/README.md
-      omit_block_pairs:
-      - <!-- REPO-ONLY:BEGIN -->=><!-- REPO-ONLY:END -->
-      rewrite_repo_relative_links: 'true'
-    metadata_resolution:
-      id:
-        descriptor:
-          values:
-          - package-doc-sync
-          behavior: base
-          replaced_inherited_values:
-          - ()
-        runtime_identity:
-          values:
-          - package-doc-sync
-          behavior: replace
-          replaced_inherited_values:
-          - ()
-        effective:
-          values:
-          - package-doc-sync
-      severity:
-        descriptor:
-          values:
-          - error
-          behavior: base
-          replaced_inherited_values:
-          - ()
-        effective:
-          values:
-          - error
-      auto_fix:
-        descriptor:
-          values:
-          - 'true'
-          behavior: base
-          replaced_inherited_values:
-          - ()
-        effective:
-          values:
-          - 'true'
-      enforcement:
-        descriptor:
-          values:
-          - active
-          behavior: base
-          replaced_inherited_values:
-          - ()
-        effective:
-          values:
-          - active
-      sync_pairs:
-        descriptor:
-          values:
-          - '[]'
-          behavior: base
-          replaced_inherited_values:
-          - ()
-        profile_overlays:
-          values:
-          - README.md=>webcam_micro/README.md
-          behavior: append
-          replaced_inherited_values:
-          - ()
-        autogen_overlays:
-          values:
-          - README.md=>webcam_micro/README.md
-          behavior: append
-          replaced_inherited_values:
-          - ()
-        effective:
-          values:
-          - README.md=>webcam_micro/README.md
-      omit_block_pairs:
-        descriptor:
-          values:
-          - '[]'
-          behavior: base
-          replaced_inherited_values:
-          - ()
-        profile_overlays:
-          values:
-          - <!-- REPO-ONLY:BEGIN -->=><!-- REPO-ONLY:END -->
-          behavior: append
-          replaced_inherited_values:
-          - ()
-        autogen_overlays:
-          values:
-          - <!-- REPO-ONLY:BEGIN -->=><!-- REPO-ONLY:END -->
-          behavior: append
-          replaced_inherited_values:
-          - ()
-        effective:
-          values:
-          - <!-- REPO-ONLY:BEGIN -->=><!-- REPO-ONLY:END -->
-      rewrite_repo_relative_links:
-        descriptor:
-          values:
-          - 'true'
-          behavior: base
-          replaced_inherited_values:
-          - ()
-        profile_overlays:
-          values:
-          - 'true'
-          behavior: replace
-          replaced_inherited_values:
-          - 'true'
-        autogen_overlays:
-          values:
-          - 'true'
-          behavior: replace
-          replaced_inherited_values:
-          - 'true'
-        effective:
-          values:
-          - 'true'
-      enabled:
-        runtime_defaults:
-          values:
-          - 'true'
-          behavior: default
-          replaced_inherited_values:
-          - ()
-        policy_state:
-          values:
-          - 'true'
-          behavior: replace
-          replaced_inherited_values:
-          - 'true'
-        effective:
-          values:
-          - 'true'
-      custom:
-        runtime_defaults:
-          values:
-          - 'false'
-          behavior: default
-          replaced_inherited_values:
-          - ()
-        effective:
-          values:
-          - 'false'
-    metadata_warnings: []
-    runtime_actions: []
-    commands: []
-    runtime_metadata_options:
-      id: package-doc-sync
-      severity: error
-      auto_fix: true
-      enforcement: active
-      enabled: true
-      custom: false
-      sync_pairs: &id108
-      - README.md=>webcam_micro/README.md
-      omit_block_pairs: &id109
-      - <!-- REPO-ONLY:BEGIN -->=><!-- REPO-ONLY:END -->
-      rewrite_repo_relative_links: true
-    runtime_config_overrides: {}
-    runtime_effective_options:
-      id: package-doc-sync
-      severity: error
-      auto_fix: true
-      enforcement: active
-      enabled: true
-      custom: false
-      sync_pairs: *id108
-      omit_block_pairs: *id109
-      rewrite_repo_relative_links: true
-    assets:
-    - README.md=>webcam_micro/README.md
-    origin: builtin
-    script_exists: true
-    hash: 8cf316089c465c80953d695035c2653cbe2f94a174778da7430b5620b2993b49
-    script_path: builtin/package_doc_sync.py
 profiles:
   csharp:
     version: 1
@@ -12789,21 +12572,6 @@ profiles:
         - tests
         tests_watch_dirs:
         - tests
-      managed-environment:
-        expected_paths:
-        - .venv
-        expected_interpreters:
-        - .venv/bin/python
-        - .venv/Scripts/python.exe
-        required_commands:
-        - pre-commit
-        - pytest
-        manual_commands:
-        - '{current_python} -m venv .venv'
-        - '{managed_python} -m pip install -r requirements.lock'
-        managed_commands:
-        - start=>{current_python} -m venv .venv
-        - start=>{managed_python} -m pip install -r requirements.lock
     project-governance:
       changelog_file: CHANGELOG.md
       unversioned_label: Unversioned
