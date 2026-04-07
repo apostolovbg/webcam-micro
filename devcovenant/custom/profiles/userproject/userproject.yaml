@@ -98,6 +98,21 @@ ci_and_test:
             name: webcam-micro-provenance
             path: artifacts/provenance/*.json
 policy_overlays:
+  managed-environment:
+    expected_paths:
+      - .venv
+    expected_interpreters:
+      - .venv/bin/python
+      - .venv/Scripts/python.exe
+    managed_commands:
+      - start=>{current_python} -m venv .venv
+      - start=>{managed_python} -m pip install -r requirements.lock
+    manual_commands:
+      - '{current_python} -m venv .venv'
+      - '{managed_python} -m pip install -r requirements.lock'
+    required_commands:
+      - pre-commit
+      - pytest
   package-doc-sync:
     sync_pairs:
       - README.md=>webcam_micro/README.md
@@ -125,6 +140,27 @@ policy_overlays:
   dependency-management:
     license_source_overrides:
       - id: pyside6
+        kind: archive_url
+        url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+        member_globs:
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+      - id: pyside6-addons
+        kind: archive_url
+        url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+        member_globs:
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+      - id: pyside6-essentials
+        kind: archive_url
+        url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
+        member_globs:
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-2.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/GPL-3.0-only.txt
+          - pyside-setup-everywhere-src-{version}/LICENSES/LGPL-3.0-only.txt
+      - id: shiboken6
         kind: archive_url
         url: https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz
         member_globs:

@@ -61,6 +61,30 @@ Example:
 ## Version 0.2.0
 
 - 2026-04-07:
+  Change: Moved the dependency-management license-source overrides into the
+    custom userproject profile.
+  Why: Keep user metadata overrides under the repo-specific profile instead
+    of the root config.
+  Impact: Refresh resolves the Qt-for-Python license inventory from the
+    custom userproject metadata.
+  Files:
+  CHANGELOG.md
+  devcovenant/config.yaml
+  devcovenant/custom/profiles/userproject/userproject.yaml
+- 2026-04-07:
+  Change: Restored the repository-managed `.venv` development
+    environment in the custom userproject profile.
+  Why: Align repo development with the declared interpreter instead of
+    drifting through host Python installs.
+  Impact: Gate and run commands resolve through `.venv`, and the declared
+    bootstrap commands recreate that environment when needed.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  devcovenant/custom/profiles/userproject/userproject.yaml
+  devcovenant/config.yaml
+  devcovenant/registry/registry.yaml
+- 2026-04-07:
   Change: Added PySide6-family license-source overrides for the system
     interpreter path.
   Why: Dependency-management refresh could not find upstream license files

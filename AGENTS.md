@@ -6,7 +6,7 @@
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
-**Last Updated:** 2026-04-06
+**Last Updated:** 2026-04-07
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -1363,17 +1363,24 @@ id: managed-environment
 severity: error
 auto_fix: 'false'
 enforcement: active
-enabled: 'false'
+enabled: 'true'
 custom: 'false'
 expected_paths:
-- /usr/local/opt/python@3.14
+- .venv
 expected_interpreters:
-- /usr/local/opt/python@3.14/bin/python3.14
+- .venv/bin/python
+- .venv/Scripts/python.exe
 command_search_paths: []
 cleanup_protected_paths: []
-required_commands: []
-manual_commands: []
-managed_commands: []
+required_commands:
+- pre-commit
+- pytest
+manual_commands:
+- '{current_python} -m venv .venv'
+- '{managed_python} -m pip install -r requirements.lock'
+managed_commands:
+- start=>{current_python} -m venv .venv
+- start=>{managed_python} -m pip install -r requirements.lock
 ```
 
 DevCovenant must run from one execution environment described by this
