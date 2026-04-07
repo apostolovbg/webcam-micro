@@ -6,7 +6,7 @@
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
-**Last Updated:** 2026-04-06
+**Last Updated:** 2026-04-07
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -59,6 +59,39 @@ Example:
 ## Log changes here
 
 ## Version 0.2.0
+
+- 2026-04-07:
+  Change: Consolidated PLAN.md from seven slices into three around the
+    single authoritative device-control layer.
+  Why: Aligned the roadmap with the shorter spec and avoided unnecessary
+    slice fragmentation.
+  Impact: Simplified the active plan while keeping the remaining
+    control-owner cleanup explicit.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+
+- 2026-04-07:
+  Change: Rewrote PLAN.md around the single-authoritative control model
+    and shortened the active roadmap.
+  Why: The active plan needed to match the updated spec and describe the
+    next control-owner cleanup slice more directly.
+  Impact: Simplified the implementation plan without changing the
+    product meaning or the release history.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+
+- 2026-04-07:
+  Change: Amended SPEC.md to state a single authoritative device-control
+    layer and tightened the product wording.
+  Why: The control model needed to describe one owner per camera while
+    the specification itself needed a shorter, less repetitive style.
+  Impact: Simplified the durable spec without changing its meaning and
+    kept the control ownership rule explicit.
+  Files:
+  CHANGELOG.md
+  SPEC.md
 
 - 2026-04-06:
   Change: Aligned the Qt control contract test and the grouped control
