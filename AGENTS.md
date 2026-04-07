@@ -59,6 +59,8 @@ DevCovenant lifecycle and command behavior used by the project.
 - 2026-04-07: macOS camera controls now choose one owner by canonical
   device identity, and Qt feature stubs no longer count as support;
   unsupported rows stay hidden instead of becoming dead sliders.
+- 2026-04-07: libuvc devices stay ref-retained through open so startup
+  control discovery does not free the selected device before it opens.
 - 2026-04-06: Automatic Video HDR rows are gated by active-format
   support; unsupported USB cameras must skip the control instead of
   touching the AVFoundation getter.

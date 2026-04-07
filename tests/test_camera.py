@@ -274,6 +274,120 @@ class CameraContractTest(unittest.TestCase):
             )
         )
 
+    def test_libuvc_device_reference_survives_device_list_cleanup(
+        self,
+    ) -> None:
+        """Assert libuvc keeps a matched device alive long enough to open."""
+
+        class FakeDevice:
+            """Expose one stable libuvc device pointer for the test."""
+
+        class FakeDeviceDescriptor:
+            """Expose the libuvc strings used by the matching helper."""
+
+            serialNumber = None
+            manufacturer = b"Sonix Technology Co., Ltd."
+            product = b"A4ech FHD 1080P PC Camera"
+
+        class FakeDeviceList:
+            """Expose one libuvc-style device list for the test."""
+
+            def __init__(self, device: object) -> None:
+                """Store the single matching device pointer."""
+
+                self._device = device
+
+            def __getitem__(self, index: int) -> object | None:
+                """Return the single device and then end the list."""
+
+                if index == 0:
+                    return self._device
+                return None
+
+        class FakeLibrary:
+            """Record libuvc reference-management calls."""
+
+            def __init__(self) -> None:
+                """Initialize the recorded call log."""
+
+                self.calls: list[tuple[str, object]] = []
+
+            def uvc_ref_device(self, device: object) -> None:
+                """Record the retained device pointer."""
+
+                self.calls.append(("ref", device))
+
+        backend = object.__new__(LibUVCControlBackend)
+        backend._lib = FakeLibrary()
+        backend._context = object()
+        matched_device = FakeDevice()
+        fake_device_list = FakeDeviceList(matched_device)
+        backend._device_list = lambda: (fake_device_list, backend._context)
+        backend._device_descriptor = lambda _device: FakeDeviceDescriptor()
+        backend._device_matches_descriptor = (
+            lambda _device_descriptor, _descriptor, _occurrence_index: True
+        )
+        freed_device_lists: list[object] = []
+        backend._free_device_list = freed_device_lists.append
+        descriptor = CameraDescriptor(
+            stable_id="qt-camera::example",
+            display_name="Example Camera",
+            backend_name="qt_multimedia",
+            device_selector="qt-camera::example",
+        )
+
+        device = backend._device_for_descriptor(descriptor)
+
+        self.assertIs(device, matched_device)
+        self.assertEqual([("ref", matched_device)], backend._lib.calls)
+        self.assertEqual([fake_device_list], freed_device_lists)
+
+    def test_libuvc_open_device_handle_releases_device_reference(
+        self,
+    ) -> None:
+        """Assert libuvc releases the retained device after opening it."""
+
+        class FakeLibrary:
+            """Record libuvc open and release calls."""
+
+            def __init__(self) -> None:
+                """Initialize the recorded call log."""
+
+                self.calls: list[tuple[str, object]] = []
+
+            def uvc_open(
+                self,
+                device: object,
+                handle_ptr: object,
+            ) -> int:
+                """Record the opened device and populate one fake handle."""
+
+                self.calls.append(("open", device))
+                handle_ptr = ctypes.cast(
+                    handle_ptr,
+                    ctypes.POINTER(ctypes.c_void_p),
+                )
+                handle_ptr[0] = ctypes.c_void_p(0x1234)
+                return 0
+
+            def uvc_unref_device(self, device: object) -> None:
+                """Record the released device pointer."""
+
+                self.calls.append(("unref", device))
+
+        backend = object.__new__(LibUVCControlBackend)
+        backend._lib = FakeLibrary()
+        backend._context = object()
+        device = object()
+
+        handle = backend._open_device_handle(device)
+
+        self.assertIsNotNone(handle)
+        self.assertEqual(
+            [("open", device), ("unref", device)],
+            backend._lib.calls,
+        )
+
     def test_qt_camera_control_backend_surfaces_common_controls(
         self,
     ) -> None:

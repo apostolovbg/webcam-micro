@@ -61,6 +61,18 @@ Example:
 ## Version 0.2.0
 
 - 2026-04-07:
+  Change: Retained libuvc device references through open so startup control
+    discovery no longer dereferences freed USB devices.
+  Why: Prevented the selected native control owner from crashing `uvc_open`
+    after device-list cleanup.
+  Impact: Stabilized macOS startup when the libuvc owner wins and keeps the
+    camera control path alive.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  tests/test_camera.py
+  webcam_micro/camera.py
+- 2026-04-07:
   Change: Hardened canonical camera identity matching and feature gating so
     one control owner can win per physical device.
   Why: Prevented decorated Qt camera labels and method stubs from hiding

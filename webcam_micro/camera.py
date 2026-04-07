@@ -2852,6 +2852,8 @@ class LibUVCControlBackend:
                     descriptor,
                     occurrence_index,
                 ):
+                    with contextlib.suppress(*_LIBUVC_CALL_ERRORS):
+                        self._lib.uvc_ref_device(device)
                     return device
                 index += 1
         finally:
@@ -2868,6 +2870,9 @@ class LibUVCControlBackend:
             result_code = self._lib.uvc_open(device, ctypes.byref(handle))
         except _LIBUVC_CALL_ERRORS:
             return None
+        finally:
+            with contextlib.suppress(*_LIBUVC_CALL_ERRORS):
+                self._lib.uvc_unref_device(device)
         if result_code != 0:
             return None
         return handle
