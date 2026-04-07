@@ -8,9 +8,9 @@ BACKEND_STRATEGY = (
     "camera discovery, capture sessions, live preview, and the common "
     "control surface; the repo layer keeps microscope-specific framing, "
     "outputs, defaults, diagnostics, a rubicon-backed AVFoundation "
-    "permission bridge on macOS, Qt-first control ownership on macOS "
-    "with AVFoundation fallback for native-only gaps, and Linux V4L2 "
-    "control discovery for extra light, flicker, and vendor-specific "
-    "settings."
+    "permission bridge on macOS, native UVC-style control ownership for "
+    "device-reported exposure, focus, white balance, light, flicker, zoom, "
+    "and vendor-specific settings, and Linux V4L2 control discovery for "
+    "extra light, flicker, and vendor-specific settings."
 )
 SHELL_TITLE = "webcam-micro workspace"

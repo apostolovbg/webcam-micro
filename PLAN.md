@@ -33,6 +33,9 @@ in `SPEC.md` and history in `CHANGELOG.md`.
 - The next phase is to make the Qt shell feel like a microscope workstation:
   capability-driven controls, dockable and detachable surfaces, compact
   status, and a clear separation between live controls and capture settings.
+  The next slice is to move camera-owned controls onto a native device-
+  control backend that reads real device ranges and modes instead of
+  shell-managed stand-ins.
 
 ## Workflow
 - Work in dependency order unless a real blocker forces reordering.
@@ -47,9 +50,13 @@ in `SPEC.md` and history in `CHANGELOG.md`.
 - Treat control discovery, widget typing, and backend-specific capability
   bridges as product work, not ad-hoc exceptions.
 - Keep live camera controls separate from capture settings and status text.
-- Keep macOS camera control ownership on the Qt Multimedia path first,
-  with AVFoundation as a fallback that fails closed on unsupported
-  custom-exposure writes.
+- Keep preview on Qt Multimedia, but let native device-control backends
+  own device-adjustment writes. On macOS, UVC-capable camera controls
+  should go through a native control backend or adapter when the platform
+  capture stack cannot safely apply them; AVFoundation stays for preview
+  and any control it can truly support.
+- Use device-reported minimums, maximums, step sizes, defaults, and menu
+  values as the source of truth for native camera controls.
 - Gate format-dependent controls such as video HDR on explicit
   active-format support so unsupported cameras do not surface
   crash-prone rows.
@@ -61,7 +68,7 @@ in `SPEC.md` and history in `CHANGELOG.md`.
 1. [done] Rebuild the controls surface around stable control families and
    type-aware widgets.
    Goal:
-   - surface camera controls guvcview-style
+   - surface camera controls with native UVC-style affordances
    Work:
    - group controls into Exposure, Focus, White Balance, Light/Flicker,
      Color/Image Quality, Zoom, Source Info, Actions, and Other Controls
@@ -147,18 +154,42 @@ in `SPEC.md` and history in `CHANGELOG.md`.
      disabled cleanly
    - keep backlight compensation and white balance in the user-controls
      section when the active camera exposes them, and always surface
-     shell-managed brightness, contrast, hue, saturation, sharpness, and
-     gamma rows with slider+spinbox widgets, with Auto checkboxes on
-     contrast and hue in the shell; camera-owned exposure, focus, and
-     white-balance sliders stay usable so moving them can switch the
-     camera into manual mode
+     backend-owned brightness, contrast, hue, saturation, sharpness,
+     gamma, gain, and power-line-frequency rows with slider+spinbox
+     widgets, with Auto checkboxes on contrast, hue, and white balance;
+     camera-owned exposure, focus, and white-balance sliders stay usable
+     so moving them can switch the camera into manual mode
    - place the reset-to-defaults button at the bottom of the user-
      controls section
    Done when:
-   - the pane cleanly separates camera-native controls from shell-
-     managed adjustments and keeps shell-managed auto rows disabled
-     while camera-owned exposure, focus, and white-balance sliders stay
+   - the pane cleanly separates camera-native controls from backend-
+     owned image-quality adjustments and keeps Auto rows disabled while
+     camera-owned exposure, focus, and white-balance sliders stay
      interactive
+
+7. [done] Move camera-owned rows onto a native device-control backend.
+   Goal:
+   - make the camera-adjustment rows match the camera's own control model
+   Work:
+   - read device-reported minimums, maximums, step sizes, defaults, and
+     menu values for every exposed control
+   - route exposure, exposure lock or priority, focus, white balance,
+     backlight compensation, power line frequency, AC flicker
+     compensation, brightness, contrast, hue, saturation, gamma,
+     sharpness, zoom, lamp, LED, and vendor-specific controls through the
+     device-control backend
+   - keep preview and recording on the platform capture stack, but stop
+     simulating device-owned control rows in the shell
+   - render power-line frequency and similar mode selectors as dropdowns
+     and preserve the manual exposure baseline while auto or lock modes are
+     active
+   - hide or disable controls the backend cannot safely apply instead of
+     guessing at a behavior
+   Done when:
+   - the user-visible camera-adjustment rows come from the device-control
+     backend, with live ranges and menu values matching the camera rather
+     than fixed UI defaults, and the macOS control path uses libuvc while
+     Linux keeps V4L2-backed control discovery for matching devices
 
 ## Exit Criteria
 - The controls surface is capability-driven and grouped into stable

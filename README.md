@@ -77,33 +77,27 @@ complete for the current release path.
 - Camera controls: the dock splits native controls into Camera Controls
   and User Controls. Camera Controls expose Resolution as a dropdown,
   Exposure and Focus as slider-plus-spinbox controls with exposure
-  lock and Auto checkboxes when the camera reports them, and Light as
-  an on/off checkbox plus a level slider when exposed. Shell-managed
-  Auto rows grey out their paired numeric control, while the camera-
-  owned exposure, focus, and white-balance sliders stay usable so moving
-  them can switch the camera into manual mode. Automatic Video HDR
-  appears only when the active format reports support, so unsupported
-  cameras skip that row instead of crashing. User Controls expose
-  Backlight compensation and White balance when the camera exposes them
-  plus shell-managed Brightness, Contrast, Hue, Saturation, Sharpness,
-  and Gamma rows, Contrast and Hue keep Auto checkboxes in the shell,
-  White balance keeps its manual temperature slider usable, and a Reset
-  to Defaults button sits at the bottom.
+  lock and Auto checkboxes when the camera reports them, Light as an
+  on/off checkbox plus a level slider when exposed, and Zoom as a
+  slider-plus-spinbox row when the camera reports it. When Auto is
+  enabled, the paired numeric control stays visible, greys out, and
+  tracks the live device value. User Controls expose backend-owned
+  Backlight compensation, Brightness, Contrast, Hue, Saturation,
+  Sharpness, Gamma, Gain, Power Line Frequency, and White balance rows,
+  Contrast and Hue keep Auto checkboxes, White balance keeps its Auto
+  checkbox, and a Reset to Defaults button sits at the bottom.
 - The active backend still exposes numeric, boolean, enum, read-only,
-  and action controls when the device supports them. Qt Multimedia now
-  surfaces backlight compensation, manual exposure time and ISO, focus
-  auto and distance, white balance automatic and temperature, flash or
-  torch, and source-format details when the device reports them. On
-  macOS, including Intel Macs, the Qt control backend takes first
-  ownership of exposure, ISO, backlight, focus, and white balance when
-  those setters are available, while AVFoundation remains a fallback
-  for native-only gaps and rejects unsupported custom-exposure writes
-  instead of crashing. The User Controls section also keeps shell-managed
-  Brightness, Contrast, Hue, Saturation, Sharpness, and Gamma rows
-  visible even when the camera backend lacks matching setters. On Linux,
-  V4L2 adds power line frequency, brightness, contrast, saturation, hue,
-  gamma, gain, sharpness, lamp, illumination, activity LED, and
-  vendor-specific extension controls when the camera reports them.
+  and action controls when the device supports them. Native
+  device-control backends now own exposure, focus, white balance, light,
+  power-line frequency, zoom, lamp or LED, and vendor-specific controls
+  when the device reports them. Qt Multimedia still covers preview,
+  source-format, flash, and torch controls across supported platforms.
+  On macOS, the native UVC-style control layer takes first ownership of
+  UVC controls while AVFoundation remains a fallback for native-only
+  gaps and rejects unsupported custom-exposure writes instead of
+  crashing. On Linux, V4L2 adds power line frequency, image-quality
+  controls, lamp, illumination, activity LED, and vendor-specific
+  extension controls when the camera reports them.
 - Capture and recording: still images save quietly to the configured folder
   with the current capture framing, and recordings use native controls with
   platform-supported containers.
@@ -183,25 +177,25 @@ The app exposes the real control surface reported by the active camera and
 backend. The dock splits those controls into Camera Controls and User
 Controls. Camera Controls expose Resolution as a dropdown, Exposure and
 Focus as slider-plus-spinbox widgets with Auto checkboxes when the camera
-reports them, and Light as an on/off checkbox plus a level slider when
-available. When Auto is enabled, the paired numeric control stays visible,
-greys out, and tracks the auto value. User Controls expose Backlight
-compensation, Brightness, Contrast, Hue, Saturation, Sharpness, Gamma, and
-White balance, with Auto checkboxes on Contrast, Hue, and White balance
-when the backend exposes them, and a Reset to Defaults button at the
-bottom.
-Qt Multimedia covers the common exposure, focus, white balance, flash,
-torch, zoom, and source-format controls across supported platforms, while
-Linux V4L2 adds power line frequency, image-quality controls, lamp,
-illumination, activity LED, and vendor-specific extensions when the device
-reports them. Supported controls include numeric, boolean, enumerated,
-read-only, and action widgets. The app tolerates partial control sets and
-does not fail just because a camera lacks an expected control.
-On macOS, the Qt control backend owns exposure, ISO, backlight, focus,
-and white balance when those setters are available. AVFoundation remains
-fallback for native-only gaps and rejects unsupported custom-exposure
-writes instead of crashing. Automatic Video HDR is only surfaced when the
-active format reports HDR support.
+reports them, Light as an on/off checkbox plus a level slider when
+available, and Zoom when the backend reports it. When Auto is enabled,
+the paired numeric control stays visible, greys out, and tracks the auto
+value. User Controls expose backend-owned Backlight compensation,
+Brightness, Contrast, Hue, Saturation, Sharpness, Gamma, Gain, Power Line
+Frequency, and White balance rows, with Auto checkboxes on Contrast, Hue,
+and White balance when the backend exposes them, and a Reset to Defaults
+button at the bottom.
+Native device-control backends cover the common exposure, focus, white
+balance, flash, torch, zoom, and source-format controls across supported
+platforms, while Linux V4L2 adds power line frequency, image-quality
+controls, lamp, illumination, activity LED, and vendor-specific
+extensions when the device reports them. Supported controls include
+numeric, boolean, enumerated, read-only, and action widgets. The app
+tolerates partial control sets and does not fail just because a camera
+lacks an expected control.
+On macOS, the native UVC-style control backend owns UVC controls first and
+AVFoundation remains a fallback for native-only gaps. Automatic Video HDR
+is only surfaced when the active format reports HDR support.
 
 ## Capture and Recording
 Still images save quietly to the configured image folder as PNG or JPEG

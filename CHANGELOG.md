@@ -61,6 +61,60 @@ Example:
 ## Version 0.2.0
 
 - 2026-04-06:
+  Change: Aligned the Qt control contract test and the grouped control
+    surface test with the current backend routing.
+  Why: The restore-auto-exposure path now restores both exposure time
+    and ISO, and the grouped controls surface hides backend-only rows
+    that are not meant to appear in the visible control families.
+  Impact: Validated the regression suite against the live control
+    contract without changing the control behavior exposed to users.
+  Files:
+  CHANGELOG.md
+  tests/test_camera.py
+  tests/test_ui.py
+
+- 2026-04-06:
+  Change: Implemented native device-control ownership for the camera-
+    adjustment rows, reworked the dock to render backend-owned camera
+    and user controls, and removed the shell-managed color shim.
+  Why: The camera surface must read real device ranges and modes
+    instead of simulating them in the shell, and the macOS control path
+    needs a stable UVC-style backend for the rows that previously
+    crashed or no-oped.
+  Impact: The dock now routes exposure, focus, white balance, light,
+    zoom, gain, power line frequency, and vendor-specific controls
+    through the active backend, while the docs, tests, and package
+    summary track the native control contract.
+  Files:
+  CHANGELOG.md
+  README.md
+  SPEC.md
+  PLAN.md
+  webcam_micro/README.md
+  webcam_micro/__init__.py
+  webcam_micro/camera.py
+  webcam_micro/ui.py
+  tests/test_camera.py
+  tests/test_ui.py
+
+- 2026-04-06:
+  Change: Rewrote the workstation-shell spec and plan around a native
+    device-control backend that owns camera-adjustment rows, device-
+    reported ranges, and menu values.
+  Why: Reconcile the native control model with the current shell-
+    managed rows because they do not match how the camera's real UVC
+    controls behave, and the next implementation slice must avoid
+    copying external code.
+  Impact: Future work will expose exposure, focus, white balance, power-
+    line frequency, AC flicker compensation, brightness, contrast, hue,
+    saturation, gamma, sharpness, zoom, and vendor-specific controls
+    through the backend that owns them.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  SPEC.md
+
+- 2026-04-06:
   Change: Adjusted the UI contract test to verify the white-balance row
     names after the control-surface update.
   Why: The previous source-string assertion did not align with the

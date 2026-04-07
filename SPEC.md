@@ -57,8 +57,8 @@ and required workflow law in `AGENTS.md`.
   Python package, live preview, fullscreen mode, a dedicated and detachable
   controls surface, configurable crop and framing behavior, still capture,
   video recording, persistent folders, shortcuts, presets, defaults,
-  guvcview-style camera-control discovery, and microscope-specific workflow
-  support such as calibration and overlays.
+  native UVC-style camera-control discovery, and microscope-specific
+  workflow support such as calibration and overlays.
 
 - Success signal: the product is clearly working when a user can run it from
   source or install it from PyPI, open a supported camera, see a preview,
@@ -220,31 +220,58 @@ settings dialog with a preview bolted onto it.
 - The status bar must stay compact and structured. It may show runtime
   state, but narrative help, long-form control details, and recovery advice
   belong in the diagnostics surface.
-- The overall interaction model should follow the guvcview and quvcview
+- The overall interaction model should follow the native UVC-control
   concept: capability-driven control discovery, type-aware widgets, and a
   preview-first shell.
-- The controls surface should split camera-native controls from software-
-  side user controls. The camera section should hold a Resolution
-  dropdown of supported camera formats, Exposure as a slider+spinbox
-  with an Auto checkbox when the camera exposes auto exposure, Focus as
-  a slider+spinbox with an Auto checkbox when the camera exposes auto
-  focus, and Light as an on/off checkbox plus a level slider when the
-  camera exposes those subcontrols. Shell-managed Auto rows may grey
-  out their paired numeric control, while camera-owned exposure, focus,
-  and white-balance sliders stay usable so moving them can switch the
-  camera into manual mode. Any missing Light subcontrol must disable
-  cleanly rather than pretend to exist. The user section should hold
-  Backlight compensation, Brightness, Contrast, Hue, Saturation,
-  Sharpness, Gamma, and White balance as slider+spinbox widgets, with
-  Auto checkboxes on Contrast, Hue, and White balance wherever the
-  backend exposes them. Reset to defaults should sit at the bottom of
+- The controls surface should split camera-native controls from genuine
+  software-side image adjustments. Camera-owned controls belong to the
+  device-control backend; only deliberate software adjustments may live in
   the user section.
-- When a control exposes both auto and numeric/manual state, shell-
-  managed rows may disable the paired numeric widget while auto is
-  enabled, but camera-owned exposure, focus, and white-balance sliders
-  stay visible and can switch the camera into manual mode.
-- Camera-native light controls must disable any missing on/off or level
-  subcontrol cleanly rather than pretending the control exists.
+- The product must expose the controls that the active camera/backend
+  actually provides, grouped into stable families and rendered with widgets
+  that match the control semantics. Device-reported minimums, maximums,
+  step sizes, defaults, and menu values are authoritative.
+- The product must keep the control-family order stable across layouts and
+  backends. When a family is not supported, it must disappear cleanly
+  rather than leave a broken placeholder.
+- The product must render camera-native Resolution, Exposure, Focus, White
+  balance, Backlight compensation, Brightness, Contrast, Hue, Saturation,
+  Sharpness, Gamma, Light, Power line frequency, AC flicker compensation,
+  Zoom, and vendor-specific controls with the widget type and value
+  metadata the backend reports. Resolution must be a dropdown source
+  selector. Numeric controls must use slider+spinbox rows with the reported
+  min/mid/max hints, step size, and default value. Enumerated controls,
+  including 50/60 Hz and similar flicker menus, must use dropdowns or combo
+  boxes. Exposure and focus must keep the manual value visible and
+  accessible; auto or lock state determines whether the backend drives the
+  live value or the manual baseline. Light must expose on/off and level
+  subcontrols when available, and any missing subcontrol must disable
+  cleanly.
+- When a camera reports an Auto checkbox or lock state for Exposure or
+  Focus, the UI must keep the paired numeric control visible and
+  synchronized with the live device value. Auto-enabled controls may grey
+  out if the backend requires it, but the manual baseline must remain
+  available when the device supports manual adjustment.
+- The product must keep additional backend-specific controls in the Other
+  Controls section when the active device exposes them, while preserving the
+  split between camera-native controls and any truly software-side
+  adjustments.
+- Numeric controls that expose values must use native UVC-style settings
+  components: a slider, min/mid/max labels shown beneath the slider, and an
+  adjacent input field with up/down arrows. The input field must update live
+  from the slider, and invalid typed values must clear to blank. The slider
+  and spinbox ranges must come from the active backend, not from fixed UI
+  guesses.
+- Boolean controls must use checkboxes.
+
+- Enumerated controls must use dropdowns or combo boxes.
+
+- Read-only controls must use labels or disabled value fields.
+
+- Action controls must use push buttons or equivalent one-shot actions.
+
+- The product must tolerate cameras that expose only a subset of common
+  controls and must not fail simply because some expected controls are absent.
 
 ## Functional Requirements
 - The product must be published as a Python package on PyPI and must work on
@@ -317,33 +344,7 @@ settings dialog with a preview bolted onto it.
   through a dropdown source selector rather than as a freeform field or
   slider.
 
-- The product must expose the controls that the active camera/backend
-  actually provides, grouped into stable families and rendered with widgets
-  that match the control semantics.
-
-- The product must keep the control-family order stable across layouts and
-  backends. When a family is not supported, it must disappear cleanly
-  rather than leave a broken placeholder.
-
-- The product must separate camera-native controls from software-side user
-  controls within the dedicated controls surface.
-
-- The product must render camera-native Resolution, Exposure, Focus, and
-  Light controls with the exact widget composition the device reports:
-  Resolution as a dropdown source selector; Exposure and Focus as
-  slider+spinbox pairs with Auto checkboxes when exposed; and Light as an
-  on/off checkbox plus a level slider when exposed, with any missing
-  subcontrol disabled cleanly.
-
-- When a camera reports an Auto checkbox for Exposure or Focus, enabling
-  Auto must grey out the paired numeric control and keep it synced to the
-  current auto value.
-
-- The product must keep additional backend-specific controls in the Other
-  Controls section when the active device exposes them, while preserving
-  the camera-controls and user-controls split.
-
-- Numeric controls that expose values must use guvcview-style settings
+- Numeric controls that expose values must use native UVC-style settings
   components: a slider, min/mid/max labels shown beneath the slider, and an
   adjacent input field with up/down arrows. The input field must update live
   from the slider, and invalid typed values must clear to blank.
@@ -361,11 +362,11 @@ settings dialog with a preview bolted onto it.
 
 - The product must support common microscope-relevant controls where
   exposed, including backlight compensation, power line frequency, AC
-  flicker compensation, white balance automatic control, white balance
-  temperature, exposure automatic and manual controls, focus automatic and
-  manual controls, zoom controls, color profile controls, and vendor-
-  specific extension controls, plus shell-managed brightness, contrast,
-  saturation, hue, gamma, and sharpness adjustments.
+  flicker compensation, white balance automatic and manual controls, white
+  balance temperature, exposure automatic, manual, and lock controls,
+  focus automatic and manual controls, zoom controls, brightness,
+  contrast, saturation, hue, gamma, sharpness, lamp or LED controls,
+  color profile controls, and vendor-specific extension controls.
 
 - The product must only expose Automatic Video HDR when the active
   format reports HDR support, and unsupported formats must skip the row
@@ -375,18 +376,14 @@ settings dialog with a preview bolted onto it.
   subcontrols when exposed, and unsupported subcontrols must disable cleanly
   rather than present fake values.
 
-- The user-controls section must always include shell-managed brightness,
-  contrast, hue, saturation, sharpness, and gamma rows with
-  slider+spinbox widgets, must keep backlight compensation and white
-  balance where the active camera exposes them, and must provide Auto
-  toggles on contrast and hue in the shell and on white balance wherever
-  the backend exposes it.
+- The user-controls section must reserve space for backend-owned image-
+  quality adjustments when the active camera/backend reports them. It must
+  not relabel device-owned brightness, contrast, hue, saturation,
+  sharpness, gamma, backlight compensation, white balance, or similar
+  camera controls as shell-managed rows.
 
 - The user-controls section must place a Reset to Defaults button at the
   bottom.
-
-- The user-controls section must end with a reset-to-defaults button that
-  restores built-in or remembered values for the visible controls.
 
 - If a camera exposes a lamp, illumination, or activity LED control, the
   product must surface it and allow it to be turned off when the device
@@ -396,7 +393,8 @@ settings dialog with a preview bolted onto it.
   and place image and video output configuration in Preferences or Settings,
   not in the live control pane.
 
-- The built-in default preferred microscope values must be:
+- The built-in default preferred microscope values must be the default
+  values for device-owned controls where the camera exposes them:
   - Brightness = 0
   - Contrast = 20
   - Saturation = 128
@@ -559,10 +557,11 @@ settings dialog with a preview bolted onto it.
   surfaces across all devices and platforms.
 
 - Constraint: on macOS, camera-control ownership must prefer the backend
-  that can actually apply the write. Qt Multimedia should own exposure,
-  ISO, backlight, focus, and white balance when its setters are
-  available, and AVFoundation must fail closed on unsupported
-  custom-exposure paths instead of calling them.
+  that can actually apply the write. Preview may stay on Qt Multimedia,
+  but device-owned controls that the platform stack cannot safely apply
+  must move to a native control backend instead of being simulated in the
+  shell. AVFoundation must fail closed on unsupported custom-exposure or
+  other unsupported native control paths instead of calling them.
 
 - Assumption: the active camera/backend will usually expose at least a
   meaningful subset of controls and source modes sufficient for microscope
@@ -594,16 +593,17 @@ settings dialog with a preview bolted onto it.
   bottom-most button.
 
 - A user can tune exposure, white balance, backlight compensation, flicker
-  compensation, zoom, and any activity LED or vendor-specific control that
-  the active camera exposes.
+  compensation, power line frequency, zoom, brightness, contrast, hue,
+  saturation, gamma, sharpness, and any activity LED or vendor-specific
+  control that the active camera exposes.
 
 - A user can adjust backlight compensation and white balance through
   slider+spinbox widgets when the camera exposes them, and can adjust
-  shell-managed brightness, contrast, hue, saturation, sharpness, and
-  gamma through slider+spinbox widgets, with Auto toggles on contrast and
-  hue in the shell and on white balance when the camera exposes it.
-  Camera-owned exposure, focus, and white-balance sliders stay usable so
-  moving them can switch the camera into manual mode.
+  native brightness, contrast, hue, saturation, sharpness, and gamma
+  through slider+spinbox widgets, with Auto or lock controls reflecting
+  the backend's native capabilities. Camera-owned exposure, focus, and
+  white-balance sliders stay usable so moving them can switch the camera
+  into manual mode.
 
 - A user on any platform can enter fullscreen mode, use the fullscreen
   command surface in expanded and collapsed states, exit fullscreen safely,

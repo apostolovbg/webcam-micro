@@ -23,6 +23,7 @@ from webcam_micro.camera import (
     CompositeCameraControlBackend,
     FfmpegCameraBackend,
     FfmpegCameraSession,
+    LibUVCControlBackend,
     LinuxV4L2CameraControlBackend,
     MissingCameraDependencyError,
     NullCameraBackend,
@@ -73,12 +74,16 @@ class CameraContractTest(unittest.TestCase):
         self.assertIsInstance(plan, BackendPlan)
         self.assertEqual("QtCameraBackend", plan.active_backend)
         self.assertIn("Qt Multimedia", plan.first_device_backend_target)
+        self.assertIn(
+            "native device-control backends",
+            plan.first_device_backend_target,
+        )
         self.assertTrue(any("newest frame" in note for note in plan.notes))
         self.assertTrue(any("Qt Multimedia" in note for note in plan.notes))
-        self.assertTrue(any("AVFoundation" in note for note in plan.notes))
-        self.assertTrue(any("Linux V4L2" in note for note in plan.notes))
         self.assertTrue(
-            any("macOS, Windows, and Linux" in note for note in plan.notes)
+            any(
+                "native device-control backends" in note for note in plan.notes
+            )
         )
 
     def test_camera_contract_symbols_stay_explicit(self) -> None:
@@ -122,6 +127,7 @@ class CameraContractTest(unittest.TestCase):
         self.assertEqual("QtCameraSession", QtCameraSession.__name__)
         self.assertEqual("FfmpegCameraBackend", FfmpegCameraBackend.__name__)
         self.assertEqual("FfmpegCameraSession", FfmpegCameraSession.__name__)
+        self.assertEqual("LibUVCControlBackend", LibUVCControlBackend.__name__)
         self.assertEqual("NullCameraBackend", NullCameraBackend.__name__)
         self.assertEqual(
             "NullCameraControlBackend",
@@ -556,7 +562,6 @@ class CameraContractTest(unittest.TestCase):
                 "exposure_locked",
                 "backlight_compensation",
                 "manual_exposure_time",
-                "manual_iso_sensitivity",
                 "focus_auto",
                 "focus_distance",
                 "white_balance_automatic",
@@ -607,7 +612,6 @@ class CameraContractTest(unittest.TestCase):
         backend.set_control_value(descriptor, "exposure_locked", True)
         backend.set_control_value(descriptor, "backlight_compensation", 1.5)
         backend.set_control_value(descriptor, "manual_exposure_time", 0.05)
-        backend.set_control_value(descriptor, "manual_iso_sensitivity", 200)
         backend.set_control_value(descriptor, "focus_auto", False)
         backend.set_control_value(descriptor, "focus_distance", 0.25)
         backend.set_control_value(descriptor, "white_balance_automatic", False)
@@ -627,8 +631,6 @@ class CameraContractTest(unittest.TestCase):
                 ("setExposureCompensation", 1.5),
                 ("setExposureMode", FakeExposureMode.ExposureManual),
                 ("setManualExposureTime", 0.05),
-                ("setExposureMode", FakeExposureMode.ExposureManual),
-                ("setManualIsoSensitivity", 200),
                 ("setFocusMode", FakeFocusMode.FocusModeManual),
                 ("setFocusMode", FakeFocusMode.FocusModeManual),
                 ("setFocusDistance", 0.25),
@@ -1054,11 +1056,22 @@ class CameraContractTest(unittest.TestCase):
         self.assertEqual([("action", "exposure_mode", True)], primary.calls)
 
     @mock.patch("webcam_micro.camera.sys.platform", "darwin")
-    def test_build_control_backend_prefers_qt_on_macos(self) -> None:
-        """Assert the macOS stack routes shared controls through Qt first."""
+    def test_build_control_backend_prefers_native_backend_on_macos(
+        self,
+    ) -> None:
+        """Assert the macOS stack routes shared controls to native first."""
 
+        native_backend = mock.MagicMock()
         qt_backend = mock.MagicMock()
         av_backend = mock.MagicMock()
+        native_backend.list_controls.return_value = (
+            CameraControl(
+                control_id="manual_exposure_time",
+                label="Manual Exposure Time",
+                kind="numeric",
+                value=0.05,
+            ),
+        )
         qt_backend.list_controls.return_value = (
             CameraControl(
                 control_id="manual_exposure_time",
@@ -1077,6 +1090,10 @@ class CameraContractTest(unittest.TestCase):
         )
 
         with (
+            mock.patch(
+                "webcam_micro.camera.LibUVCControlBackend",
+                return_value=native_backend,
+            ),
             mock.patch(
                 "webcam_micro.camera.QtCameraControlBackend",
                 return_value=qt_backend,
@@ -1105,11 +1122,12 @@ class CameraContractTest(unittest.TestCase):
             0.05,
         )
 
-        qt_backend.set_control_value.assert_called_once_with(
+        native_backend.set_control_value.assert_called_once_with(
             descriptor,
             "manual_exposure_time",
             0.05,
         )
+        qt_backend.set_control_value.assert_not_called()
         av_backend.set_control_value.assert_not_called()
 
     @mock.patch("webcam_micro.camera._load_avfoundation_modules")
@@ -1468,7 +1486,6 @@ class CameraContractTest(unittest.TestCase):
                 "exposure_mode",
                 "exposure_locked",
                 "manual_exposure_time",
-                "manual_iso_sensitivity",
                 "backlight_compensation",
                 "focus_auto",
                 "focus_distance",
@@ -1476,7 +1493,6 @@ class CameraContractTest(unittest.TestCase):
                 "white_balance_temperature",
                 "flash_mode",
                 "torch_mode",
-                "smooth_auto_focus",
                 "zoom_factor",
                 "active_format",
                 "restore_auto_exposure",
@@ -1489,9 +1505,6 @@ class CameraContractTest(unittest.TestCase):
         }
         self.assertEqual(
             "numeric", controls_by_id["manual_exposure_time"].kind
-        )
-        self.assertEqual(
-            "numeric", controls_by_id["manual_iso_sensitivity"].kind
         )
         self.assertEqual(
             "numeric", controls_by_id["backlight_compensation"].kind
@@ -1510,7 +1523,6 @@ class CameraContractTest(unittest.TestCase):
         self.assertEqual(
             "numeric", controls_by_id["white_balance_temperature"].kind
         )
-        self.assertEqual("boolean", controls_by_id["smooth_auto_focus"].kind)
         self.assertEqual("read_only", controls_by_id["active_format"].kind)
         self.assertEqual(
             "action", controls_by_id["restore_auto_exposure"].kind
@@ -1537,7 +1549,6 @@ class CameraContractTest(unittest.TestCase):
         device.calls.clear()
         backend.set_control_value(descriptor, "exposure_locked", True)
         backend.set_control_value(descriptor, "manual_exposure_time", 0.05)
-        backend.set_control_value(descriptor, "manual_iso_sensitivity", 200)
         backend.set_control_value(descriptor, "backlight_compensation", 1.5)
         backend.set_control_value(descriptor, "focus_auto", False)
         backend.set_control_value(descriptor, "focus_distance", 0.25)
@@ -1549,7 +1560,6 @@ class CameraContractTest(unittest.TestCase):
         )
         backend.set_control_value(descriptor, "flash_mode", "on")
         backend.set_control_value(descriptor, "torch_mode", "auto")
-        backend.set_control_value(descriptor, "smooth_auto_focus", False)
         backend.set_control_value(descriptor, "zoom_factor", 3.0)
         backend.set_control_value(descriptor, "restore_auto_exposure", True)
 
@@ -1557,7 +1567,6 @@ class CameraContractTest(unittest.TestCase):
             [
                 ("setExposureMode", 0),
                 ("setExposureModeCustom", 0.05, 160.0),
-                ("setExposureModeCustom", 0.016667, 200.0),
                 ("setExposureTargetBias", 1.5),
                 ("setFocusMode", 0),
                 ("setFocusDistance", 0.25),
@@ -1565,7 +1574,6 @@ class CameraContractTest(unittest.TestCase):
                 ("setWhiteBalanceTemperature", 5000.0, 0.0),
                 ("setFlashMode", 1),
                 ("setTorchMode", 2),
-                ("setSmoothAutoFocusEnabled", False),
                 ("setVideoZoomFactor", 3.0),
                 ("setExposureMode", 2),
             ],

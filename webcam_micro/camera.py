@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import ctypes
+import ctypes.util
 import errno
 import glob
 import math
@@ -215,7 +216,8 @@ def build_backend_plan() -> BackendPlan:
     return BackendPlan(
         active_backend="QtCameraBackend",
         first_device_backend_target=(
-            "Qt Multimedia-backed discovery and live preview"
+            "Qt Multimedia-backed discovery and live preview with native "
+            "device-control backends"
         ),
         notes=(
             "Stage 7 moves camera discovery and live preview onto Qt "
@@ -223,10 +225,10 @@ def build_backend_plan() -> BackendPlan:
             "Preview readers keep only the newest frame surfaced through a "
             "QVideoSink so the workspace renderer does not lag behind live "
             "video.",
-            "The typed control surface now combines Qt Multimedia "
-            "capability reporting with macOS AVFoundation control "
-            "discovery on Intel and Apple silicon Macs and Linux V4L2 "
-            "control discovery across macOS, Windows, and Linux.",
+            "The typed control surface now combines Qt Multimedia preview "
+            "capability reporting with native device-control backends on "
+            "macOS and Linux so device-owned controls read real ranges, "
+            "modes, and menu values.",
         ),
     )
 
@@ -1661,6 +1663,477 @@ class _V4L2ControlRecord:
     action_label: str = ""
 
 
+class _LibUVCInputTerminal(ctypes.Structure):
+    """Describe one libuvc camera-terminal descriptor."""
+
+    pass
+
+
+class _LibUVCProcessingUnit(ctypes.Structure):
+    """Describe one libuvc processing-unit descriptor."""
+
+    pass
+
+
+class _LibUVCExtensionUnit(ctypes.Structure):
+    """Describe one libuvc extension-unit descriptor."""
+
+    pass
+
+
+_LibUVCInputTerminal._fields_ = [
+    ("prev", ctypes.POINTER(_LibUVCInputTerminal)),
+    ("next", ctypes.POINTER(_LibUVCInputTerminal)),
+    ("bTerminalID", ctypes.c_uint8),
+    ("wTerminalType", ctypes.c_uint16),
+    ("wObjectiveFocalLengthMin", ctypes.c_uint16),
+    ("wObjectiveFocalLengthMax", ctypes.c_uint16),
+    ("wOcularFocalLength", ctypes.c_uint16),
+    ("bmControls", ctypes.c_uint64),
+]
+
+_LibUVCProcessingUnit._fields_ = [
+    ("prev", ctypes.POINTER(_LibUVCProcessingUnit)),
+    ("next", ctypes.POINTER(_LibUVCProcessingUnit)),
+    ("bUnitID", ctypes.c_uint8),
+    ("bSourceID", ctypes.c_uint8),
+    ("bmControls", ctypes.c_uint64),
+]
+
+_LibUVCExtensionUnit._fields_ = [
+    ("prev", ctypes.POINTER(_LibUVCExtensionUnit)),
+    ("next", ctypes.POINTER(_LibUVCExtensionUnit)),
+    ("bUnitID", ctypes.c_uint8),
+    ("guidExtensionCode", ctypes.c_uint8 * 16),
+    ("bmControls", ctypes.c_uint64),
+]
+
+
+_LIBUVC_GET_CUR = 0x81
+_LIBUVC_GET_MIN = 0x82
+_LIBUVC_GET_MAX = 0x83
+_LIBUVC_GET_RES = 0x84
+_LIBUVC_GET_LEN = 0x85
+_LIBUVC_GET_INFO = 0x86
+_LIBUVC_GET_DEF = 0x87
+
+_LIBUVC_CALL_ERRORS = (
+    AttributeError,
+    ctypes.ArgumentError,
+    OSError,
+    TypeError,
+    ValueError,
+)
+
+_LIBUVC_CT_AE_MODE_CONTROL = 0x02
+_LIBUVC_CT_AE_PRIORITY_CONTROL = 0x03
+_LIBUVC_CT_EXPOSURE_TIME_ABSOLUTE_CONTROL = 0x04
+_LIBUVC_CT_FOCUS_ABSOLUTE_CONTROL = 0x06
+_LIBUVC_CT_FOCUS_AUTO_CONTROL = 0x08
+_LIBUVC_CT_ZOOM_ABSOLUTE_CONTROL = 0x0B
+
+_LIBUVC_PU_BACKLIGHT_COMPENSATION_CONTROL = 0x01
+_LIBUVC_PU_BRIGHTNESS_CONTROL = 0x02
+_LIBUVC_PU_CONTRAST_CONTROL = 0x03
+_LIBUVC_PU_GAIN_CONTROL = 0x04
+_LIBUVC_PU_POWER_LINE_FREQUENCY_CONTROL = 0x05
+_LIBUVC_PU_HUE_CONTROL = 0x06
+_LIBUVC_PU_SATURATION_CONTROL = 0x07
+_LIBUVC_PU_SHARPNESS_CONTROL = 0x08
+_LIBUVC_PU_GAMMA_CONTROL = 0x09
+_LIBUVC_PU_WHITE_BALANCE_TEMPERATURE_CONTROL = 0x0A
+_LIBUVC_PU_WHITE_BALANCE_TEMPERATURE_AUTO_CONTROL = 0x0B
+_LIBUVC_PU_HUE_AUTO_CONTROL = 0x10
+_LIBUVC_PU_CONTRAST_AUTO_CONTROL = 0x13
+
+
+@dataclass(frozen=True)
+class _LibUVCControlRecord:
+    """Describe one libuvc-backed control and its current value."""
+
+    control_id: str
+    label: str
+    kind: str
+    unit_id: int
+    selector: int
+    getter_name: str
+    setter_name: str
+    value: object | None
+    choices: tuple[CameraControlChoice, ...] = ()
+    menu_values: tuple[int, ...] = ()
+    min_value: float | None = None
+    max_value: float | None = None
+    step: float | None = None
+    read_only: bool = False
+    enabled: bool = True
+    unit: str = ""
+    details: str = ""
+    action_label: str = ""
+    scale: float = 1.0
+    signed: bool = False
+    size: int = 0
+
+
+def _load_libuvc_library() -> object | None:
+    """Return the libuvc shared library when it is installed."""
+
+    candidates: list[str] = []
+    found_path = ctypes.util.find_library("uvc")
+    if found_path:
+        candidates.append(found_path)
+    candidates.extend(
+        [
+            "/usr/local/opt/libuvc/lib/libuvc.dylib",
+            "/opt/homebrew/opt/libuvc/lib/libuvc.dylib",
+            "/usr/local/lib/libuvc.dylib",
+            "/opt/homebrew/lib/libuvc.dylib",
+        ]
+    )
+    for candidate in candidates:
+        if not candidate or not Path(candidate).exists():
+            continue
+        try:
+            library = ctypes.CDLL(candidate)
+        except OSError:
+            continue
+        _configure_libuvc_library(library)
+        return library
+    return None
+
+
+def _configure_libuvc_library(library: object) -> None:
+    """Install ctypes signatures for the libuvc functions we use."""
+
+    def bind(
+        name: str,
+        restype: object,
+        argtypes: tuple[object, ...],
+    ) -> None:
+        """Bind one libuvc symbol when the shared library exports it."""
+
+        function = getattr(library, name, None)
+        if function is None:
+            return
+        function.restype = restype
+        function.argtypes = list(argtypes)
+
+    bind(
+        "uvc_init",
+        ctypes.c_int,
+        (ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p),
+    )
+    bind("uvc_exit", None, (ctypes.c_void_p,))
+    bind(
+        "uvc_get_device_list",
+        ctypes.c_int,
+        (ctypes.c_void_p, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))),
+    )
+    bind(
+        "uvc_free_device_list",
+        None,
+        (ctypes.POINTER(ctypes.c_void_p), ctypes.c_uint8),
+    )
+    bind(
+        "uvc_get_device_descriptor",
+        ctypes.c_int,
+        (
+            ctypes.c_void_p,
+            ctypes.POINTER(ctypes.POINTER(_LibUVCDeviceDescriptor)),
+        ),
+    )
+    bind(
+        "uvc_free_device_descriptor",
+        None,
+        (ctypes.POINTER(_LibUVCDeviceDescriptor),),
+    )
+    bind(
+        "uvc_open",
+        ctypes.c_int,
+        (ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)),
+    )
+    bind("uvc_close", None, (ctypes.c_void_p,))
+    bind("uvc_ref_device", None, (ctypes.c_void_p,))
+    bind("uvc_unref_device", None, (ctypes.c_void_p,))
+    bind(
+        "uvc_get_camera_terminal",
+        ctypes.POINTER(_LibUVCInputTerminal),
+        (ctypes.c_void_p,),
+    )
+    bind(
+        "uvc_get_processing_units",
+        ctypes.POINTER(_LibUVCProcessingUnit),
+        (ctypes.c_void_p,),
+    )
+    bind(
+        "uvc_get_extension_units",
+        ctypes.POINTER(_LibUVCExtensionUnit),
+        (ctypes.c_void_p,),
+    )
+    bind(
+        "uvc_get_ctrl",
+        ctypes.c_int,
+        (
+            ctypes.c_void_p,
+            ctypes.c_uint8,
+            ctypes.c_uint8,
+            ctypes.c_void_p,
+            ctypes.c_int,
+            ctypes.c_int,
+        ),
+    )
+    bind(
+        "uvc_set_ctrl",
+        ctypes.c_int,
+        (
+            ctypes.c_void_p,
+            ctypes.c_uint8,
+            ctypes.c_uint8,
+            ctypes.c_void_p,
+            ctypes.c_int,
+        ),
+    )
+    bind("uvc_strerror", ctypes.c_char_p, (ctypes.c_int,))
+
+    for name, restype, argtypes in (
+        (
+            "uvc_get_ae_mode",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint8), ctypes.c_int),
+        ),
+        (
+            "uvc_set_ae_mode",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_uint8),
+        ),
+        (
+            "uvc_get_ae_priority",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint8), ctypes.c_int),
+        ),
+        (
+            "uvc_set_ae_priority",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_uint8),
+        ),
+        (
+            "uvc_get_exposure_abs",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32), ctypes.c_int),
+        ),
+        (
+            "uvc_set_exposure_abs",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_uint32),
+        ),
+        (
+            "uvc_get_focus_abs",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint16), ctypes.c_int),
+        ),
+        (
+            "uvc_set_focus_abs",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_uint16),
+        ),
+        (
+            "uvc_get_focus_auto",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint8), ctypes.c_int),
+        ),
+        (
+            "uvc_set_focus_auto",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_uint8),
+        ),
+        (
+            "uvc_get_zoom_abs",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint16), ctypes.c_int),
+        ),
+        (
+            "uvc_set_zoom_abs",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_uint16),
+        ),
+        (
+            "uvc_get_backlight_compensation",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint16), ctypes.c_int),
+        ),
+        (
+            "uvc_set_backlight_compensation",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_uint16),
+        ),
+        (
+            "uvc_get_brightness",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_int16), ctypes.c_int),
+        ),
+        (
+            "uvc_set_brightness",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_int16),
+        ),
+        (
+            "uvc_get_contrast",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint16), ctypes.c_int),
+        ),
+        (
+            "uvc_set_contrast",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_uint16),
+        ),
+        (
+            "uvc_get_contrast_auto",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint8), ctypes.c_int),
+        ),
+        (
+            "uvc_set_contrast_auto",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_uint8),
+        ),
+        (
+            "uvc_get_gain",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint16), ctypes.c_int),
+        ),
+        (
+            "uvc_set_gain",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_uint16),
+        ),
+        (
+            "uvc_get_power_line_frequency",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint8), ctypes.c_int),
+        ),
+        (
+            "uvc_set_power_line_frequency",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_uint8),
+        ),
+        (
+            "uvc_get_hue",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_int16), ctypes.c_int),
+        ),
+        (
+            "uvc_set_hue",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_int16),
+        ),
+        (
+            "uvc_get_hue_auto",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint8), ctypes.c_int),
+        ),
+        (
+            "uvc_set_hue_auto",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_uint8),
+        ),
+        (
+            "uvc_get_saturation",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint16), ctypes.c_int),
+        ),
+        (
+            "uvc_set_saturation",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_uint16),
+        ),
+        (
+            "uvc_get_sharpness",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint16), ctypes.c_int),
+        ),
+        (
+            "uvc_set_sharpness",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_uint16),
+        ),
+        (
+            "uvc_get_gamma",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint16), ctypes.c_int),
+        ),
+        (
+            "uvc_set_gamma",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_uint16),
+        ),
+        (
+            "uvc_get_white_balance_temperature",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint16), ctypes.c_int),
+        ),
+        (
+            "uvc_set_white_balance_temperature",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_uint16),
+        ),
+        (
+            "uvc_get_white_balance_temperature_auto",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint8), ctypes.c_int),
+        ),
+        (
+            "uvc_set_white_balance_temperature_auto",
+            ctypes.c_int,
+            (ctypes.c_void_p, ctypes.c_uint8),
+        ),
+    ):
+        bind(name, restype, argtypes)
+
+
+class _LibUVCDeviceDescriptor(ctypes.Structure):
+    """Describe one libuvc device descriptor."""
+
+    _fields_ = [
+        ("idVendor", ctypes.c_uint16),
+        ("idProduct", ctypes.c_uint16),
+        ("bcdUVC", ctypes.c_uint16),
+        ("serialNumber", ctypes.c_char_p),
+        ("manufacturer", ctypes.c_char_p),
+        ("product", ctypes.c_char_p),
+    ]
+
+
+def _libuvc_text(value: object | None) -> str | None:
+    """Return a normalized text value from one libuvc string pointer."""
+
+    if value is None:
+        return None
+    if isinstance(value, (bytes, bytearray)):
+        try:
+            text = bytes(value).decode("utf-8", errors="replace").strip()
+        except UnicodeDecodeError:
+            text = ""
+        return text or None
+    text = str(value).strip()
+    return text or None
+
+
+def _settings_text(value: object | None) -> str | None:
+    """Return one normalized text value for settings tokens and labels."""
+
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _libuvc_control_supported(bitmask: int, selector: int) -> bool:
+    """Return whether one UVC selector bit is present in the bitmap."""
+
+    if selector <= 0:
+        return False
+    return bool(bitmask & (1 << (selector - 1)))
+
+
 def _v4l2_querymenu_item(
     device_fd: int,
     control_id: int,
@@ -2170,6 +2643,1429 @@ class LinuxV4L2CameraControlBackend:
         self.set_control_value(descriptor, control_id, True)
 
 
+class LibUVCControlBackend:
+    """Expose native UVC camera controls through libuvc when available."""
+
+    backend_name = "libuvc"
+
+    def __init__(self, library: object | None = None) -> None:
+        """Store the libuvc bindings and initialize a shared context."""
+
+        self._lib = library if library is not None else _load_libuvc_library()
+        self._context: object | None = None
+        self._handle: object | None = None
+        if self._lib is not None:
+            self._context = self._create_context()
+
+    @property
+    def available(self) -> bool:
+        """Return whether the native UVC bridge is ready."""
+
+        return self._lib is not None and self._context is not None
+
+    def __del__(self) -> None:
+        """Release the shared libuvc context when the backend is collected."""
+
+        context = self._context
+        library = self._lib
+        self._context = None
+        if context is None or library is None:
+            return
+        with contextlib.suppress(*_LIBUVC_CALL_ERRORS):
+            library.uvc_exit(context)
+
+    def _create_context(self) -> object | None:
+        """Return one initialized libuvc context when possible."""
+
+        if self._lib is None:
+            return None
+        context = ctypes.c_void_p()
+        try:
+            result_code = self._lib.uvc_init(ctypes.byref(context), None)
+        except _LIBUVC_CALL_ERRORS:
+            return None
+        if result_code != 0:
+            return None
+        return context
+
+    def _uvc_error_text(self, error_code: int) -> str:
+        """Return one readable libuvc error message."""
+
+        if self._lib is None:
+            return "The native UVC bridge is unavailable."
+        strerror = getattr(self._lib, "uvc_strerror", None)
+        if strerror is None:
+            return f"libuvc error {error_code}."
+        try:
+            message = strerror(error_code)
+        except _LIBUVC_CALL_ERRORS:
+            return f"libuvc error {error_code}."
+        text = _libuvc_text(message)
+        if text is None:
+            return f"libuvc error {error_code}."
+        return text
+
+    def _device_list(self) -> tuple[object, object | None] | tuple[None, None]:
+        """Return one libuvc device list and its matching context."""
+
+        if self._lib is None or self._context is None:
+            return None, None
+        device_list = ctypes.POINTER(ctypes.c_void_p)()
+        try:
+            result_code = self._lib.uvc_get_device_list(
+                self._context,
+                ctypes.byref(device_list),
+            )
+        except _LIBUVC_CALL_ERRORS:
+            return None, None
+        if result_code != 0 or not device_list:
+            return None, None
+        return device_list, self._context
+
+    def _free_device_list(self, device_list: object | None) -> None:
+        """Release one libuvc device list."""
+
+        if self._lib is None or device_list is None:
+            return
+        with contextlib.suppress(*_LIBUVC_CALL_ERRORS):
+            self._lib.uvc_free_device_list(device_list, 1)
+
+    def _device_descriptor(
+        self,
+        device: object,
+    ) -> _LibUVCDeviceDescriptor | None:
+        """Return the descriptor for one libuvc device when possible."""
+
+        if self._lib is None:
+            return None
+        descriptor = ctypes.POINTER(_LibUVCDeviceDescriptor)()
+        try:
+            result_code = self._lib.uvc_get_device_descriptor(
+                device,
+                ctypes.byref(descriptor),
+            )
+        except _LIBUVC_CALL_ERRORS:
+            return None
+        if result_code != 0 or not descriptor:
+            return None
+        return descriptor.contents
+
+    def _free_device_descriptor(
+        self,
+        descriptor: _LibUVCDeviceDescriptor | None,
+    ) -> None:
+        """Release one libuvc device descriptor."""
+
+        if self._lib is None or descriptor is None:
+            return
+        with contextlib.suppress(*_LIBUVC_CALL_ERRORS):
+            self._lib.uvc_free_device_descriptor(ctypes.pointer(descriptor))
+
+    def _device_label(self, descriptor: _LibUVCDeviceDescriptor) -> str:
+        """Return one stable label for a libuvc device descriptor."""
+
+        manufacturer = _libuvc_text(descriptor.manufacturer)
+        product = _libuvc_text(descriptor.product)
+        if manufacturer and product:
+            return f"{manufacturer} {product}"
+        if product:
+            return product
+        if manufacturer:
+            return manufacturer
+        return "UVC camera"
+
+    def _device_matches_descriptor(
+        self,
+        device_descriptor: _LibUVCDeviceDescriptor,
+        descriptor: CameraDescriptor,
+        occurrence_index: int,
+    ) -> bool:
+        """Return whether one libuvc device matches a shared descriptor."""
+
+        serial_number = _libuvc_text(device_descriptor.serialNumber)
+        if (
+            descriptor.native_identifier is not None
+            and serial_number is not None
+            and descriptor.native_identifier == serial_number
+        ):
+            return True
+        device_label = self._device_label(device_descriptor)
+        descriptor_label = descriptor.display_name.strip()
+        if device_label == descriptor_label:
+            return occurrence_index == descriptor.display_occurrence_index
+        if (
+            _settings_text(device_label).lower()
+            == _settings_text(descriptor_label).lower()
+        ):
+            return occurrence_index == descriptor.display_occurrence_index
+        product = _libuvc_text(device_descriptor.product)
+        manufacturer = _libuvc_text(device_descriptor.manufacturer)
+        candidate_names = {
+            name
+            for name in (
+                product,
+                manufacturer,
+                (
+                    f"{manufacturer} {product}"
+                    if manufacturer and product
+                    else None
+                ),
+            )
+            if name
+        }
+        if descriptor_label in candidate_names:
+            return occurrence_index == descriptor.display_occurrence_index
+        return False
+
+    def _device_for_descriptor(
+        self,
+        descriptor: CameraDescriptor,
+    ) -> object | None:
+        """Return the libuvc device that matches one shared descriptor."""
+
+        device_list, _context = self._device_list()
+        if device_list is None:
+            return None
+        try:
+            seen_labels: dict[str, int] = {}
+            index = 0
+            while True:
+                device = device_list[index]
+                if not device:
+                    break
+                device_descriptor = self._device_descriptor(device)
+                if device_descriptor is None:
+                    index += 1
+                    continue
+                label = self._device_label(device_descriptor)
+                occurrence_index = seen_labels.get(label, 0)
+                seen_labels[label] = occurrence_index + 1
+                if self._device_matches_descriptor(
+                    device_descriptor,
+                    descriptor,
+                    occurrence_index,
+                ):
+                    return device
+                index += 1
+        finally:
+            self._free_device_list(device_list)
+        return None
+
+    def _open_device_handle(self, device: object) -> object | None:
+        """Return one opened libuvc device handle when possible."""
+
+        if self._lib is None:
+            return None
+        handle = ctypes.c_void_p()
+        try:
+            result_code = self._lib.uvc_open(device, ctypes.byref(handle))
+        except _LIBUVC_CALL_ERRORS:
+            return None
+        if result_code != 0:
+            return None
+        return handle
+
+    def _close_device_handle(self, handle: object | None) -> None:
+        """Close one opened libuvc device handle."""
+
+        if self._lib is None or handle is None:
+            return
+        with contextlib.suppress(*_LIBUVC_CALL_ERRORS):
+            self._lib.uvc_close(handle)
+
+    def _typed_request(
+        self,
+        getter_name: str,
+        handle: object,
+        value_type: object,
+        req_code: int,
+    ) -> object | None:
+        """Return one typed libuvc value when the request succeeds."""
+
+        if self._lib is None:
+            return None
+        getter = getattr(self._lib, getter_name, None)
+        if getter is None:
+            return None
+        value = value_type()
+        try:
+            result_code = getter(handle, ctypes.byref(value), req_code)
+        except _LIBUVC_CALL_ERRORS:
+            return None
+        if result_code != 0:
+            return None
+        return value.value
+
+    def _raw_request(
+        self,
+        handle: object,
+        unit_id: int,
+        selector: int,
+        req_code: int,
+        size: int,
+    ) -> bytes | None:
+        """Return one raw libuvc control payload when possible."""
+
+        if self._lib is None or size <= 0:
+            return None
+        getter = getattr(self._lib, "uvc_get_ctrl", None)
+        if getter is None:
+            return None
+        payload = (ctypes.c_uint8 * size)()
+        try:
+            result_code = getter(
+                handle,
+                unit_id,
+                selector,
+                payload,
+                size,
+                req_code,
+            )
+        except _LIBUVC_CALL_ERRORS:
+            return None
+        if result_code != 0:
+            return None
+        return bytes(payload)
+
+    def _raw_write(
+        self,
+        handle: object,
+        unit_id: int,
+        selector: int,
+        payload: bytes,
+    ) -> None:
+        """Write one raw libuvc control payload."""
+
+        if self._lib is None:
+            raise CameraControlApplyError(
+                "The native UVC bridge is unavailable."
+            )
+        setter = getattr(self._lib, "uvc_set_ctrl", None)
+        if setter is None:
+            raise CameraControlApplyError(
+                "The native UVC bridge does not support raw controls."
+            )
+        buffer = (ctypes.c_uint8 * len(payload)).from_buffer_copy(payload)
+        try:
+            result_code = setter(
+                handle, unit_id, selector, buffer, len(payload)
+            )
+        except _LIBUVC_CALL_ERRORS as exc:
+            raise CameraControlApplyError(str(exc)) from exc
+        if result_code != 0:
+            raise CameraControlApplyError(self._uvc_error_text(result_code))
+
+    def _numeric_record(
+        self,
+        *,
+        control_id: str,
+        label: str,
+        getter_name: str,
+        setter_name: str,
+        unit_id: int,
+        selector: int,
+        value_type: object,
+        unit: str = "",
+        scale: float = 1.0,
+        signed: bool = False,
+        details: str = "",
+    ) -> _LibUVCControlRecord | None:
+        """Return one numeric libuvc record when the control is readable."""
+
+        if self._lib is None:
+            return None
+        current = self._typed_request(
+            getter_name, self._handle, value_type, _LIBUVC_GET_CUR
+        )
+        if current is None:
+            current = self._typed_request(
+                getter_name,
+                self._handle,
+                value_type,
+                _LIBUVC_GET_DEF,
+            )
+        if current is None:
+            return None
+        minimum = self._typed_request(
+            getter_name,
+            self._handle,
+            value_type,
+            _LIBUVC_GET_MIN,
+        )
+        maximum = self._typed_request(
+            getter_name,
+            self._handle,
+            value_type,
+            _LIBUVC_GET_MAX,
+        )
+        resolution = self._typed_request(
+            getter_name,
+            self._handle,
+            value_type,
+            _LIBUVC_GET_RES,
+        )
+
+        def scaled(value: object | None) -> float | None:
+            """Return one libuvc numeric value converted into control units."""
+
+            if value is None:
+                return None
+            return _safe_float(value) * scale
+
+        current_value = scaled(current)
+        if current_value is None:
+            return None
+        minimum_value = scaled(minimum)
+        maximum_value = scaled(maximum)
+        if minimum_value is None and maximum_value is None:
+            minimum_value = current_value
+            maximum_value = current_value
+        if minimum_value is not None and maximum_value is not None:
+            current_value = max(
+                minimum_value, min(maximum_value, current_value)
+            )
+        step = None
+        if resolution is not None:
+            step = max(_safe_float(resolution) * scale, 0.01)
+        elif minimum_value is not None and maximum_value is not None:
+            step = _numeric_step(minimum_value, maximum_value)
+        return _LibUVCControlRecord(
+            control_id=control_id,
+            label=label,
+            kind="numeric",
+            unit_id=unit_id,
+            selector=selector,
+            getter_name=getter_name,
+            setter_name=setter_name,
+            value=current_value,
+            min_value=minimum_value,
+            max_value=maximum_value,
+            step=step,
+            unit=unit,
+            details=details,
+            scale=scale,
+            signed=signed,
+        )
+
+    def _boolean_record(
+        self,
+        *,
+        control_id: str,
+        label: str,
+        getter_name: str,
+        setter_name: str,
+        unit_id: int,
+        selector: int,
+        details: str = "",
+    ) -> _LibUVCControlRecord | None:
+        """Return one boolean libuvc record when the control is readable."""
+
+        current = self._typed_request(
+            getter_name,
+            self._handle,
+            ctypes.c_uint8,
+            _LIBUVC_GET_CUR,
+        )
+        if current is None:
+            current = self._typed_request(
+                getter_name,
+                self._handle,
+                ctypes.c_uint8,
+                _LIBUVC_GET_DEF,
+            )
+        if current is None:
+            return None
+        return _LibUVCControlRecord(
+            control_id=control_id,
+            label=label,
+            kind="boolean",
+            unit_id=unit_id,
+            selector=selector,
+            getter_name=getter_name,
+            setter_name=setter_name,
+            value=bool(current),
+            details=details,
+        )
+
+    def _power_line_frequency_record(
+        self,
+        unit_id: int,
+        selector: int,
+    ) -> _LibUVCControlRecord | None:
+        """Return the power-line frequency selector when available."""
+
+        current = self._typed_request(
+            "uvc_get_power_line_frequency",
+            self._handle,
+            ctypes.c_uint8,
+            _LIBUVC_GET_CUR,
+        )
+        if current is None:
+            current = self._typed_request(
+                "uvc_get_power_line_frequency",
+                self._handle,
+                ctypes.c_uint8,
+                _LIBUVC_GET_DEF,
+            )
+        if current is None:
+            return None
+        minimum = self._typed_request(
+            "uvc_get_power_line_frequency",
+            self._handle,
+            ctypes.c_uint8,
+            _LIBUVC_GET_MIN,
+        )
+        maximum = self._typed_request(
+            "uvc_get_power_line_frequency",
+            self._handle,
+            ctypes.c_uint8,
+            _LIBUVC_GET_MAX,
+        )
+        step = self._typed_request(
+            "uvc_get_power_line_frequency",
+            self._handle,
+            ctypes.c_uint8,
+            _LIBUVC_GET_RES,
+        )
+        if minimum is None:
+            minimum = 0
+        if maximum is None:
+            maximum = max(minimum, 3)
+        if step is None or step <= 0:
+            step = 1
+        choices: list[CameraControlChoice] = []
+        menu_values: list[int] = []
+        token_labels = {
+            0: ("disabled", "Disabled"),
+            1: ("50", "50 Hz"),
+            2: ("60", "60 Hz"),
+            3: ("auto", "Auto"),
+        }
+        for menu_value in range(int(minimum), int(maximum) + 1, int(step)):
+            token, label = token_labels.get(
+                menu_value, (str(menu_value), str(menu_value))
+            )
+            choices.append(CameraControlChoice(value=token, label=label))
+            menu_values.append(menu_value)
+        current_token = choices[0].value if choices else str(int(current))
+        for choice, menu_value in zip(choices, menu_values):
+            if menu_value == int(current):
+                current_token = choice.value
+                break
+        return _LibUVCControlRecord(
+            control_id="power_line_frequency",
+            label="Power Line Frequency",
+            kind="enum",
+            unit_id=unit_id,
+            selector=selector,
+            getter_name="uvc_get_power_line_frequency",
+            setter_name="uvc_set_power_line_frequency",
+            value=current_token,
+            choices=tuple(choices),
+            menu_values=tuple(menu_values),
+            min_value=float(minimum),
+            max_value=float(maximum),
+            step=float(step),
+            details="UVC power-line frequency selector.",
+        )
+
+    def _camera_terminal_controls(
+        self,
+        camera_terminal: _LibUVCInputTerminal,
+    ) -> tuple[_LibUVCControlRecord, ...]:
+        """Return the camera-terminal controls exposed by libuvc."""
+
+        records: list[_LibUVCControlRecord] = []
+        controls = int(camera_terminal.bmControls)
+
+        if _libuvc_control_supported(
+            controls,
+            _LIBUVC_CT_AE_MODE_CONTROL,
+        ):
+            exposure_mode = self._typed_request(
+                "uvc_get_ae_mode",
+                self._handle,
+                ctypes.c_uint8,
+                _LIBUVC_GET_CUR,
+            )
+            if exposure_mode is not None:
+                locked = exposure_mode == 1
+                records.append(
+                    _LibUVCControlRecord(
+                        control_id="exposure_mode",
+                        label="Exposure Mode",
+                        kind="enum",
+                        unit_id=int(camera_terminal.bTerminalID),
+                        selector=_LIBUVC_CT_AE_MODE_CONTROL,
+                        getter_name="uvc_get_ae_mode",
+                        setter_name="uvc_set_ae_mode",
+                        value=(
+                            "manual"
+                            if exposure_mode == 1
+                            else (
+                                "auto"
+                                if exposure_mode == 2
+                                else (
+                                    "shutter_priority"
+                                    if exposure_mode == 4
+                                    else (
+                                        "aperture_priority"
+                                        if exposure_mode == 8
+                                        else str(exposure_mode)
+                                    )
+                                )
+                            )
+                        ),
+                        choices=(
+                            CameraControlChoice(
+                                value="manual", label="Manual"
+                            ),
+                            CameraControlChoice(value="auto", label="Auto"),
+                            CameraControlChoice(
+                                value="shutter_priority",
+                                label="Shutter Priority",
+                            ),
+                            CameraControlChoice(
+                                value="aperture_priority",
+                                label="Aperture Priority",
+                            ),
+                        ),
+                        menu_values=(1, 2, 4, 8),
+                        details="UVC auto-exposure mode selector.",
+                    )
+                )
+                records.append(
+                    _LibUVCControlRecord(
+                        control_id="exposure_locked",
+                        label="Exposure Locked",
+                        kind="boolean",
+                        unit_id=int(camera_terminal.bTerminalID),
+                        selector=_LIBUVC_CT_AE_MODE_CONTROL,
+                        getter_name="uvc_get_ae_mode",
+                        setter_name="uvc_set_ae_mode",
+                        value=locked,
+                        details="Convenience toggle for manual exposure.",
+                    )
+                )
+
+        if _libuvc_control_supported(
+            controls,
+            _LIBUVC_CT_AE_PRIORITY_CONTROL,
+        ):
+            record = self._boolean_record(
+                control_id="exposure_priority",
+                label="Exposure Priority",
+                getter_name="uvc_get_ae_priority",
+                setter_name="uvc_set_ae_priority",
+                unit_id=int(camera_terminal.bTerminalID),
+                selector=_LIBUVC_CT_AE_PRIORITY_CONTROL,
+                details="UVC auto-exposure priority selector.",
+            )
+            if record is not None:
+                records.append(record)
+
+        if _libuvc_control_supported(
+            controls,
+            _LIBUVC_CT_EXPOSURE_TIME_ABSOLUTE_CONTROL,
+        ):
+            record = self._numeric_record(
+                control_id="manual_exposure_time",
+                label="Manual Exposure Time",
+                getter_name="uvc_get_exposure_abs",
+                setter_name="uvc_set_exposure_abs",
+                unit_id=int(camera_terminal.bTerminalID),
+                selector=_LIBUVC_CT_EXPOSURE_TIME_ABSOLUTE_CONTROL,
+                value_type=ctypes.c_uint32,
+                unit="s",
+                scale=0.0001,
+                details="UVC exposure time in seconds.",
+            )
+            if record is not None:
+                records.append(record)
+
+        if _libuvc_control_supported(
+            controls,
+            _LIBUVC_CT_FOCUS_ABSOLUTE_CONTROL,
+        ):
+            record = self._numeric_record(
+                control_id="focus_distance",
+                label="Focus Distance",
+                getter_name="uvc_get_focus_abs",
+                setter_name="uvc_set_focus_abs",
+                unit_id=int(camera_terminal.bTerminalID),
+                selector=_LIBUVC_CT_FOCUS_ABSOLUTE_CONTROL,
+                value_type=ctypes.c_uint16,
+                details="UVC focus absolute position.",
+            )
+            if record is not None:
+                records.append(record)
+
+        if _libuvc_control_supported(
+            controls,
+            _LIBUVC_CT_FOCUS_AUTO_CONTROL,
+        ):
+            record = self._boolean_record(
+                control_id="focus_auto",
+                label="Focus Automatic",
+                getter_name="uvc_get_focus_auto",
+                setter_name="uvc_set_focus_auto",
+                unit_id=int(camera_terminal.bTerminalID),
+                selector=_LIBUVC_CT_FOCUS_AUTO_CONTROL,
+                details="UVC auto-focus selector.",
+            )
+            if record is not None:
+                records.append(record)
+
+        if _libuvc_control_supported(
+            controls,
+            _LIBUVC_CT_ZOOM_ABSOLUTE_CONTROL,
+        ):
+            record = self._numeric_record(
+                control_id="zoom_factor",
+                label="Zoom Factor",
+                getter_name="uvc_get_zoom_abs",
+                setter_name="uvc_set_zoom_abs",
+                unit_id=int(camera_terminal.bTerminalID),
+                selector=_LIBUVC_CT_ZOOM_ABSOLUTE_CONTROL,
+                value_type=ctypes.c_uint16,
+                unit="x",
+                details="UVC zoom absolute position.",
+            )
+            if record is not None:
+                records.append(record)
+
+        return tuple(records)
+
+    def _processing_unit_controls(
+        self,
+        processing_unit: _LibUVCProcessingUnit,
+    ) -> tuple[_LibUVCControlRecord, ...]:
+        """Return the processing-unit controls exposed by libuvc."""
+
+        records: list[_LibUVCControlRecord] = []
+        controls = int(processing_unit.bmControls)
+        unit_id = int(processing_unit.bUnitID)
+
+        numeric_specs = (
+            (
+                _LIBUVC_PU_BACKLIGHT_COMPENSATION_CONTROL,
+                "backlight_compensation",
+                "Backlight Compensation",
+                "uvc_get_backlight_compensation",
+                "uvc_set_backlight_compensation",
+                ctypes.c_uint16,
+                "EV",
+                1.0,
+                "UVC backlight compensation.",
+            ),
+            (
+                _LIBUVC_PU_BRIGHTNESS_CONTROL,
+                "brightness",
+                "Brightness",
+                "uvc_get_brightness",
+                "uvc_set_brightness",
+                ctypes.c_int16,
+                "",
+                1.0,
+                "UVC brightness.",
+            ),
+            (
+                _LIBUVC_PU_CONTRAST_CONTROL,
+                "contrast",
+                "Contrast",
+                "uvc_get_contrast",
+                "uvc_set_contrast",
+                ctypes.c_uint16,
+                "",
+                1.0,
+                "UVC contrast.",
+            ),
+            (
+                _LIBUVC_PU_GAIN_CONTROL,
+                "gain",
+                "Gain",
+                "uvc_get_gain",
+                "uvc_set_gain",
+                ctypes.c_uint16,
+                "",
+                1.0,
+                "UVC gain.",
+            ),
+            (
+                _LIBUVC_PU_HUE_CONTROL,
+                "hue",
+                "Hue",
+                "uvc_get_hue",
+                "uvc_set_hue",
+                ctypes.c_int16,
+                "",
+                1.0,
+                "UVC hue.",
+            ),
+            (
+                _LIBUVC_PU_SATURATION_CONTROL,
+                "saturation",
+                "Saturation",
+                "uvc_get_saturation",
+                "uvc_set_saturation",
+                ctypes.c_uint16,
+                "",
+                1.0,
+                "UVC saturation.",
+            ),
+            (
+                _LIBUVC_PU_SHARPNESS_CONTROL,
+                "sharpness",
+                "Sharpness",
+                "uvc_get_sharpness",
+                "uvc_set_sharpness",
+                ctypes.c_uint16,
+                "",
+                1.0,
+                "UVC sharpness.",
+            ),
+            (
+                _LIBUVC_PU_GAMMA_CONTROL,
+                "gamma",
+                "Gamma",
+                "uvc_get_gamma",
+                "uvc_set_gamma",
+                ctypes.c_uint16,
+                "",
+                1.0,
+                "UVC gamma.",
+            ),
+            (
+                _LIBUVC_PU_WHITE_BALANCE_TEMPERATURE_CONTROL,
+                "white_balance_temperature",
+                "White Balance Temperature",
+                "uvc_get_white_balance_temperature",
+                "uvc_set_white_balance_temperature",
+                ctypes.c_uint16,
+                "K",
+                1.0,
+                "UVC white-balance color temperature.",
+            ),
+        )
+        for (
+            selector,
+            control_id,
+            label,
+            getter_name,
+            setter_name,
+            value_type,
+            unit,
+            scale,
+            details,
+        ) in numeric_specs:
+            if not _libuvc_control_supported(controls, selector):
+                continue
+            record = self._numeric_record(
+                control_id=control_id,
+                label=label,
+                getter_name=getter_name,
+                setter_name=setter_name,
+                unit_id=unit_id,
+                selector=selector,
+                value_type=value_type,
+                unit=unit,
+                scale=scale,
+                signed=value_type in {ctypes.c_int16},
+                details=details,
+            )
+            if record is not None:
+                records.append(record)
+
+        if _libuvc_control_supported(
+            controls,
+            _LIBUVC_PU_WHITE_BALANCE_TEMPERATURE_AUTO_CONTROL,
+        ):
+            record = self._boolean_record(
+                control_id="white_balance_automatic",
+                label="White Balance Automatic",
+                getter_name="uvc_get_white_balance_temperature_auto",
+                setter_name="uvc_set_white_balance_temperature_auto",
+                unit_id=unit_id,
+                selector=_LIBUVC_PU_WHITE_BALANCE_TEMPERATURE_AUTO_CONTROL,
+                details="UVC white-balance auto selector.",
+            )
+            if record is not None:
+                records.append(record)
+
+        if _libuvc_control_supported(
+            controls,
+            _LIBUVC_PU_HUE_AUTO_CONTROL,
+        ):
+            record = self._boolean_record(
+                control_id="hue_auto",
+                label="Hue Automatic",
+                getter_name="uvc_get_hue_auto",
+                setter_name="uvc_set_hue_auto",
+                unit_id=unit_id,
+                selector=_LIBUVC_PU_HUE_AUTO_CONTROL,
+                details="UVC hue-auto selector.",
+            )
+            if record is not None:
+                records.append(record)
+
+        if _libuvc_control_supported(
+            controls,
+            _LIBUVC_PU_CONTRAST_AUTO_CONTROL,
+        ):
+            record = self._boolean_record(
+                control_id="contrast_auto",
+                label="Contrast Automatic",
+                getter_name="uvc_get_contrast_auto",
+                setter_name="uvc_set_contrast_auto",
+                unit_id=unit_id,
+                selector=_LIBUVC_PU_CONTRAST_AUTO_CONTROL,
+                details="UVC contrast-auto selector.",
+            )
+            if record is not None:
+                records.append(record)
+
+        if _libuvc_control_supported(
+            controls,
+            _LIBUVC_PU_POWER_LINE_FREQUENCY_CONTROL,
+        ):
+            record = self._power_line_frequency_record(
+                unit_id,
+                _LIBUVC_PU_POWER_LINE_FREQUENCY_CONTROL,
+            )
+            if record is not None:
+                records.append(record)
+
+        return tuple(records)
+
+    def _extension_unit_controls(
+        self,
+        extension_unit: _LibUVCExtensionUnit,
+    ) -> tuple[_LibUVCControlRecord, ...]:
+        """Return vendor-specific extension-unit controls when possible."""
+
+        records: list[_LibUVCControlRecord] = []
+        unit_id = int(extension_unit.bUnitID)
+        controls = int(extension_unit.bmControls)
+        for selector in range(1, 65):
+            if not _libuvc_control_supported(controls, selector):
+                continue
+            current = self._raw_request(
+                self._handle,
+                unit_id,
+                selector,
+                _LIBUVC_GET_CUR,
+                4,
+            )
+            if current is None:
+                continue
+            current_value = int.from_bytes(current, "little", signed=False)
+            record = _LibUVCControlRecord(
+                control_id=(f"extension_unit_{unit_id}_control_{selector}"),
+                label=(f"Extension Unit {unit_id} Control {selector}"),
+                kind="numeric",
+                unit_id=unit_id,
+                selector=selector,
+                getter_name="uvc_get_ctrl",
+                setter_name="uvc_set_ctrl",
+                value=current_value,
+                min_value=0.0,
+                max_value=float((1 << (len(current) * 8)) - 1),
+                step=1.0,
+                details=(
+                    f"Vendor-specific UVC control {selector} on "
+                    f"extension unit {unit_id}."
+                ),
+                size=len(current),
+            )
+            records.append(record)
+        return tuple(records)
+
+    def list_controls(
+        self,
+        descriptor: CameraDescriptor,
+    ) -> tuple[CameraControl, ...]:
+        """Return the current libuvc control surface."""
+
+        if not self.available:
+            return ()
+        device = self._device_for_descriptor(descriptor)
+        if device is None:
+            return ()
+        handle = self._open_device_handle(device)
+        if handle is None:
+            return ()
+        self._handle = handle
+        try:
+            records: list[_LibUVCControlRecord] = []
+            camera_terminal = getattr(
+                self._lib,
+                "uvc_get_camera_terminal",
+                lambda _handle: None,
+            )(handle)
+            if camera_terminal:
+                records.extend(
+                    self._camera_terminal_controls(camera_terminal.contents)
+                )
+            processing_unit = getattr(
+                self._lib,
+                "uvc_get_processing_units",
+                lambda _handle: None,
+            )(handle)
+            while processing_unit:
+                records.extend(
+                    self._processing_unit_controls(processing_unit.contents)
+                )
+                processing_unit = processing_unit.contents.next
+            extension_unit = getattr(
+                self._lib,
+                "uvc_get_extension_units",
+                lambda _handle: None,
+            )(handle)
+            while extension_unit:
+                records.extend(
+                    self._extension_unit_controls(extension_unit.contents)
+                )
+                extension_unit = extension_unit.contents.next
+            controls: list[CameraControl] = []
+            for record in records:
+                controls.append(
+                    CameraControl(
+                        control_id=record.control_id,
+                        label=record.label,
+                        kind=record.kind,
+                        value=record.value,
+                        choices=record.choices,
+                        min_value=record.min_value,
+                        max_value=record.max_value,
+                        step=record.step,
+                        read_only=record.read_only,
+                        enabled=record.enabled,
+                        unit=record.unit,
+                        details=record.details,
+                        action_label=record.action_label,
+                    )
+                )
+            return tuple(controls)
+        finally:
+            self._handle = None
+            self._close_device_handle(handle)
+
+    def _record_for_control_id(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+    ) -> _LibUVCControlRecord | None:
+        """Return one libuvc record for a control ID."""
+
+        for control in self.list_controls(descriptor):
+            if control.control_id == control_id:
+                return _LibUVCControlRecord(
+                    control_id=control.control_id,
+                    label=control.label,
+                    kind=control.kind,
+                    unit_id=0,
+                    selector=0,
+                    getter_name="",
+                    setter_name="",
+                    value=control.value,
+                    choices=control.choices,
+                    menu_values=(),
+                    min_value=control.min_value,
+                    max_value=control.max_value,
+                    step=control.step,
+                    read_only=control.read_only,
+                    enabled=control.enabled,
+                    unit=control.unit,
+                    details=control.details,
+                    action_label=control.action_label,
+                )
+        return None
+
+    def set_control_value(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+        value: object,
+    ) -> None:
+        """Apply one libuvc control value."""
+
+        if not self.available:
+            raise CameraControlApplyError(
+                "The native UVC bridge is unavailable."
+            )
+        device = self._device_for_descriptor(descriptor)
+        if device is None:
+            raise CameraControlApplyError(
+                "The selected camera could not be found for control updates."
+            )
+        handle = self._open_device_handle(device)
+        if handle is None:
+            raise CameraControlApplyError(
+                "The native UVC bridge could not open the selected camera."
+            )
+        self._handle = handle
+        try:
+            if control_id == "exposure_locked":
+                locked = bool(value)
+                ae_mode = 1 if locked else 2
+                setter = getattr(self._lib, "uvc_set_ae_mode", None)
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support exposure mode changes."
+                    )
+                result_code = setter(handle, ae_mode)
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "restore_auto_exposure":
+                setter = getattr(self._lib, "uvc_set_ae_mode", None)
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support exposure mode changes."
+                    )
+                result_code = setter(handle, 2)
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "exposure_priority":
+                setter = getattr(self._lib, "uvc_set_ae_priority", None)
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support exposure priority."
+                    )
+                result_code = setter(handle, 1 if bool(value) else 0)
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "manual_exposure_time":
+                exposure_time = _safe_float(value)
+                if exposure_time is None:
+                    raise CameraControlApplyError(
+                        "Manual exposure time must be numeric."
+                    )
+                setter = getattr(self._lib, "uvc_set_exposure_abs", None)
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support manual exposure."
+                    )
+                raw_value = int(round(exposure_time / 0.0001))
+                result_code = setter(handle, raw_value)
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "focus_auto":
+                setter = getattr(self._lib, "uvc_set_focus_auto", None)
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support auto focus."
+                    )
+                result_code = setter(handle, 1 if bool(value) else 0)
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "focus_distance":
+                focus_distance = _safe_float(value)
+                if focus_distance is None:
+                    raise CameraControlApplyError(
+                        "Focus distance must be numeric."
+                    )
+                setter = getattr(self._lib, "uvc_set_focus_abs", None)
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support manual focus."
+                    )
+                result_code = setter(handle, int(round(focus_distance)))
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "zoom_factor":
+                zoom_value = _safe_float(value)
+                if zoom_value is None:
+                    raise CameraControlApplyError("Zoom must be numeric.")
+                setter = getattr(self._lib, "uvc_set_zoom_abs", None)
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support zoom."
+                    )
+                result_code = setter(handle, int(round(zoom_value)))
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "backlight_compensation":
+                setter = getattr(
+                    self._lib,
+                    "uvc_set_backlight_compensation",
+                    None,
+                )
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support backlight compensation."
+                    )
+                compensation = _safe_float(value)
+                if compensation is None:
+                    raise CameraControlApplyError(
+                        "Backlight compensation must be numeric."
+                    )
+                result_code = setter(handle, int(round(compensation)))
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "brightness":
+                setter = getattr(self._lib, "uvc_set_brightness", None)
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support brightness."
+                    )
+                brightness = _safe_float(value)
+                if brightness is None:
+                    raise CameraControlApplyError(
+                        "Brightness must be numeric."
+                    )
+                result_code = setter(handle, int(round(brightness)))
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "contrast":
+                setter = getattr(self._lib, "uvc_set_contrast", None)
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support contrast."
+                    )
+                contrast = _safe_float(value)
+                if contrast is None:
+                    raise CameraControlApplyError("Contrast must be numeric.")
+                result_code = setter(handle, int(round(contrast)))
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "contrast_auto":
+                setter = getattr(self._lib, "uvc_set_contrast_auto", None)
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support automatic contrast."
+                    )
+                result_code = setter(handle, 1 if bool(value) else 0)
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "gain":
+                setter = getattr(self._lib, "uvc_set_gain", None)
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support gain."
+                    )
+                gain = _safe_float(value)
+                if gain is None:
+                    raise CameraControlApplyError("Gain must be numeric.")
+                result_code = setter(handle, int(round(gain)))
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "power_line_frequency":
+                setter = getattr(
+                    self._lib,
+                    "uvc_set_power_line_frequency",
+                    None,
+                )
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support power-line frequency."
+                    )
+                token = (_settings_text(value) or "").lower()
+                power_map = {
+                    "disabled": 0,
+                    "50": 1,
+                    "60": 2,
+                    "auto": 3,
+                }
+                if token not in power_map:
+                    raise CameraControlApplyError(
+                        f"Unsupported power-line frequency `{token}`."
+                    )
+                result_code = setter(handle, power_map[token])
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "hue":
+                setter = getattr(self._lib, "uvc_set_hue", None)
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support hue."
+                    )
+                hue = _safe_float(value)
+                if hue is None:
+                    raise CameraControlApplyError("Hue must be numeric.")
+                result_code = setter(handle, int(round(hue)))
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "hue_auto":
+                setter = getattr(self._lib, "uvc_set_hue_auto", None)
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support automatic hue."
+                    )
+                result_code = setter(handle, 1 if bool(value) else 0)
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "saturation":
+                setter = getattr(self._lib, "uvc_set_saturation", None)
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support saturation."
+                    )
+                saturation = _safe_float(value)
+                if saturation is None:
+                    raise CameraControlApplyError(
+                        "Saturation must be numeric."
+                    )
+                result_code = setter(handle, int(round(saturation)))
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "sharpness":
+                setter = getattr(self._lib, "uvc_set_sharpness", None)
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support sharpness."
+                    )
+                sharpness = _safe_float(value)
+                if sharpness is None:
+                    raise CameraControlApplyError("Sharpness must be numeric.")
+                result_code = setter(handle, int(round(sharpness)))
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "gamma":
+                setter = getattr(self._lib, "uvc_set_gamma", None)
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support gamma."
+                    )
+                gamma = _safe_float(value)
+                if gamma is None:
+                    raise CameraControlApplyError("Gamma must be numeric.")
+                result_code = setter(handle, int(round(gamma)))
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "white_balance_temperature":
+                setter = getattr(
+                    self._lib,
+                    "uvc_set_white_balance_temperature",
+                    None,
+                )
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support "
+                        "white balance temperature."
+                    )
+                temperature = _safe_float(value)
+                if temperature is None:
+                    raise CameraControlApplyError(
+                        "White balance temperature must be numeric."
+                    )
+                result_code = setter(handle, int(round(temperature)))
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id == "white_balance_automatic":
+                setter = getattr(
+                    self._lib,
+                    "uvc_set_white_balance_temperature_auto",
+                    None,
+                )
+                if setter is None:
+                    raise CameraControlApplyError(
+                        "The camera does not support automatic white balance."
+                    )
+                result_code = setter(handle, 1 if bool(value) else 0)
+                if result_code != 0:
+                    raise CameraControlApplyError(
+                        self._uvc_error_text(result_code)
+                    )
+                return
+            if control_id.startswith("extension_unit_"):
+                record = self._record_for_control_id(descriptor, control_id)
+                if record is None:
+                    raise CameraControlApplyError(
+                        f"Unsupported camera control `{control_id}`."
+                    )
+                raw_value = _safe_float(value)
+                if raw_value is None:
+                    raise CameraControlApplyError(
+                        f"The control `{control_id}` must be numeric."
+                    )
+                size = max(record.size, 1)
+                payload = int(round(raw_value)).to_bytes(
+                    size,
+                    byteorder="little",
+                    signed=record.signed,
+                )
+                self._raw_write(
+                    handle, record.unit_id, record.selector, payload
+                )
+                return
+            raise CameraControlApplyError(
+                f"Unsupported camera control `{control_id}`."
+            )
+        finally:
+            self._handle = None
+            self._close_device_handle(handle)
+
+    def trigger_control_action(
+        self,
+        descriptor: CameraDescriptor,
+        control_id: str,
+    ) -> None:
+        """Trigger one libuvc action control."""
+
+        if control_id != "restore_auto_exposure":
+            raise CameraControlApplyError(
+                f"Unsupported action control `{control_id}`."
+            )
+        self.set_control_value(descriptor, control_id, True)
+
+
 def _build_control_backend(
     qt_multimedia: Any | None,
     qt_device_resolver: Callable[[CameraDescriptor], Any | None] | None,
@@ -2185,6 +4081,15 @@ def _build_control_backend(
     """Return the active control backend stack for one runtime."""
 
     control_backends: list[CameraControlBackend] = []
+    if sys.platform.startswith("linux") and v4l2_device_resolver is not None:
+        control_backends.append(
+            LinuxV4L2CameraControlBackend(
+                v4l2_device_resolver,
+            )
+        )
+    libuvc_backend = LibUVCControlBackend()
+    if libuvc_backend.available:
+        control_backends.append(libuvc_backend)
     if qt_multimedia is not None and qt_device_resolver is not None:
         control_backends.append(
             QtCameraControlBackend(
@@ -2196,12 +4101,6 @@ def _build_control_backend(
         )
     if sys.platform == "darwin":
         control_backends.append(AvFoundationCameraControlBackend())
-    if sys.platform.startswith("linux") and v4l2_device_resolver is not None:
-        control_backends.append(
-            LinuxV4L2CameraControlBackend(
-                v4l2_device_resolver,
-            )
-        )
     if not control_backends:
         return NullCameraControlBackend()
     if len(control_backends) == 1:
@@ -2601,53 +4500,6 @@ class QtCameraControlBackend:
                     )
                 )
 
-        manual_iso_supported = _qcamera_feature_or_methods_supported(
-            camera,
-            features,
-            camera_class.Feature.IsoSensitivity,
-            "minimumIsoSensitivity",
-            "maximumIsoSensitivity",
-            "manualIsoSensitivity",
-            "setManualIsoSensitivity",
-            "setExposureMode",
-        )
-        if manual_iso_supported:
-            minimum_iso = _safe_float(
-                getattr(camera, "minimumIsoSensitivity", lambda: 0.0)()
-            )
-            maximum_iso = _safe_float(
-                getattr(camera, "maximumIsoSensitivity", lambda: 0.0)()
-            )
-            current_manual_iso = _safe_float(
-                getattr(camera, "manualIsoSensitivity", lambda: 0.0)()
-            )
-            if (
-                minimum_iso is not None
-                and maximum_iso is not None
-                and minimum_iso > 0
-                and maximum_iso > minimum_iso
-            ):
-                if current_manual_iso is None:
-                    current_manual_iso = minimum_iso
-                current_manual_iso = max(
-                    minimum_iso,
-                    min(maximum_iso, current_manual_iso),
-                )
-                controls.append(
-                    CameraControl(
-                        control_id="manual_iso_sensitivity",
-                        label="Manual ISO Sensitivity",
-                        kind="numeric",
-                        value=current_manual_iso,
-                        min_value=minimum_iso,
-                        max_value=maximum_iso,
-                        step=_numeric_step(minimum_iso, maximum_iso),
-                        details=(
-                            "Manual ISO sensitivity for the active camera."
-                        ),
-                    )
-                )
-
         focus_auto_supported = getattr(camera, "isFocusModeSupported", None)
         if focus_auto_supported is not None:
             try:
@@ -2867,9 +4719,7 @@ class QtCameraControlBackend:
                 )
             )
 
-        if exposure_choices and (
-            manual_exposure_supported or manual_iso_supported
-        ):
+        if exposure_choices and manual_exposure_supported:
             controls.append(
                 CameraControl(
                     control_id="restore_auto_exposure",
@@ -3009,47 +4859,6 @@ class QtCameraControlBackend:
                 raise CameraControlApplyError(str(exc)) from exc
             try:
                 camera.setManualExposureTime(exposure_time)
-            except (
-                AttributeError,
-                RuntimeError,
-                TypeError,
-                ValueError,
-            ) as exc:
-                raise CameraControlApplyError(str(exc)) from exc
-            return
-
-        if control_id == "manual_iso_sensitivity":
-            iso_value = _safe_float(value)
-            if iso_value is None:
-                raise CameraControlApplyError(
-                    "Manual ISO sensitivity must be numeric."
-                )
-            if not _qcamera_feature_or_methods_supported(
-                camera,
-                features,
-                camera_class.Feature.IsoSensitivity,
-                "minimumIsoSensitivity",
-                "maximumIsoSensitivity",
-                "manualIsoSensitivity",
-                "setManualIsoSensitivity",
-                "setExposureMode",
-            ):
-                raise CameraControlApplyError(
-                    "Manual ISO sensitivity is unavailable for this camera."
-                )
-            try:
-                camera.setExposureMode(
-                    camera_class.ExposureMode.ExposureManual
-                )
-            except (
-                AttributeError,
-                RuntimeError,
-                TypeError,
-                ValueError,
-            ) as exc:
-                raise CameraControlApplyError(str(exc)) from exc
-            try:
-                camera.setManualIsoSensitivity(int(round(iso_value)))
             except (
                 AttributeError,
                 RuntimeError,
@@ -3628,31 +5437,6 @@ class AvFoundationCameraControlBackend:
                 )
             )
 
-            min_iso = _safe_float(getattr(active_format, "minISO", None))
-            max_iso = _safe_float(getattr(active_format, "maxISO", None))
-            if min_iso is None or min_iso <= 0:
-                min_iso = 100.0
-            if max_iso is None or max_iso <= min_iso:
-                max_iso = max(1000.0, min_iso * 8)
-            current_iso = _safe_float(
-                _call_or_value(getattr(device, "ISO", None))
-            )
-            if current_iso is None or current_iso <= 0:
-                current_iso = min_iso
-            controls.append(
-                CameraControl(
-                    control_id="manual_iso_sensitivity",
-                    label="Manual ISO Sensitivity",
-                    kind="numeric",
-                    value=current_iso,
-                    min_value=min_iso,
-                    max_value=max_iso,
-                    step=_numeric_step(min_iso, max_iso),
-                    unit="ISO",
-                    details="Manual ISO sensitivity for the active camera.",
-                )
-            )
-
         backlight_compensation_range = self._backlight_compensation_range(
             device,
             active_format,
@@ -3851,26 +5635,6 @@ class AvFoundationCameraControlBackend:
                 )
             )
 
-        if self._smooth_auto_focus_supported(device) and hasattr(
-            device, "setSmoothAutoFocusEnabled_"
-        ):
-            current_smooth_auto_focus = False
-            try:
-                current_smooth_auto_focus = bool(
-                    _call_or_value(device.isSmoothAutoFocusEnabled)
-                )
-            except (AttributeError, RuntimeError, TypeError, ValueError):
-                current_smooth_auto_focus = False
-            controls.append(
-                CameraControl(
-                    control_id="smooth_auto_focus",
-                    label="Smooth Auto Focus",
-                    kind="boolean",
-                    value=current_smooth_auto_focus,
-                    details="Smooth autofocus assistance when supported.",
-                )
-            )
-
         if (
             self._video_hdr_supported(active_format)
             and hasattr(device, "automaticallyAdjustsVideoHDREnabled")
@@ -4005,7 +5769,6 @@ class AvFoundationCameraControlBackend:
             control_id
             in {
                 "manual_exposure_time",
-                "manual_iso_sensitivity",
             }
             and not custom_exposure_supported
         ):
@@ -4164,64 +5927,6 @@ class AvFoundationCameraControlBackend:
                             reference=duration_reference,
                         ),
                         iso_value,
-                        completion,
-                    )
-                except (
-                    AttributeError,
-                    RuntimeError,
-                    TypeError,
-                    ValueError,
-                ):
-                    release_completion()
-                    raise
-                completion_done.wait()
-                defer_unlock = True
-                release_completion()
-                return
-            if control_id == "manual_iso_sensitivity":
-                iso_value = _safe_float(value)
-                if iso_value is None:
-                    raise CameraControlApplyError(
-                        "Manual ISO sensitivity must be numeric."
-                    )
-                min_iso = _safe_float(getattr(active_format, "minISO", None))
-                max_iso = _safe_float(getattr(active_format, "maxISO", None))
-                if min_iso is None or min_iso <= 0:
-                    min_iso = 100.0
-                if max_iso is None or max_iso <= min_iso:
-                    max_iso = max(1000.0, min_iso * 8)
-                bounded_iso = max(min_iso, min(max_iso, iso_value))
-                duration_reference = _call_or_value(
-                    getattr(device, "exposureDuration", None)
-                )
-                if self._cmtime_seconds(duration_reference) is None:
-                    duration_reference = getattr(
-                        active_format,
-                        "minExposureDuration",
-                        None,
-                    )
-                if duration_reference is None:
-                    raise CameraControlApplyError(
-                        "Manual ISO control timing is unavailable."
-                    )
-                duration_seconds = self._cmtime_seconds(duration_reference)
-                if duration_seconds is None or duration_seconds <= 0:
-                    duration_seconds = 0.001
-                completion, release_completion, completion_done = (
-                    self._configuration_completion(device)
-                )
-                set_custom_exposure = getattr(
-                    device,
-                    "setExposureModeCustomWithDuration_ISO_"
-                    "completionHandler_",
-                )
-                try:
-                    set_custom_exposure(
-                        self._cmtime_from_seconds(
-                            duration_seconds,
-                            reference=duration_reference,
-                        ),
-                        bounded_iso,
                         completion,
                     )
                 except (
@@ -4441,21 +6146,6 @@ class AvFoundationCameraControlBackend:
                         "The camera does not support that torch mode."
                     )
                 device.setTorchMode_(mode_value)
-                return
-            if control_id == "smooth_auto_focus":
-                if not self._smooth_auto_focus_supported(device):
-                    raise CameraControlApplyError(
-                        "The camera does not support smooth autofocus."
-                    )
-                try:
-                    device.setSmoothAutoFocusEnabled_(bool(value))
-                except (
-                    AttributeError,
-                    RuntimeError,
-                    TypeError,
-                    ValueError,
-                ) as exc:
-                    raise CameraControlApplyError(str(exc)) from exc
                 return
             if control_id == "video_hdr_automatic":
                 if not self._video_hdr_supported(active_format):

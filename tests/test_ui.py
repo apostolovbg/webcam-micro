@@ -10,6 +10,7 @@ from unittest import mock
 
 from webcam_micro.camera import (
     CameraControl,
+    CameraControlChoice,
     CameraDescriptor,
     PreviewFrame,
     RecordingCropPlan,
@@ -80,6 +81,7 @@ class ShellSpecTest(unittest.TestCase):
             "Exposure",
             "Focus",
             "Light",
+            "Zoom",
             "Backlight compensation",
             "Brightness",
             "Contrast",
@@ -87,6 +89,8 @@ class ShellSpecTest(unittest.TestCase):
             "Saturation",
             "Sharpness",
             "Gamma",
+            "Gain",
+            "Power Line Frequency",
             "White balance",
             "Reset to Defaults",
         ):
@@ -764,6 +768,12 @@ class ShellSpecTest(unittest.TestCase):
                 value=False,
             ),
             CameraControl(
+                control_id="exposure_priority",
+                label="Exposure Priority",
+                kind="boolean",
+                value=True,
+            ),
+            CameraControl(
                 control_id="focus_distance",
                 label="Focus Distance",
                 kind="numeric",
@@ -780,6 +790,18 @@ class ShellSpecTest(unittest.TestCase):
                 label="Activity LED",
                 kind="boolean",
                 value=True,
+            ),
+            CameraControl(
+                control_id="light_enabled",
+                label="Light Enabled",
+                kind="boolean",
+                value=True,
+            ),
+            CameraControl(
+                control_id="light_level",
+                label="Light Level",
+                kind="numeric",
+                value=50,
             ),
             CameraControl(
                 control_id="backlight_compensation",
@@ -836,6 +858,22 @@ class ShellSpecTest(unittest.TestCase):
                 value=72,
             ),
             CameraControl(
+                control_id="gain",
+                label="Gain",
+                kind="numeric",
+                value=20,
+            ),
+            CameraControl(
+                control_id="power_line_frequency",
+                label="Power Line Frequency",
+                kind="enum",
+                value="50",
+                choices=(
+                    CameraControlChoice(value="50", label="50 Hz"),
+                    CameraControlChoice(value="60", label="60 Hz"),
+                ),
+            ),
+            CameraControl(
                 control_id="white_balance_temperature",
                 label="White Balance Temperature",
                 kind="numeric",
@@ -858,6 +896,12 @@ class ShellSpecTest(unittest.TestCase):
                 label="Exposure Mode",
                 kind="enum",
                 value="continuous_auto",
+            ),
+            CameraControl(
+                control_id="smooth_auto_focus",
+                label="Smooth Auto Focus",
+                kind="boolean",
+                value=False,
             ),
             CameraControl(
                 control_id="focus_mode",
@@ -933,9 +977,13 @@ class ShellSpecTest(unittest.TestCase):
                         "source_format",
                         "manual_exposure_time",
                         "exposure_locked",
+                        "exposure_priority",
                         "focus_distance",
                         "focus_auto",
                         "activity_led",
+                        "light_enabled",
+                        "light_level",
+                        "zoom_factor",
                     ),
                 ),
                 (
@@ -950,6 +998,8 @@ class ShellSpecTest(unittest.TestCase):
                         "saturation",
                         "sharpness",
                         "gamma",
+                        "gain",
+                        "power_line_frequency",
                         "white_balance_temperature",
                         "white_balance_automatic",
                     ),
@@ -957,13 +1007,10 @@ class ShellSpecTest(unittest.TestCase):
                 (
                     "Other Controls",
                     (
-                        "manual_iso_sensitivity",
-                        "exposure_mode",
                         "focus_mode",
                         "flash_mode",
                         "torch_mode",
                         "video_hdr_automatic",
-                        "zoom_factor",
                         "active_format",
                         "restore_auto_exposure",
                         "vendor_extension",
@@ -1371,107 +1418,10 @@ class ShellSpecTest(unittest.TestCase):
         self.assertEqual({}, _named_presets_from_value("not json"))
         self.assertEqual({}, _named_presets_from_value(""))
 
-    def test_software_controls_for_descriptor_builds_shell_side_rows(
+    def test_apply_control_value_routes_backend_controls_and_persists_them(
         self,
     ) -> None:
-        """Assert shell-managed controls fill the missing color rows."""
-
-        class FakeSettings:
-            """Store settings values for the software-control helper."""
-
-            def __init__(self) -> None:
-                """Initialize the settings value cache."""
-
-                self.values: dict[str, object] = {}
-
-            def value(self, key: str) -> object | None:
-                """Return one stored settings value."""
-
-                return self.values.get(key)
-
-        class FakeShell:
-            """Expose only the settings surface used by the helper."""
-
-            def __init__(self) -> None:
-                """Initialize the fake settings store."""
-
-                self._settings = FakeSettings()
-
-            def _software_control_value(
-                self,
-                descriptor: CameraDescriptor,
-                control_id: str,
-            ) -> object | None:
-                """Return the stored shell-side control value."""
-
-                return self._settings.value(
-                    _camera_control_setting_key(
-                        descriptor.stable_id,
-                        control_id,
-                    )
-                )
-
-        descriptor = CameraDescriptor(
-            stable_id="camera-1",
-            display_name="Camera 1",
-            backend_name="qt_multimedia",
-            device_selector="camera-1",
-        )
-        shell = FakeShell()
-        shell._settings.values[
-            _camera_control_setting_key(descriptor.stable_id, "brightness")
-        ] = 17
-        shell._settings.values[
-            _camera_control_setting_key(descriptor.stable_id, "contrast_auto")
-        ] = True
-
-        controls = PreviewApplication._software_controls_for_descriptor(
-            shell,
-            descriptor,
-            set(),
-        )
-
-        self.assertEqual(
-            (
-                "brightness",
-                "contrast",
-                "contrast_auto",
-                "hue",
-                "hue_auto",
-                "saturation",
-                "sharpness",
-                "gamma",
-            ),
-            tuple(control.control_id for control in controls),
-        )
-        self.assertEqual(
-            17.0,
-            next(
-                control.value
-                for control in controls
-                if control.control_id == "brightness"
-            ),
-        )
-        self.assertTrue(
-            next(
-                control.value
-                for control in controls
-                if control.control_id == "contrast_auto"
-            )
-        )
-        self.assertEqual(
-            "Software-side adjustment managed by the shell.",
-            next(
-                control.details
-                for control in controls
-                if control.control_id == "gamma"
-            ),
-        )
-
-    def test_apply_control_value_stores_shell_side_controls_without_backend(
-        self,
-    ) -> None:
-        """Assert shell-side controls persist without touching the backend."""
+        """Assert backend-owned controls apply through the active backend."""
 
         class FakeSettings:
             """Store settings values for the control-application path."""
@@ -1492,7 +1442,12 @@ class ShellSpecTest(unittest.TestCase):
                 self.values[key] = value
 
         class FakeBackend:
-            """Fail if the software-side control path reaches the backend."""
+            """Record backend writes for the control-application path."""
+
+            def __init__(self, shell: object) -> None:
+                """Store the shell that records backend writes."""
+
+                self._shell = shell
 
             def set_control_value(
                 self,
@@ -1500,9 +1455,9 @@ class ShellSpecTest(unittest.TestCase):
                 control_id: str,
                 value: object,
             ) -> None:
-                """Reject any backend routing for software controls."""
+                """Record the backend routing for a control write."""
 
-                raise AssertionError("backend should not receive this control")
+                self._shell.backend_calls.append((control_id, value))
 
         class FakeShell:
             """Expose the minimum shell surface used by the control setter."""
@@ -1510,8 +1465,9 @@ class ShellSpecTest(unittest.TestCase):
             def __init__(self) -> None:
                 """Initialize the fake shell state."""
 
-                self._backend = FakeBackend()
                 self._settings = FakeSettings()
+                self.backend_calls: list[tuple[str, object]] = []
+                self._backend = FakeBackend(self)
                 self._preview_state = "live"
                 self._controls_by_id = {
                     "brightness": CameraControl(
@@ -1524,7 +1480,6 @@ class ShellSpecTest(unittest.TestCase):
                         step=1.0,
                     )
                 }
-                self._software_control_ids = {"brightness"}
                 self.notice_calls: list[str] = []
                 self.status_calls: list[tuple[str, str | None]] = []
                 self.refresh_calls: list[str | None] = []
@@ -1585,6 +1540,7 @@ class ShellSpecTest(unittest.TestCase):
                 _camera_control_setting_key(descriptor.stable_id, "brightness")
             ],
         )
+        self.assertEqual([("brightness", 12.0)], shell.backend_calls)
         self.assertEqual([], shell.diagnostic_calls)
         self.assertEqual(["Updated Brightness."], shell.notice_calls)
         self.assertEqual([("live", "Updated Brightness.")], shell.status_calls)
@@ -1630,6 +1586,7 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("QSpinBox", numeric_builder_source)
         self.assertIn("QDoubleSpinBox", numeric_builder_source)
         self.assertIn("Auto", numeric_builder_source)
+        self.assertIn("auto_control_inverted", numeric_builder_source)
         self.assertNotIn("def handle_field_commit", numeric_builder_source)
         self.assertNotIn("def handle_step", numeric_builder_source)
         self.assertIn("def choose_directory", preferences_source)
@@ -1653,12 +1610,16 @@ class ShellSpecTest(unittest.TestCase):
         self.assertIn("fullscreen-surface", fullscreen_source)
         self.assertIn("Resolution", camera_controls_source)
         self.assertIn("Light", camera_controls_source)
-        self.assertIn('auto_checkbox_label="Locked"', camera_controls_source)
-        self.assertIn("disable_when_auto=False", camera_controls_source)
+        self.assertIn("Exposure Priority", camera_controls_source)
+        self.assertIn("Zoom", camera_controls_source)
+        self.assertIn('auto_checkbox_label="Auto"', camera_controls_source)
+        self.assertIn("disable_when_auto=True", camera_controls_source)
         self.assertIn("Reset to Defaults", user_controls_source)
         self.assertIn("white_balance_temperature", user_controls_source)
         self.assertIn("white_balance_automatic", user_controls_source)
-        self.assertIn("_software_controls_for_descriptor", refresh_source)
+        self.assertIn("Gain", user_controls_source)
+        self.assertIn("Power Line Frequency", user_controls_source)
+        self.assertNotIn("_software_controls_for_descriptor", refresh_source)
         self.assertIn("source_format", reset_defaults_source)
 
     def test_numeric_control_helpers_format_and_reject_invalid_text(
