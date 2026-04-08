@@ -981,6 +981,7 @@ class PreviewApplication:
         self._application = qt_application
         self._spec = build_shell_spec()
         self._backend = self._build_backend()
+        self._qt_multimedia = getattr(self._backend, "_qt_multimedia", None)
         self._settings = qt_core.QSettings("apostolovbg", APP_NAME)
         self._session = None
         self._cameras: tuple[CameraDescriptor, ...] = ()
@@ -1963,9 +1964,7 @@ class PreviewApplication:
         self._record_action.setEnabled(
             bool(has_session and self._session.recording_available)
         )
-        self._record_action.setText(
-            "Stop Recording" if recording else "Record"
-        )
+        self._record_action.setText("Stop" if recording else "Record")
 
     def _current_diagnostics_lines(self) -> tuple[str, ...]:
         """Return the current diagnostics report for the visible shell."""

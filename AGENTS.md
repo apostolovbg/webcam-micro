@@ -61,6 +61,9 @@ DevCovenant lifecycle and command behavior used by the project.
   unsupported rows stay hidden instead of becoming dead sliders.
 - 2026-04-08: Source-format selection stays in the preview path while one
   platform-selected control owner handles camera writes per device.
+- 2026-04-08: macOS AVFoundation exposure, focus, white balance, and
+  backlight writes stay on nil completion handlers; recording reads the
+  active backend's Qt Multimedia module.
 - 2026-04-07: libuvc devices stay ref-retained through open so startup
   control discovery does not free the selected device before it opens.
 - 2026-04-06: Automatic Video HDR rows are gated by active-format

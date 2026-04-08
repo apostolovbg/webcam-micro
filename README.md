@@ -196,8 +196,8 @@ tolerates partial control sets and does not fail just because a camera
 lacks an expected control.
 On macOS, the native UVC-style control backend owns UVC controls first and
 AVFoundation remains a fallback for native-only gaps. AVFoundation
-exposure, focus, white balance, and backlight writes keep their
-completion handlers alive so slider commits finish cleanly. Automatic
+exposure, focus, white balance, and backlight writes stay on the native
+nil-completion path so slider commits avoid the callback crash. Automatic
 Video HDR is only surfaced when the active format reports HDR support.
 
 ## Capture and Recording

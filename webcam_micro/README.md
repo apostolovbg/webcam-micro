@@ -198,9 +198,10 @@ tolerates partial control sets and does not fail just because a camera
 lacks an expected control.
 On macOS, the platform-selected control owner prefers libuvc when it can
 own the device and falls back to AVFoundation. AVFoundation exposure,
-focus, white balance, and backlight writes keep their completion
-handlers alive so slider commits finish cleanly. Automatic Video HDR is
-only surfaced when the active format reports HDR support.
+focus, white balance, and backlight writes stay on the native
+nil-completion path so slider commits avoid the callback crash.
+Automatic Video HDR is only surfaced when the active format reports HDR
+support.
 
 ## Capture and Recording
 Still images save quietly to the configured image folder as PNG or JPEG

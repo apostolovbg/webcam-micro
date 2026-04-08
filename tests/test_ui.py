@@ -1323,6 +1323,108 @@ class ShellSpecTest(unittest.TestCase):
         )
         self.assertEqual([], shell.diagnostic_calls)
 
+    @mock.patch.object(PreviewApplication, "_build_window", return_value=None)
+    @mock.patch.object(PreviewApplication, "_build_backend")
+    def test_preview_application_keeps_backend_qt_multimedia(
+        self,
+        build_backend: mock.MagicMock,
+        build_window: mock.MagicMock,
+    ) -> None:
+        """Assert the shell stores the backend Qt Multimedia module."""
+
+        class FakeSettings:
+            """Provide the minimal QSettings surface used by the shell."""
+
+            def __init__(self, *_args: object, **_kwargs: object) -> None:
+                """Accept the PreviewApplication constructor arguments."""
+
+            def value(self, _key: str) -> object | None:
+                """Return the default-less settings lookup result."""
+
+                return None
+
+        class FakeQtCore:
+            """Provide the QtCore module surface used by the shell."""
+
+            QSettings = FakeSettings
+
+        class FakeBackend:
+            """Expose the Qt Multimedia module used by recording helpers."""
+
+            def __init__(self) -> None:
+                """Store one stable Qt Multimedia placeholder."""
+
+                self._qt_multimedia = object()
+
+        fake_backend = FakeBackend()
+        build_backend.return_value = fake_backend
+
+        shell = PreviewApplication(
+            FakeQtCore,
+            object(),
+            object(),
+            object(),
+        )
+
+        self.assertIs(fake_backend._qt_multimedia, shell._qt_multimedia)
+        build_window.assert_called_once()
+
+    def test_sync_action_states_uses_stop_label_while_recording(self) -> None:
+        """Assert the record action switches to Stop during recording."""
+
+        class FakeAction:
+            """Capture enabled and text state for one QAction."""
+
+            def __init__(self) -> None:
+                """Initialize the fake action state."""
+
+                self.enabled = None
+                self.text = None
+
+            def setEnabled(self, enabled: bool) -> None:
+                """Record the enabled state."""
+
+                self.enabled = enabled
+
+            def setText(self, text: str) -> None:
+                """Record the action label."""
+
+                self.text = text
+
+        class FakeSession:
+            """Expose the recording state used by the sync helper."""
+
+            def __init__(self) -> None:
+                """Initialize the active recording state."""
+
+                self.recording_state = "recording"
+                self.recording_available = True
+
+        class FakeShell:
+            """Provide the state surface used by the sync helper."""
+
+            def __init__(self) -> None:
+                """Initialize the fake shell controls."""
+
+                self._session = FakeSession()
+                self._latest_frame = object()
+                self._open_action = FakeAction()
+                self._close_camera_action = FakeAction()
+                self._still_action = FakeAction()
+                self._record_action = FakeAction()
+
+            def _selected_descriptor(self) -> object:
+                """Pretend one camera is selected."""
+
+                return object()
+
+        shell = FakeShell()
+
+        PreviewApplication._sync_action_states(shell)
+
+        self.assertTrue(shell._record_action.enabled)
+        self.assertEqual("Stop", shell._record_action.text)
+
     def test_output_helpers_freeze_capture_crop_and_setting_paths(
         self,
     ) -> None:

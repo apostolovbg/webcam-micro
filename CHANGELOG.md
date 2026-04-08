@@ -61,6 +61,25 @@ Example:
 ## Version 0.2.0
 
 - 2026-04-08:
+  Change: Restored nil AVFoundation completion handlers for macOS
+    exposure, focus, white balance, and backlight writes, and wired the
+    preview shell to cache the backend Qt Multimedia module for recording.
+  Why: Prevented the slider commit path from aborting on macOS and
+    removed the missing Qt Multimedia attribute that blocked recording
+    dialogs.
+  Impact: Exposure changes stay on the safe native path, and recording
+    now opens with the active backend's supported container list.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  README.md
+  tests/test_camera.py
+  tests/test_ui.py
+  webcam_micro/README.md
+  webcam_micro/camera.py
+  webcam_micro/ui.py
+
+- 2026-04-08:
   Change: Restored retained AVFoundation completion handlers for macOS
     exposure, focus, white balance, and backlight control writes.
   Why: Prevented the slider commit path from aborting when the native
