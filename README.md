@@ -195,8 +195,10 @@ numeric, boolean, enumerated, read-only, and action widgets. The app
 tolerates partial control sets and does not fail just because a camera
 lacks an expected control.
 On macOS, the native UVC-style control backend owns UVC controls first and
-AVFoundation remains a fallback for native-only gaps. Automatic Video HDR
-is only surfaced when the active format reports HDR support.
+AVFoundation remains a fallback for native-only gaps. AVFoundation
+exposure, focus, white balance, and backlight writes keep their
+completion handlers alive so slider commits finish cleanly. Automatic
+Video HDR is only surfaced when the active format reports HDR support.
 
 ## Capture and Recording
 Still images save quietly to the configured image folder as PNG or JPEG

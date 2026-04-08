@@ -2428,6 +2428,56 @@ class CameraContractTest(unittest.TestCase):
         wrap_completion_handler.assert_not_called()
         self.assertEqual([], device.calls)
 
+    @mock.patch(
+        "webcam_micro.camera.wrap_completion_handler",
+        new=_identity_completion_handler,
+    )
+    @mock.patch("webcam_micro.camera._load_avfoundation_modules")
+    def test_avfoundation_configuration_completion_retains_block_until_release(
+        self,
+        load_modules: mock.MagicMock,
+    ) -> None:
+        """Assert configuration writes keep their completion handler alive."""
+
+        class FakeDevice:
+            """Provide the minimal unlock surface used by the backend."""
+
+            def __init__(self) -> None:
+                """Store unlock bookkeeping for the test double."""
+
+                self.unlock_calls = 0
+
+            def unlockForConfiguration(self) -> None:
+                """Record that the release hook dropped the lock."""
+
+                self.unlock_calls += 1
+
+        load_modules.return_value = (object(), object())
+        backend = AvFoundationCameraControlBackend()
+        device = FakeDevice()
+
+        completion, release_completion, completion_done = (
+            backend._configuration_completion(device)
+        )
+
+        self.assertIsNotNone(completion)
+        self.assertFalse(completion_done.is_set())
+        with backend._pending_configuration_completion_lock:
+            self.assertEqual(
+                1, len(backend._pending_configuration_completions)
+            )
+
+        _invoke_completion(completion)
+
+        self.assertTrue(completion_done.is_set())
+        release_completion()
+        self.assertEqual(1, device.unlock_calls)
+        with backend._pending_configuration_completion_lock:
+            self.assertEqual(
+                {},
+                backend._pending_configuration_completions,
+            )
+
     @mock.patch("webcam_micro.camera._load_avfoundation_modules")
     @mock.patch("webcam_micro.camera.sys.platform", "darwin")
     def test_avfoundation_control_surface_skips_unsupported_bias(

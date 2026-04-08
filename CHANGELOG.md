@@ -61,6 +61,20 @@ Example:
 ## Version 0.2.0
 
 - 2026-04-08:
+  Change: Restored retained AVFoundation completion handlers for macOS
+    exposure, focus, white balance, and backlight control writes.
+  Why: Prevented the slider commit path from aborting when the native
+    bridge finished configuration on macOS.
+  Impact: Stabilized exposure and related camera-control updates so they
+    complete cleanly instead of crashing the app.
+  Files:
+  CHANGELOG.md
+  README.md
+  tests/test_camera.py
+  webcam_micro/README.md
+  webcam_micro/camera.py
+
+- 2026-04-08:
   Change: Updated camera-control ownership so preview-owned source-format
     selection stays separate and each platform keeps one selected device-
     control owner per camera.

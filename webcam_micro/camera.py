@@ -5778,12 +5778,18 @@ class AvFoundationCameraControlBackend:
         self,
         device: Any,
     ) -> tuple[Any, Callable[[], None], threading.Event]:
-        """Return one retained release hook and a no-op wait flag."""
+        """Return one retained completion handler, release hook, and flag."""
 
         token = object()
         lock_released = False
         completed = threading.Event()
-        completed.set()
+
+        def completion_handler(*_args: object) -> None:
+            """Mark one AVFoundation configuration write as finished."""
+
+            completed.set()
+
+        completion = wrap_completion_handler(completion_handler)
 
         def release() -> None:
             """Release the device lock and drop the retained block."""
@@ -5798,8 +5804,8 @@ class AvFoundationCameraControlBackend:
                 device.unlockForConfiguration()
 
         with self._pending_configuration_completion_lock:
-            self._pending_configuration_completions[token] = None
-        return None, release, completed
+            self._pending_configuration_completions[token] = completion
+        return completion, release, completed
 
     def set_control_value(
         self,
