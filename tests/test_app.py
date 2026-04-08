@@ -41,7 +41,7 @@ class ApplicationEntryPointTest(unittest.TestCase):
         self.assertEqual("webcam-micro", plan.entrypoint_name)
         self.assertEqual("PySide6 Qt Widgets", plan.gui_baseline)
         self.assertIn("Qt Widgets owns", plan.backend_strategy)
-        self.assertIn("Qt Multimedia now owns", plan.backend_strategy)
+        self.assertIn("Qt Multimedia owns", plan.backend_strategy)
         self.assertIn("AVFoundation", plan.backend_strategy)
         self.assertIn("rubicon", plan.backend_strategy)
         self.assertIn("Linux V4L2", plan.backend_strategy)

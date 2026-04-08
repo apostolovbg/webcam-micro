@@ -2,7 +2,7 @@
 **Doc ID:** README
 **Doc Type:** repo-readme
 **Project Version:** 0.2.0
-**Last Updated:** 2026-04-07
+**Last Updated:** 2026-04-08
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -177,17 +177,18 @@ changing the live microscope view.
 ## Camera Controls
 The app exposes the real control surface reported by the active camera and
 backend. The dock splits those controls into Camera Controls and User
-Controls. Camera Controls expose Resolution as a dropdown, Exposure and
-Focus as slider-plus-spinbox widgets with Auto checkboxes when the camera
-reports them, Light as an on/off checkbox plus a level slider when
-available, and Zoom when the backend reports it. When Auto is enabled,
-the paired numeric control stays visible, greys out, and tracks the auto
-value. User Controls expose backend-owned Backlight compensation,
-Brightness, Contrast, Hue, Saturation, Sharpness, Gamma, Gain, Power Line
-Frequency, and White balance rows, with Auto checkboxes on Contrast, Hue,
-and White balance when the backend exposes them, and a Reset to Defaults
-button at the bottom.
-Native device-control backends cover the common exposure, focus, white
+Controls. Resolution stays in the preview path as a dropdown. The
+selected device-control owner exposes Exposure and Focus as
+slider-plus-spinbox widgets with Auto checkboxes when the camera reports
+them, Light as an on/off checkbox plus a level slider when available, and
+Zoom when the backend reports it. When Auto is enabled, the paired
+numeric control stays visible, greys out, and tracks the auto value. User
+Controls expose backend-owned Backlight compensation, Brightness,
+Contrast, Hue, Saturation, Sharpness, Gamma, Gain, Power Line Frequency,
+and White balance rows, with Auto checkboxes on Contrast, Hue, and White
+balance when the backend exposes them, and a Reset to Defaults button at
+the bottom.
+Native device-control owners cover the common exposure, focus, white
 balance, flash, torch, zoom, and source-format controls across supported
 platforms, while Linux V4L2 adds power line frequency, image-quality
 controls, lamp, illumination, activity LED, and vendor-specific
@@ -195,9 +196,9 @@ extensions when the device reports them. Supported controls include
 numeric, boolean, enumerated, read-only, and action widgets. The app
 tolerates partial control sets and does not fail just because a camera
 lacks an expected control.
-On macOS, the native UVC-style control backend owns UVC controls first and
-AVFoundation remains a fallback for native-only gaps. Automatic Video HDR
-is only surfaced when the active format reports HDR support.
+On macOS, the platform-selected control owner prefers libuvc when it can
+own the device and falls back to AVFoundation. Automatic Video HDR is
+only surfaced when the active format reports HDR support.
 
 ## Capture and Recording
 Still images save quietly to the configured image folder as PNG or JPEG
@@ -224,7 +225,9 @@ recording state, and the current status notice.
 
 ## Platform Notes
 Qt Multimedia owns camera discovery, preview, recording, and the common
-control surface. On Linux, V4L2 contributes extra control discovery for
+control surface. The app selects one device-control owner per camera by
+canonical hardware identity. On macOS and Windows, that owner is
+platform-selected; on Linux, V4L2 contributes extra control discovery for
 device-specific and vendor-specific settings when available. Actual
 controls and container support vary by camera, backend, and platform. The
 app only surfaces controls the backend can actually use, and the recording

@@ -6,7 +6,7 @@
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
-**Last Updated:** 2026-04-07
+**Last Updated:** 2026-04-08
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -60,6 +60,26 @@ Example:
 
 ## Version 0.2.0
 
+- 2026-04-08:
+  Change: Updated camera-control ownership so preview-owned source-format
+    selection stays separate and each platform keeps one selected device-
+    control owner per camera.
+  Why: Prevented merged control stacks from masking native controls and
+    kept resolution changes available when the selected owner is not Qt.
+  Impact: Stabilized the one-owner control path across macOS, Windows,
+    and Linux while keeping source-format selection in the preview path.
+  Files:
+  AGENTS.md
+  CHANGELOG.md
+  CONTRIBUTING.md
+  PLAN.md
+  README.md
+  SPEC.md
+  tests/test_app.py
+  tests/test_camera.py
+  webcam_micro/README.md
+  webcam_micro/__init__.py
+  webcam_micro/camera.py
 - 2026-04-07:
   Change: Retained libuvc device references through open so startup control
     discovery no longer dereferences freed USB devices.

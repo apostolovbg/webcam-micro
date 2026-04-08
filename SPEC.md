@@ -6,7 +6,7 @@
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
-**Last Updated:** 2026-04-07
+**Last Updated:** 2026-04-08
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -183,6 +183,9 @@ settings dialog with a preview attached.
   surface, and canonical hardware identity chooses that owner so one
   physical camera maps to one source of truth. The UI does not merge
   competing control owners.
+- The preview path keeps source-format selection separate from camera-
+  control ownership, so resolution changes stay available even when the
+  native owner is not Qt.
 - Camera-native controls are separate from genuine software-side image
   adjustments. Device-owned controls belong to the device-control layer.
 - The product exposes the controls the active backend reports and can
@@ -462,10 +465,10 @@ settings dialog with a preview attached.
   behavior across platforms, so the product cannot assume identical control
   surfaces everywhere.
 
-- Constraint: on macOS, one authoritative control owner must handle writes
-  for each camera. Preview may stay on Qt Multimedia, but unsupported
-  native control paths must fail closed instead of being simulated in the
-  shell.
+- Constraint: on macOS and Windows, one authoritative control owner must
+  handle writes for each camera. Preview may stay on Qt Multimedia, but
+  unsupported native control paths must fail closed instead of being
+  simulated in the shell.
 
 - Assumption: the active camera/backend usually exposes a useful subset of
   controls and source modes, but the exact set varies by device. Some
@@ -501,8 +504,9 @@ settings dialog with a preview attached.
 - A user can adjust backlight compensation, white balance, brightness,
   contrast, hue, saturation, sharpness, and gamma through slider+spinbox
   widgets, with Auto or lock controls reflecting backend capabilities.
-  Camera-owned exposure, focus, and white-balance sliders stay usable so
-  moving them can switch the camera into manual mode.
+  The selected device-control owner keeps exposure, focus, and
+  white-balance sliders usable when the device reports them, and moving
+  them can switch the camera into manual mode.
 
 - A user on any platform can enter fullscreen mode, use the fullscreen
   command surface in expanded and collapsed states, exit fullscreen safely,

@@ -889,6 +889,153 @@ class CameraContractTest(unittest.TestCase):
             control_calls,
         )
 
+    @mock.patch.object(
+        QtCameraBackend,
+        "_camera_device_for_descriptor",
+        autospec=True,
+    )
+    @mock.patch("webcam_micro.camera._build_control_backend")
+    @mock.patch("webcam_micro.camera._load_qt_camera_modules")
+    def test_qt_camera_backend_adds_source_format_without_qt_controls(
+        self,
+        load_modules: mock.MagicMock,
+        build_control_backend: mock.MagicMock,
+        camera_device_for_descriptor: mock.MagicMock,
+    ) -> None:
+        """Assert preview resolution stays visible with native controls."""
+
+        class FakeResolution:
+            """Expose one Qt-like preview resolution."""
+
+            def __init__(self, width: int, height: int) -> None:
+                """Store one stable resolution."""
+
+                self._width = width
+                self._height = height
+
+            def width(self) -> int:
+                """Return the recorded width."""
+
+                return self._width
+
+            def height(self) -> int:
+                """Return the recorded height."""
+
+                return self._height
+
+        class FakeCameraFormat:
+            """Expose one selectable preview format."""
+
+            def __init__(self, width: int, height: int, token: str) -> None:
+                """Store one stable format snapshot."""
+
+                self._width = width
+                self._height = height
+                self._token = token
+
+            def resolution(self) -> FakeResolution:
+                """Return the active format resolution."""
+
+                return FakeResolution(self._width, self._height)
+
+            def pixelFormat(self) -> str:
+                """Return the active format token."""
+
+                return self._token
+
+            def minFrameRate(self) -> float:
+                """Return the lowest frame rate in the active format."""
+
+                return 30.0
+
+            def maxFrameRate(self) -> float:
+                """Return the highest frame rate in the active format."""
+
+                return 60.0
+
+        class FakeCameraDevice:
+            """Expose one deterministic camera device for the backend."""
+
+            def videoFormats(self) -> tuple[FakeCameraFormat, ...]:
+                """Return the supported preview formats."""
+
+                return (
+                    FakeCameraFormat(1920, 1080, "PixelFormat.Format_NV12"),
+                    FakeCameraFormat(1280, 720, "PixelFormat.Format_NV12"),
+                )
+
+        class FakeNativeBackend:
+            """Expose one native control row without source-format support."""
+
+            def __init__(self) -> None:
+                """Store the recorded control updates."""
+
+                self.calls: list[tuple[str, str, object]] = []
+
+            def list_controls(
+                self,
+                descriptor: CameraDescriptor,
+            ) -> tuple[CameraControl, ...]:
+                """Return one native control row."""
+
+                return (
+                    CameraControl(
+                        control_id="exposure_mode",
+                        label="Exposure Mode",
+                        kind="enum",
+                        value="continuous_auto",
+                    ),
+                )
+
+            def set_control_value(
+                self,
+                descriptor: CameraDescriptor,
+                control_id: str,
+                value: object,
+            ) -> None:
+                """Record native control updates."""
+
+                self.calls.append(("set", control_id, value))
+
+            def trigger_control_action(
+                self,
+                descriptor: CameraDescriptor,
+                control_id: str,
+            ) -> None:
+                """Record native control actions."""
+
+                self.calls.append(("action", control_id, True))
+
+        native_backend = FakeNativeBackend()
+        load_modules.return_value = (object(), object(), object())
+        build_control_backend.return_value = native_backend
+        backend = QtCameraBackend()
+        camera_device_for_descriptor.return_value = FakeCameraDevice()
+        descriptor = CameraDescriptor(
+            stable_id="qt-camera::preview",
+            display_name="Preview Camera",
+            backend_name="qt_multimedia",
+            device_selector="qt-camera::preview",
+        )
+
+        controls = backend.list_controls(descriptor)
+        self.assertEqual(
+            ("source_format", "exposure_mode"),
+            tuple(control.control_id for control in controls),
+        )
+
+        backend.set_control_value(
+            descriptor,
+            "source_format",
+            controls[0].choices[1].value,
+        )
+
+        self.assertEqual(
+            controls[0].choices[1].value,
+            backend._preferred_source_format_for_descriptor(descriptor),
+        )
+        self.assertEqual([], native_backend.calls)
+
     def test_qt_camera_control_backend_hides_featureless_native_methods(
         self,
     ) -> None:
@@ -1514,6 +1661,26 @@ class CameraContractTest(unittest.TestCase):
         )
         qt_backend.set_control_value.assert_not_called()
         av_backend.set_control_value.assert_not_called()
+
+    @mock.patch("webcam_micro.camera.sys.platform", "win32")
+    def test_build_control_backend_selects_one_backend_on_windows(
+        self,
+    ) -> None:
+        """Assert the Windows backend selection keeps one control owner."""
+
+        qt_backend = mock.MagicMock()
+
+        with mock.patch(
+            "webcam_micro.camera.QtCameraControlBackend",
+            return_value=qt_backend,
+        ):
+            backend = _build_control_backend(
+                object(),
+                lambda _descriptor: object(),
+                None,
+            )
+
+        self.assertIs(backend, qt_backend)
 
     @mock.patch("webcam_micro.camera._load_avfoundation_modules")
     @mock.patch("webcam_micro.camera.sys.platform", "darwin")

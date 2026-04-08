@@ -6,7 +6,7 @@
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
-**Last Updated:** 2026-04-07
+**Last Updated:** 2026-04-08
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -59,6 +59,8 @@ DevCovenant lifecycle and command behavior used by the project.
 - 2026-04-07: macOS camera controls now choose one owner by canonical
   device identity, and Qt feature stubs no longer count as support;
   unsupported rows stay hidden instead of becoming dead sliders.
+- 2026-04-08: Source-format selection stays in the preview path while one
+  platform-selected control owner handles camera writes per device.
 - 2026-04-07: libuvc devices stay ref-retained through open so startup
   control discovery does not free the selected device before it opens.
 - 2026-04-06: Automatic Video HDR rows are gated by active-format

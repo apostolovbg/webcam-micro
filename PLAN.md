@@ -6,7 +6,7 @@
 **Maintenance Stance:** active
 **Compatibility Policy:** forward-only
 **Versioning Mode:** versioned
-**Last Updated:** 2026-04-07
+**Last Updated:** 2026-04-08
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -33,6 +33,7 @@ in `SPEC.md` and history in `CHANGELOG.md`.
   and owned by one device-control layer per camera.
 - The control plumbing is now collapsed to one owner per camera, so
   device-reported ranges and menus come from a single source of truth.
+  Preview-owned source-format selection stays separate from that owner.
 
 ## Workflow
 - Work in dependency order unless a real blocker forces reordering.
@@ -44,8 +45,9 @@ in `SPEC.md` and history in `CHANGELOG.md`.
 - Start from the current Qt shell baseline and tighten it toward `SPEC.md`.
 - Keep preview on Qt Multimedia.
 - Give each camera one authoritative device-control layer.
-- Match that owner by canonical device identity and surface only controls
-  that the selected backend can prove it supports.
+- Match that owner by canonical device identity, keep preview-owned
+  source-format selection separate, and surface only controls that the
+  selected backend can prove it supports.
 - Use device-reported minimums, maximums, step sizes, defaults, and menu
   values as the source of truth.
 - Keep live camera controls separate from capture settings and status text.
@@ -94,11 +96,14 @@ in `SPEC.md` and history in `CHANGELOG.md`.
    - choose one authoritative control owner at discovery or open time
    - query only that owner for controls, ranges, and menu values
    - route every control write through that owner
+   - keep preview-owned source-format selection separate from control
+     ownership
    - remove composite merge logic from the control path
    - keep preview and capture adapters separate from control ownership
    Done when:
-   - the control path no longer merges competing backends and each camera
-     exposes one source of truth for discovery and writes
+   - the control path no longer merges competing backends, preview-owned
+     source-format selection stays separate, and each camera exposes one
+     source of truth for discovery and writes
 
 ## Exit Criteria
 - The controls surface is capability-driven, grouped into stable families,

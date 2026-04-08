@@ -2,7 +2,7 @@
 **Doc ID:** CONTRIBUTING
 **Doc Type:** contributing-guide
 **Project Version:** 0.2.0
-**Last Updated:** 2026-04-07
+**Last Updated:** 2026-04-08
 **DevCovenant Version:** 1.0.1b1
 
 <!-- DEVCOV:BEGIN -->
@@ -66,3 +66,6 @@ across DevCovenant refresh and upgrade runs.
   unsupported AVFoundation custom-exposure writes fail closed, smooth
   autofocus stays gated by native support, and Automatic Video HDR stays
   hidden when the active format does not report support.
+- When validating Windows or Linux camera controls, confirm the selected
+  owner still comes from one control path, and keep preview-owned source-
+  format selection separate from the device-control layer.

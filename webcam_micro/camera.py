@@ -4099,19 +4099,20 @@ def _build_control_backend(
                 v4l2_device_resolver,
             )
         )
-    libuvc_backend = LibUVCControlBackend()
-    if libuvc_backend.available:
-        control_backends.append(libuvc_backend)
-    if qt_multimedia is not None and qt_device_resolver is not None:
-        control_backends.append(
-            QtCameraControlBackend(
-                qt_multimedia,
-                qt_device_resolver,
-                preferred_source_format_getter,
-                preferred_source_format_setter,
+    elif sys.platform == "win32":
+        if qt_multimedia is not None and qt_device_resolver is not None:
+            control_backends.append(
+                QtCameraControlBackend(
+                    qt_multimedia,
+                    qt_device_resolver,
+                    preferred_source_format_getter,
+                    preferred_source_format_setter,
+                )
             )
-        )
-    if sys.platform == "darwin":
+    elif sys.platform == "darwin":
+        libuvc_backend = LibUVCControlBackend()
+        if libuvc_backend.available:
+            control_backends.append(libuvc_backend)
         control_backends.append(AvFoundationCameraControlBackend())
     if not control_backends:
         return NullCameraControlBackend()
@@ -5218,6 +5219,15 @@ class AvFoundationCameraControlBackend:
     ) -> tuple[float, float] | None:
         """Return the supported exposure-bias range when available."""
 
+        support_method = getattr(device, "isExposureModeSupported_", None)
+        if support_method is None:
+            return None
+        try:
+            if not (bool(support_method(0)) or bool(support_method(2))):
+                return None
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            return None
+
         if active_format is not None and hasattr(
             active_format,
             "systemRecommendedExposureBiasRange",
@@ -5242,12 +5252,7 @@ class AvFoundationCameraControlBackend:
             return min_bias, max_bias
 
         if not (
-            hasattr(device, "isExposureModeSupported_")
-            and (
-                device.isExposureModeSupported_(0)
-                or device.isExposureModeSupported_(2)
-            )
-            and hasattr(device, "minExposureTargetBias")
+            hasattr(device, "minExposureTargetBias")
             and hasattr(device, "maxExposureTargetBias")
             and hasattr(device, "exposureTargetBias")
             and hasattr(device, "setExposureTargetBias_completionHandler_")
@@ -5265,13 +5270,6 @@ class AvFoundationCameraControlBackend:
     def _white_balance_locked_supported(self, device: Any) -> bool:
         """Return whether the device can lock white balance manually."""
 
-        support_method = getattr(device, "isWhiteBalanceModeSupported_", None)
-        if support_method is not None:
-            try:
-                if bool(support_method(0)):
-                    return True
-            except (AttributeError, RuntimeError, TypeError, ValueError):
-                pass
         locking_supported = getattr(
             device,
             "isLockingWhiteBalanceWithCustomDeviceGainsSupported",
@@ -5295,7 +5293,15 @@ class AvFoundationCameraControlBackend:
         )
         if setter is None:
             return False
-        return self._white_balance_locked_supported(device)
+        return (
+            getattr(
+                device,
+                "temperatureAndTintValuesForDeviceWhiteBalanceGains_",
+                None,
+            )
+            is not None
+            and getattr(device, "deviceWhiteBalanceGains", None) is not None
+        )
 
     def _cmtime_seconds(self, value: object) -> float | None:
         """Return the seconds represented by one AVFoundation CMTime."""
@@ -5341,13 +5347,23 @@ class AvFoundationCameraControlBackend:
     def _custom_exposure_supported(self, device: Any) -> bool:
         """Return whether the device can safely use custom exposure."""
 
-        support_method = getattr(device, "isExposureModeSupported_", None)
-        if support_method is None:
+        setter = getattr(
+            device,
+            "setExposureModeCustomWithDuration_ISO_completionHandler_",
+            None,
+        )
+        if setter is None:
             return False
-        try:
-            return bool(support_method(3))
-        except (AttributeError, RuntimeError, TypeError, ValueError):
+        active_format = _call_or_value(getattr(device, "activeFormat", None))
+        if active_format is None:
             return False
+        if not hasattr(device, "ISO"):
+            return False
+        if not hasattr(active_format, "minExposureDuration"):
+            return False
+        if not hasattr(active_format, "maxExposureDuration"):
+            return False
+        return True
 
     def _smooth_auto_focus_supported(self, device: Any) -> bool:
         """Return whether the device can safely use smooth autofocus."""
@@ -5542,15 +5558,8 @@ class AvFoundationCameraControlBackend:
                     )
                 )
 
-        locked_focus_supported = bool(
-            getattr(device, "isFocusModeSupported_", lambda _mode: False)(0)
-        )
-        if (
-            locked_focus_supported
-            and hasattr(device, "lensPosition")
-            and hasattr(
-                device, "setFocusModeLockedWithLensPosition_completionHandler_"
-            )
+        if hasattr(device, "lensPosition") and hasattr(
+            device, "setFocusModeLockedWithLensPosition_completionHandler_"
         ):
             current_focus_distance = _safe_float(
                 _call_or_value(device.lensPosition)
@@ -5576,44 +5585,39 @@ class AvFoundationCameraControlBackend:
             "isWhiteBalanceModeSupported_",
             _AVFOUNDATION_WHITE_BALANCE_MODE_SPECS,
         )
-        if white_balance_choices:
-            current_white_balance_mode = self._mode_token(
-                _call_or_value(getattr(device, "whiteBalanceMode", None)),
-                _AVFOUNDATION_WHITE_BALANCE_MODE_SPECS,
+        current_white_balance_mode = self._mode_token(
+            _call_or_value(getattr(device, "whiteBalanceMode", None)),
+            _AVFOUNDATION_WHITE_BALANCE_MODE_SPECS,
+        )
+        if current_white_balance_mode is None:
+            current_white_balance_mode = (
+                white_balance_choices[0].value
+                if white_balance_choices
+                else "auto"
             )
-            if current_white_balance_mode is None:
-                current_white_balance_mode = white_balance_choices[0].value
-            locked_supported = self._white_balance_locked_supported(device)
-            supports_white_balance_toggle = (
-                locked_supported
-                and _choice_for_value(white_balance_choices, "auto")
-                is not None
-            ) or (
-                locked_supported
-                and _choice_for_value(
-                    white_balance_choices,
-                    "continuous_auto",
+        locked_supported = self._white_balance_locked_supported(device)
+        white_balance_writable = locked_supported or (
+            _choice_for_value(white_balance_choices, "locked") is not None
+        )
+        if white_balance_writable:
+            controls.append(
+                CameraControl(
+                    control_id="white_balance_automatic",
+                    label="White Balance Automatic",
+                    kind="boolean",
+                    value=current_white_balance_mode != "locked",
+                    read_only=False,
+                    enabled=True,
+                    details="Auto or manual white balance selection.",
                 )
-                is not None
             )
-            if supports_white_balance_toggle:
-                controls.append(
-                    CameraControl(
-                        control_id="white_balance_automatic",
-                        label="White Balance Automatic",
-                        kind="boolean",
-                        value=current_white_balance_mode != "locked",
-                        read_only=False,
-                        enabled=True,
-                        details="Auto or manual white balance selection.",
-                    )
-                )
 
         temperature_tint_values, current_temperature, current_tint = (
             self._white_balance_temperature_tint_values(device)
         )
         supports_temperature_tint_update = (
-            temperature_tint_values is not None
+            white_balance_writable
+            and temperature_tint_values is not None
             and self._white_balance_temperature_supported(device)
         )
         if supports_temperature_tint_update:
@@ -6089,7 +6093,6 @@ class AvFoundationCameraControlBackend:
                 release_completion()
                 return
             if control_id == "white_balance_automatic":
-                locked_supported = self._white_balance_locked_supported(device)
                 auto_mode = 2 if device.isWhiteBalanceModeSupported_(2) else 1
                 if bool(value):
                     if (
@@ -6108,13 +6111,35 @@ class AvFoundationCameraControlBackend:
                         )
                     device.setWhiteBalanceMode_(auto_mode)
                     return
-                if not locked_supported:
+                if getattr(device, "setWhiteBalanceMode_", None) is None:
                     raise CameraControlApplyError(
                         "The camera cannot lock white balance manually."
                     )
                 device.setWhiteBalanceMode_(0)
                 return
             if control_id == "white_balance_temperature":
+                white_balance_locked = self._white_balance_locked_supported(
+                    device
+                )
+                if not white_balance_locked:
+                    support_method = getattr(
+                        device, "isWhiteBalanceModeSupported_", None
+                    )
+                    if support_method is not None:
+                        try:
+                            white_balance_locked = bool(support_method(0))
+                        except (
+                            AttributeError,
+                            RuntimeError,
+                            TypeError,
+                            ValueError,
+                        ):
+                            white_balance_locked = False
+                if not white_balance_locked:
+                    raise CameraControlApplyError(
+                        "The camera does not support white balance "
+                        "temperature control."
+                    )
                 if not self._white_balance_temperature_supported(device):
                     raise CameraControlApplyError(
                         "The camera does not support white balance "
@@ -6742,6 +6767,36 @@ class QtCameraBackend:
             return camera_format
         return _qcamera_camera_format_for_token(camera_device, None)
 
+    def _source_format_control_for_descriptor(
+        self,
+        descriptor: CameraDescriptor,
+    ) -> CameraControl | None:
+        """Return the preview-owned source-format row for one camera."""
+
+        camera_device = self._camera_device_for_descriptor(descriptor)
+        if camera_device is None:
+            return None
+        source_format_choices = _qcamera_camera_format_choices(camera_device)
+        if not source_format_choices:
+            return None
+        current_source_format = self._preferred_source_format_for_descriptor(
+            descriptor
+        )
+        if current_source_format not in {
+            choice.value for choice in source_format_choices
+        }:
+            current_source_format = source_format_choices[0].value
+        return CameraControl(
+            control_id="source_format",
+            label="Resolution",
+            kind="enum",
+            value=current_source_format,
+            choices=source_format_choices,
+            read_only=len(source_format_choices) < 2,
+            enabled=len(source_format_choices) > 1,
+            details="Supported camera source resolutions.",
+        )
+
     def open_session(self, descriptor: CameraDescriptor) -> QtCameraSession:
         """Open one Qt camera session for the provided descriptor."""
 
@@ -6768,7 +6823,15 @@ class QtCameraBackend:
     ) -> tuple[CameraControl, ...]:
         """Return the control surface for the selected camera."""
 
-        return self._control_backend.list_controls(descriptor)
+        controls: list[CameraControl] = []
+        if not isinstance(self._control_backend, QtCameraControlBackend):
+            source_format = self._source_format_control_for_descriptor(
+                descriptor
+            )
+            if source_format is not None:
+                controls.append(source_format)
+        controls.extend(self._control_backend.list_controls(descriptor))
+        return tuple(controls)
 
     def set_control_value(
         self,
@@ -6778,6 +6841,30 @@ class QtCameraBackend:
     ) -> None:
         """Apply one control value through the selected control backend."""
 
+        if control_id == "source_format" and not isinstance(
+            self._control_backend, QtCameraControlBackend
+        ):
+            camera_device = self._camera_device_for_descriptor(descriptor)
+            if camera_device is None:
+                raise CameraControlApplyError(
+                    "The selected camera could not be found for control "
+                    "updates."
+                )
+            token = str(value).strip()
+            if not token:
+                raise CameraControlApplyError(
+                    "Resolution must be set to one supported format."
+                )
+            source_format = _qcamera_camera_format_for_token(
+                camera_device,
+                token,
+            )
+            if source_format is None:
+                raise CameraControlApplyError(
+                    "Resolution must be set to one supported format."
+                )
+            self._set_preferred_source_format_for_descriptor(descriptor, token)
+            return
         self._control_backend.set_control_value(descriptor, control_id, value)
 
     def trigger_control_action(
