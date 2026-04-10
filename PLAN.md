@@ -20,104 +20,93 @@ in `SPEC.md` and history in `CHANGELOG.md`.
 
 ## Table of Contents
 1. [Overview](#overview)
-2. [Workflow](#workflow)
-3. [Implementation Direction](#implementation-direction)
-4. [Roadmap](#roadmap)
-5. [Exit Criteria](#exit-criteria)
-6. [Validation Routine](#validation-routine)
+2. [Gap Map](#gap-map)
+3. [Slice Plan](#slice-plan)
+4. [Exit Criteria](#exit-criteria)
+5. [Validation Routine](#validation-routine)
 
 ## Overview
 - `PLAN.md` tracks active implementation work, not durable requirements.
-- This roadmap follows the workstation-shell contract in `SPEC.md`.
-- The current phase is to keep the shell preview-first, capability-driven,
-  and owned by one device-control layer per camera.
-- The control plumbing is now collapsed to one owner per camera, so
-  device-reported ranges and menus come from a single source of truth.
-  Preview-owned source-format selection stays separate from that owner.
+- This plan follows the workstation-shell contract in `SPEC.md`.
+- The current implementation still has a video save dialog, no recording
+  profile negotiation, and a preview path that does expensive frame
+  conversion and smooth scaling on the UI thread.
+- The goal is to close the new capture and preview gaps in as few slices
+  as possible without turning the work into a risky monolith.
 
-## Workflow
-- Work in dependency order unless a real blocker forces reordering.
-- Keep each item concrete enough that another person can continue it.
-- Update status in the same session when work lands.
-- Split large themes into numbered items with clear closure criteria.
+## Gap Map
+- Gap A: still capture is lossless by default, but video still depends on
+  a save dialog in the normal record flow.
+- Gap B: recording only chooses container and quality today, so the UI
+  cannot yet expose a fast hardware-accelerated profile or a backend-
+  supported raw or uncompressed path.
+- Gap C: preview rendering still pays for copy-heavy RGB conversion and
+  smooth scaling on the UI thread, which matches the reported split-second
+  freezes.
+- Gap D: the new save policy, profile negotiation, and preview fast path
+  need backend-specific regression coverage before the behavior counts as
+  stable.
 
-## Implementation Direction
-- Start from the current Qt shell baseline and tighten it toward `SPEC.md`.
-- Keep preview on Qt Multimedia.
-- Give each camera one authoritative device-control layer.
-- Match that owner by canonical device identity, keep preview-owned
-  source-format selection separate, and surface only controls that the
-  selected backend can prove it supports.
-- Use device-reported minimums, maximums, step sizes, defaults, and menu
-  values as the source of truth.
-- Keep live camera controls separate from capture settings and status text.
-- Gate format-dependent controls such as video HDR on explicit support.
-- Prefer stable control families and predictable layout.
-- Do not reintroduce shell-managed stand-ins for device-owned controls.
-- Preserve the alpha delivery history in `CHANGELOG.md`; do not carry it
-  forward here.
-
-## Roadmap
-1. [done] Shape the preview-first shell and stable control families.
+## Slice Plan
+1. [pending] Direct-save capture policy.
    Goal:
-   - make the shell feel like a microscope workstation
+   - make still and video capture land in configured folders without a
+     normal-flow save dialog
    Work:
-   - group controls into Exposure, Focus, White Balance, Light/Flicker,
-     Color/Image Quality, Zoom, Source Info, Actions, and Other Controls
-   - render numeric controls with sliders, min/mid/max labels, and input
-     fields
-   - render booleans as checkboxes, enums as combo boxes, read-only items
-     as labels, and action controls as buttons
-   - hide unsupported families cleanly instead of leaving placeholders
-   - keep controls dockable, detachable, and separate from capture settings
+   - keep stills lossless by default and keep JPEG as an explicit opt-in
+   - move video capture to direct-save behavior using the configured folder
+     and remembered name policy
+   - keep save-path persistence and status messages aligned with the new
+     direct-save flow
    Done when:
-   - control groups are stable, readable, and fit the preview-first shell
+   - stills and video both save directly to configured folders by default,
+     and no normal record action opens a save dialog
 
-2. [done] Cover backend capability handling and platform validation.
+2. [pending] Recording profile negotiation.
    Goal:
-   - expose what cameras actually offer and keep it working
+   - expose the fastest supported recording path and the best quality path
+     the backend can actually encode
    Work:
-   - normalize backend discovery across macOS, Windows, and Linux
-   - surface AC flicker compensation, color profiles, backlight, vendor
-     extension, lamp, illumination, and activity LED controls when
-     reported
-   - preserve per-camera defaults and named presets for supported controls
-   - run launch, controls, fullscreen, still capture, recording, and
-     persistence checks on supported platforms
+   - surface backend-supported recording profiles in Preferences
+   - map profiles to codec, container, and quality choices per backend
+   - prefer hardware-accelerated encode paths when available
+   - expose raw or uncompressed recording only when the active backend can
+     actually produce it
    Done when:
-   - supported control sets appear faithfully and the validated shell
-     stays stable
+   - supported profiles are selectable, unsupported ones fail closed, and
+     the chosen profile is what records
 
-3. [done] Collapse the control path into one authoritative device-
-   control layer.
+3. [pending] Preview fast path and regression coverage.
    Goal:
-   - make each camera have one control owner
+   - remove the recurring preview freezes and keep live view smooth
    Work:
-   - choose one authoritative control owner at discovery or open time
-   - query only that owner for controls, ranges, and menu values
-   - route every control write through that owner
-   - keep preview-owned source-format selection separate from control
-     ownership
-   - remove composite merge logic from the control path
-   - keep preview and capture adapters separate from control ownership
+   - profile the frame delivery and render path
+   - cut redundant frame copies and avoid unnecessary smooth scaling on
+     the hot path
+   - keep the newest frame only and drop stale frames rather than stalling
+     the UI
+   - use backend-specific GPU or zero-copy paths when the runtime exposes
+     them
+   - add regression coverage for direct-save capture, profile selection,
+     and preview stutter behavior
    Done when:
-   - the control path no longer merges competing backends, preview-owned
-     source-format selection stays separate, and each camera exposes one
-     source of truth for discovery and writes
+   - preview stays smooth over long runs and tests cover the new capture
+     and preview policies
 
 ## Exit Criteria
-- The controls surface is capability-driven, grouped into stable families,
-  and owned by one device-control layer per camera.
-- The controls pane can dock, detach, hide, and restore without breaking
-  the preview-first layout.
-- Capture settings stay out of the live camera control surface.
-- The status bar stays compact and structured.
-- Supported camera controls and presets persist per camera.
-- Platform checks cover launch, controls, fullscreen, stills, recording,
-  and persistence.
+- Stills stay lossless by default and can use backend-supported raw or
+  uncompressed export when available.
+- Video records directly into the configured folder without a normal-flow
+  dialog.
+- Recording profiles are visible, backend-aware, and fail closed on
+  unsupported combinations.
+- Preview stays responsive without recurring split-second freezes.
+- The new behavior is covered by tests and the docs match the shipped
+  behavior.
 
 ## Validation Routine
 - Use `devcovenant gate --start`, `gate --mid`, `devcovenant run`, and
   `gate --end` for implementation slices.
 - Keep confirmed behavior notes in `CHANGELOG.md`.
-- Replace this plan when the next major implementation phase is complete.
+- Replace this plan when the capture and preview target slice set is
+  complete.

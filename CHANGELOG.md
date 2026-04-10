@@ -61,6 +61,19 @@ Example:
 ## Version 0.2.0
 
 - 2026-04-08:
+  Change: Rewrote the product spec and active plan to describe
+    direct-save still and video targets, recording profiles, and
+    low-latency preview goals.
+  Why: Updated the durable contract and delivery roadmap for the new
+    capture quality and responsiveness targets.
+  Impact: The current implementation slices now cover direct-save
+    capture, profile negotiation, and preview stutter removal.
+  Files:
+  CHANGELOG.md
+  PLAN.md
+  SPEC.md
+
+- 2026-04-08:
   Change: Restored nil AVFoundation completion handlers for macOS
     exposure, focus, white balance, and backlight writes, and wired the
     preview shell to cache the backend Qt Multimedia module for recording.

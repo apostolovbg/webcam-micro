@@ -50,16 +50,18 @@ and required workflow law in `AGENTS.md`.
 
 - Current scope: all platforms, source-run development, PyPI packaging,
   live preview, fullscreen mode, detachable controls, configurable
-  crop/framing, still capture, video recording, persistent folders,
-  shortcuts, presets, defaults, a single authoritative device-control
-  layer, and microscope-specific workflows such as calibration and
-  overlays.
+  crop/framing, lossless still capture, direct-save video recording,
+  recording profiles, persistent folders, shortcuts, presets, defaults,
+  a single authoritative device-control layer, and microscope-specific
+  workflows such as calibration and overlays.
 
 - Success means a user can run from source or PyPI, open a supported
   camera, see preview, adjust exposed controls through one stable family-
-  based control surface, switch fit/fill/crop, capture stills and video
-  without terminal interaction, and keep per-camera defaults while the UI
-  stays compact.
+  based control surface, switch fit/fill/crop, capture lossless stills,
+  record video directly into the configured folder without a dialog, pick
+  a fast hardware-accelerated or raw-capable recording profile when
+  available, and keep per-camera defaults while the UI stays compact and
+  responsive.
 
 ## Workflow
 - Keep durable product requirements here.
@@ -75,10 +77,12 @@ workstation rather than a generic viewer.
 
 It should let a microscope user favor preview area, tune only the settings
 the active camera actually supports, frame the circular field with fit,
-fill, and crop, capture stills and video with the same framing they see in
-preview, keep remembered defaults and presets, and dock or detach controls
-without losing the preview-first workspace. A developer should be able to
-install from PyPI or run from source on all platforms.
+fill, and crop, capture lossless stills without avoidable compression
+artifacts, record video directly into configured folders, choose backend-
+supported fast or raw-capable recording profiles when they exist, keep
+preview responsive, remember defaults and presets, and dock or detach
+controls without losing the preview-first workspace. A developer should be
+able to install from PyPI or run from source on all platforms.
 
 The project matters because microscope work is repetitive and precision-
 sensitive, and a tool built around microscope reality is more useful than a
@@ -86,17 +90,20 @@ generic webcam app with accidental microscope applicability.
 
 ## Goals
 - Provide live preview, still capture, video recording, camera control,
-  crop/framing control, and persistent defaults without terminal workflows.
+  crop/framing control, persistent defaults, and configurable recording
+  profiles without terminal workflows.
 
 - Keep the experience preview-first, with controls that can dock or detach
-  without permanently consuming preview space and fullscreen that remains
-  practical and safe.
+  without permanently consuming preview space, fullscreen that remains
+  practical and safe, and a preview path that stays low-latency under
+  steady use.
 
 - Provide a capability-driven control surface that feels like a microscope
   workstation rather than a settings dialog with a preview attached.
 
-- Provide a cross-platform release line on PyPI that also runs from source
-  and hides backend differences behind stable product behavior.
+- Provide a cross-platform release line on PyPI that also runs from source,
+  hides backend differences behind stable product behavior, and prefers
+  backend-native acceleration when the runtime exposes it.
 
 ## Non-Goals
 - The project is not a general photo editor, video editor, or image-
@@ -137,12 +144,21 @@ generic webcam app with accidental microscope applicability.
 2. Capture stills or video with the current microscope framing.
    - Trigger: the user presses a toolbar button, menu action, or shortcut.
    - Main path: the application uses the configured capture settings,
-     folders, and framing behavior, records visible status, and finalizes
-     the output file into the configured destination.
+     folders, and framing behavior, saves stills losslessly by default,
+     records video directly into the configured destination without a save
+     dialog, records visible status, and finalizes the output file into the
+     configured destination with the selected profile.
    - Result: the user gets a saved image or video and can keep working
      without restarting the session.
 
-3. Work in fullscreen microscope mode.
+3. Keep steady preview motion smooth while the camera stays open.
+   - Trigger: the user keeps a camera session open during normal live use.
+   - Main path: the application keeps the newest frame visible, avoids
+     repeated UI-thread stalls, and uses the lowest-cost available render
+     path the backend exposes.
+   - Result: preview stays live and responsive while the operator works.
+
+4. Work in fullscreen microscope mode.
    - Trigger: the user enters fullscreen from the toolbar, menu, or
      shortcut.
    - Main path: preview fills the screen, the windowed command surfaces
@@ -152,7 +168,7 @@ generic webcam app with accidental microscope applicability.
    - Result: the user gets an immersive microscope view while keeping safe
      access to essential actions and exit controls.
 
-4. Discover and tune camera controls.
+5. Discover and tune camera controls.
    - Trigger: the user opens the controls surface or the preferences
      dialog.
    - Main path: the application discovers the active camera's controls,
@@ -175,8 +191,12 @@ settings dialog with a preview attached.
   hidden or moved controls must not consume preview space.
 - The controls pane defaults to one column. Wide layouts may use two if the
   control order and section grouping stay stable.
-- Capture settings such as output folders, formats, and sequence rules live
-  in Preferences or Settings, not in the live camera control pane.
+- Capture settings such as output folders, recording profiles, formats,
+  and sequence rules live in Preferences or Settings, not in the live
+  camera control pane.
+- Normal still and video capture flows save directly into the configured
+  folders; the save dialog is reserved for explicit save-as style actions,
+  not the record button.
 - The status bar stays compact and structured; long help and recovery text
   belong in diagnostics.
 - One authoritative device-control layer owns each camera's control
@@ -340,8 +360,11 @@ settings dialog with a preview attached.
   keyboard shortcut actions.
 
 - Still image capture must support timestamp-based file naming by default,
-  saving to the configured image folder, and capture framing behavior
-  consistent with configured output rules.
+  saving to the configured image folder, lossless output by default, and
+  capture framing behavior consistent with configured output rules.
+
+- Still image capture must offer backend-supported raw or uncompressed
+  export paths when the active backend can supply them directly.
 
 - The product must support at least JPEG and PNG still-image output formats.
 
@@ -349,8 +372,18 @@ settings dialog with a preview attached.
   shortcut actions.
 
 - Video recording must support explicit start and stop control, visible
-  recording state, visible elapsed time, saving to the configured video
-  folder, and clean output finalization on stop.
+  recording state, visible elapsed time, saving directly to the configured
+  video folder without a normal-flow dialog, and clean output finalization
+  on stop.
+
+- The product must expose recording profiles that let the user choose a
+  fast hardware-accelerated compressed path and, where the backend
+  supports it, a lossless or raw/uncompressed path.
+
+- The product must prefer backend-native acceleration, hardware-assisted
+  encoding, or other low-cost fast paths when the active backend exposes
+  them, and it must keep the supported fallback visible when they are not
+  available.
 
 - The product must provide separate user-configurable output folders for still
   images and video recordings.
@@ -368,6 +401,9 @@ settings dialog with a preview attached.
   preferences access, and framing-mode changes.
 
 - Shortcut conflicts must be detected and prevented.
+
+- The live preview path must stay low-latency and must avoid recurring
+  split-second stalls during idle viewing or capture operations.
 
 - The dynamic status bar must stay compact and structured. It must reflect
   runtime state, including the active camera, active backend, source mode,
@@ -418,8 +454,9 @@ settings dialog with a preview attached.
 ## Data and State
 - Important entities: active camera identity, camera capability set, control
   family ordering, source mode, preview framing mode, capture framing mode,
-  per-camera settings, built-in defaults, user presets, image outputs,
-  video outputs, keyboard shortcut map, window geometry,
+  recording profile, encoding mode, per-camera settings, built-in defaults,
+  user presets, image outputs, video outputs, keyboard shortcut map, window
+  geometry,
   controls-surface visibility, controls-surface dock or float state, and
   fullscreen-surface state.
 
@@ -429,10 +466,11 @@ settings dialog with a preview attached.
   idle and recording states, and unsaved/runtime state versus persisted
   preference state.
 
-- Persistence rules: per-camera settings, output folders, shortcuts, framing
-  defaults, selected modes, controls-surface visibility and dock state, and
-  window/layout state must be stored persistently. Live frame buffers and
-  transient backend session state are ephemeral.
+- Persistence rules: per-camera settings, output folders, recording
+  profiles, shortcuts, framing defaults, selected modes, controls-surface
+  visibility and dock state, and window/layout state must be stored
+  persistently. Live frame buffers and transient backend session state are
+  ephemeral.
 
 - Audit or history needs: the product should preserve enough diagnostics and
   runtime reporting for a user or maintainer to understand which camera,
@@ -453,7 +491,9 @@ settings dialog with a preview attached.
   or backend adapters, encoding support, and the integration hooks required
   by the active platform. The GUI shell baseline is `PySide6` with Qt
   Widgets; preview may stay on Qt Multimedia, but the control layer must be
-  one authoritative device-control layer per camera.
+  one authoritative device-control layer per camera, and the recording
+  layer must be able to negotiate backend-supported profile, codec, and
+  container choices.
 
 - Compatibility expectations: the PyPI package must work on all platforms,
   source-run development must be supported, backend differences must not
@@ -475,10 +515,15 @@ settings dialog with a preview attached.
   cameras expose light, LED, or flicker controls and some do not; the UI
   must surface only what the backend reports.
 
+- Assumption: some cameras and backends can provide raw, YUV, NV12, or
+  Motion JPEG source modes, while others cannot. The UI must surface those
+  distinctions instead of pretending every camera can do lossless or
+  hardware-accelerated capture.
+
 - Explicit tradeoff: the product is optimized for microscope-friendly
-  preview, framing, control visibility, and repeatable local workflows
-  rather than a generic camera ecosystem that promises identical hardware
-  behavior everywhere.
+  preview, framing, control visibility, repeatable local workflows, and
+  low-latency capture behavior rather than a generic camera ecosystem that
+  promises identical hardware behavior everywhere.
 
 ## Acceptance Criteria
 - A developer can clone the repository, install dependencies, install the
@@ -487,8 +532,12 @@ settings dialog with a preview attached.
 
 - A user can open the controls surface, adjust the controls the active
   camera exposes, dock or detach it, switch between fit/fill/crop framing,
-  capture still images, start and stop video recording, and find outputs in
-  the configured folders.
+  capture lossless still images, start and stop video recording without a
+  save dialog, and find outputs in the configured folders.
+
+- A user can choose a recording profile, get a hardware-accelerated fast
+  recording path when the backend supports it, and fall back to a visible
+  compatibility profile when it does not.
 
 - A user can choose a supported source resolution from a dropdown, see
   auto-enabled exposure or focus controls gray while the live value stays
@@ -508,6 +557,9 @@ settings dialog with a preview attached.
   white-balance sliders usable when the device reports them, and moving
   them can switch the camera into manual mode.
 
+- A user can keep preview motion smooth during idle use and while
+  recording, without recurring split-second stalls in the live view.
+
 - A user on any platform can enter fullscreen mode, use the fullscreen
   command surface in expanded and collapsed states, exit fullscreen safely,
   relaunch later, and observe persisted defaults, folders, presets,
@@ -522,9 +574,13 @@ settings dialog with a preview attached.
   surface detach or restore, and fullscreen-surface collapse or expand
   actions?
 
-- Should the first release support optional uncropped capture alongside the
-  default “capture follows configured preview/output framing” behavior, or
-  should that remain a later refinement within the same product scope?
+- Which recording-profile names and backend mappings should the first
+  release expose for hardware-accelerated, lossless, and raw/uncompressed
+  modes?
+
+- Should preview offload or scaling use backend-specific GPU paths when
+  available, or remain in the current Qt image pipeline with tighter copy
+  limits?
 
 ## Pointers
 Add pointers to the docs that hold operational detail, architecture notes,
